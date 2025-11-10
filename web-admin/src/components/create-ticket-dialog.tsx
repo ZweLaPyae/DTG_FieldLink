@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import mockDb from "../../mock_database.json"
 
 interface CreateTicketDialogProps {
   open: boolean
@@ -99,61 +100,57 @@ export function CreateTicketDialog({ open, onOpenChange }: CreateTicketDialogPro
                 <SelectTrigger>
                   <SelectValue placeholder="Select service type" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="fiber-100">Fiber 100Mbps</SelectItem>
-                  <SelectItem value="fiber-200">Fiber 200Mbps</SelectItem>
-                  <SelectItem value="fiber-500">Fiber 500Mbps</SelectItem>
-                  <SelectItem value="fiber-1gb">Fiber 1Gbps</SelectItem>
-                </SelectContent>
-              </Select>
+                                  <SelectContent>
+                    {mockDb.service_types.map(service => (
+                      <SelectItem key={service.id} value={service.id}>{service.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="location">Location</Label>
-            <Input
-              id="location"
-              value={formData.location}
-              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              placeholder="123 Main St, Downtown"
-              required
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="location">Location</Label>
+              <Input
+                id="location"
+                value={formData.location}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                placeholder="123 Main St, Downtown"
+                required
+              />
+            </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="sla">SLA</Label>
-              <Select value={formData.sla} onValueChange={(value) => setFormData({ ...formData, sla: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select SLA" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1-hour">1 hour</SelectItem>
-                  <SelectItem value="2-hours">2 hours</SelectItem>
-                  <SelectItem value="4-hours">4 hours</SelectItem>
-                  <SelectItem value="6-hours">6 hours</SelectItem>
-                  <SelectItem value="24-hours">24 hours</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="sla">SLA</Label>
+                <Select value={formData.sla} onValueChange={(value) => setFormData({ ...formData, sla: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select SLA" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {mockDb.sla_options.map(sla => (
+                      <SelectItem key={sla} value={sla}>{sla}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="priority">Priority</Label>
+                <Select
+                  value={formData.priority}
+                  onValueChange={(value) => setFormData({ ...formData, priority: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {mockDb.priorities.map(priority => (
+                      <SelectItem key={priority.id} value={priority.id}>{priority.display}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="priority">Priority</Label>
-              <Select
-                value={formData.priority}
-                onValueChange={(value) => setFormData({ ...formData, priority: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="critical">Critical</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
 
           <div className="space-y-2">
             <Label htmlFor="complaint">Complaint Description</Label>
@@ -177,10 +174,9 @@ export function CreateTicketDialog({ open, onOpenChange }: CreateTicketDialogPro
                 <SelectValue placeholder="Select technician" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="mike-johnson">Mike Johnson</SelectItem>
-                <SelectItem value="alex-chen">Alex Chen</SelectItem>
-                <SelectItem value="david-lee">David Lee</SelectItem>
-                <SelectItem value="sarah-wilson">Sarah Wilson</SelectItem>
+                {mockDb.technicians.map(tech => (
+                  <SelectItem key={tech.id} value={tech.id}>{tech.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

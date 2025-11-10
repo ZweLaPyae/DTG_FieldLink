@@ -23,7 +23,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: "Dashboard", href: "/dashboard", icon: Home },
     { name: "Tickets", href: "/dashboard/tickets", icon: Ticket },
     { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
-    { name: "Team", href: "/dashboard/team", icon: Users },
+    { name: "Team", href: "/teams", icon: Users },
     { name: "Settings", href: "/dashboard/settings", icon: Settings },
   ]
 
