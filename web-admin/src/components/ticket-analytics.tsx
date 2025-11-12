@@ -16,33 +16,80 @@ import {
   Tooltip,
   Legend,
 } from "recharts"
+import mockDb from "../../mock_database.json"
 
-const weeklyData = [
-  { day: "Mon", tickets: 12, resolved: 10 },
-  { day: "Tue", tickets: 19, resolved: 15 },
-  { day: "Wed", tickets: 8, resolved: 8 },
-  { day: "Thu", tickets: 15, resolved: 12 },
-  { day: "Fri", tickets: 22, resolved: 18 },
-  { day: "Sat", tickets: 6, resolved: 5 },
-  { day: "Sun", tickets: 4, resolved: 4 },
-]
+// Helper function to get the week's dates
+const getWeekDates = () => {
+  const today = new Date()
+  const dates = []
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(today)
+    date.setDate(today.getDate() - i)
+    dates.push(date)
+  }
+  return dates
+}
 
-const rootCauseData = [
-  { name: "Fiber Cut", value: 35, color: "#3b82f6" }, // Blue
-  { name: "Equipment Failure", value: 25, color: "#ef4444" }, // Red
-  { name: "Power Outage", value: 20, color: "#f97316" }, // Orange
-  { name: "Configuration Error", value: 15, color: "#22c55e" }, // Green
-  { name: "Other", value: 5, color: "#8b5cf6" }, // Purple
-]
+// Helper function to calculate hours between dates
+const getHoursBetween = (start: string, end: string) => {
+  const startDate = new Date(start)
+  const endDate = new Date(end)
+  return (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60)
+}
 
-const responseTimeData = [
-  { hour: "00:00", avgTime: 2.1 },
-  { hour: "04:00", avgTime: 1.8 },
-  { hour: "08:00", avgTime: 3.2 },
-  { hour: "12:00", avgTime: 2.9 },
-  { hour: "16:00", avgTime: 3.5 },
-  { hour: "20:00", avgTime: 2.4 },
-]
+// Calculate weekly ticket volume
+const weeklyData = getWeekDates().map(date => {
+  const dayTickets = mockDb.tickets.filter(ticket => {
+    const ticketDate = new Date(ticket.issueTime)
+    return ticketDate.toDateString() === date.toDateString()
+  })
+  const resolvedTickets = dayTickets.filter(ticket => ticket.status === 'completed')
+  return {
+    day: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()],
+    tickets: dayTickets.length,
+    resolved: resolvedTickets.length
+  }
+})
+
+// Calculate root cause distribution
+const rootCauseCounts = mockDb.tickets.reduce((acc: { [key: string]: number }, ticket) => {
+  if (ticket.rootCause) {
+    acc[ticket.rootCause] = (acc[ticket.rootCause] || 0) + 1
+  }
+  return acc
+}, {})
+
+const rootCauseData = mockDb.root_causes.map(cause => ({
+  name: cause.name,
+  value: Math.round((rootCauseCounts[cause.id] || 0) / mockDb.tickets.length * 100),
+  color: cause.color
+}))
+
+// Calculate response time by hour
+const hours = ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00']
+const responseTimeData = hours.map(hour => {
+  const [h] = hour.split(':')
+  const hourNum = parseInt(h)
+  const hourTickets = mockDb.tickets.filter(ticket => {
+    if (ticket.issueTime && ticket.startTime) {
+      const issueDate = new Date(ticket.issueTime)
+      return issueDate.getHours() >= hourNum && issueDate.getHours() < (hourNum + 4)
+    }
+    return false
+  })
+  
+  const avgResponse = hourTickets.reduce((acc, ticket) => {
+    if (ticket.issueTime && ticket.startTime) {
+      return acc + getHoursBetween(ticket.issueTime, ticket.startTime)
+    }
+    return acc
+  }, 0) / (hourTickets.length || 1)
+
+  return {
+    hour,
+    avgTime: Math.round(avgResponse * 10) / 10
+  }
+})
 
 export function TicketAnalytics() {
   return (

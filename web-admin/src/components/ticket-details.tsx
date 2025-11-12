@@ -8,49 +8,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator"
 import { useState } from "react"
 import { User, Phone, MapPin, Clock, AlertCircle, Wrench, FileText, Camera, Edit3 } from "lucide-react"
+import mockDb from "../../mock_database.json"
 
 interface TicketDetailsProps {
   ticketId: string
 }
 
-// Mock data - in real app this would come from API
-const ticketData = {
-  "TK-2024-001": {
-    id: "TK-2024-001",
-    customerId: "CUST-12345",
-    customerName: "John Smith",
-    phone: "+1 (555) 123-4567",
-    serviceType: "Fiber 100Mbps",
-    location: "123 Main St, Downtown",
-    coordinates: "40.7128, -74.0060",
-    sla: "4 hours",
-    complaint: "No internet connection",
-    status: "in-progress",
-    priority: "high",
-    technician: "Mike Johnson",
-    issueTime: "2024-01-15 09:30",
-    estimatedCompletion: "2024-01-15 13:30",
-    rootCause: "Fiber cut",
-    rootCauseDetails: "Construction work damaged fiber cable on Main St",
-    wayToFix: "Replace damaged fiber section and re-splice connections",
-    materialsUsed: [
-      { item: "Fiber optic cable (50m)", cost: 150 },
-      { item: "Splice enclosure", cost: 25 },
-      { item: "Labor (2 hours)", cost: 200 },
-    ],
-    totalCost: 375,
-    attachments: [
-      { name: "damage_photo_1.jpg", type: "image" },
-      { name: "repair_video.mp4", type: "video" },
-    ],
-    updates: [
-      { time: "09:30", user: "System", message: "Ticket created" },
-      { time: "09:45", user: "Mike Johnson", message: "Accepted ticket, heading to location" },
-      { time: "10:15", user: "Mike Johnson", message: "On site, investigating issue" },
-      { time: "10:30", user: "Mike Johnson", message: "Found fiber cut, ordering materials" },
-    ],
-  },
-}
+const ticketData = mockDb.tickets.reduce((acc, ticket) => {
+  acc[ticket.id] = ticket
+  return acc
+}, {} as Record<string, typeof mockDb.tickets[0]>)
 
 export function TicketDetails({ ticketId }: TicketDetailsProps) {
   const [newUpdate, setNewUpdate] = useState("")
@@ -107,7 +74,7 @@ export function TicketDetails({ ticketId }: TicketDetailsProps) {
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <User className="w-4 h-4 text-muted-foreground" />
-                <span className="font-medium">{ticket.customerName}</span>
+                <span className="font-medium">{ticket.customerName_display}</span>
                 <span className="text-sm text-muted-foreground">({ticket.customerId})</span>
               </div>
               <div className="flex items-center space-x-2">
@@ -131,7 +98,7 @@ export function TicketDetails({ ticketId }: TicketDetailsProps) {
                 <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5" />
                 <div>
                   <p className="font-medium">{ticket.complaint}</p>
-                  <p className="text-sm text-muted-foreground">Service: {ticket.serviceType}</p>
+                  <p className="text-sm text-muted-foreground">Service: {ticket.serviceType_display}</p>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
@@ -222,10 +189,11 @@ export function TicketDetails({ ticketId }: TicketDetailsProps) {
                 <SelectValue placeholder="Change status..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="in-progress">In Progress</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="on-hold">On Hold</SelectItem>
+                {Object.entries(statusColors).map(([status]) => (
+                  <SelectItem key={status} value={status}>
+                    {status.replace("-", " ")}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Textarea
