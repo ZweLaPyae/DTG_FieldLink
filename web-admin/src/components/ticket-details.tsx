@@ -51,7 +51,7 @@ export function TicketDetails({ ticketId }: TicketDetailsProps) {
 
   return (
     <div className="space-y-4">
-      <Card className="border-border/50">
+      <Card className="border-border/50 ">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">{ticket.id}</CardTitle>
@@ -65,9 +65,9 @@ export function TicketDetails({ ticketId }: TicketDetailsProps) {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 grid grid-cols-4 gap-4">
           {/* Customer Information */}
-          <div className="space-y-3">
+          <div className="space-y-3 col-span-2 shadow-sm p-2 rounded-md border border-border/50">
             <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
               Customer Information
             </h4>
@@ -88,10 +88,9 @@ export function TicketDetails({ ticketId }: TicketDetailsProps) {
             </div>
           </div>
 
-          <Separator />
 
           {/* Issue Details */}
-          <div className="space-y-3">
+          <div className="space-y-3 col-span-2 shadow-sm p-4 rounded-md border border-border/50">
             <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Issue Details</h4>
             <div className="space-y-2">
               <div className="flex items-start space-x-2">
@@ -108,12 +107,11 @@ export function TicketDetails({ ticketId }: TicketDetailsProps) {
             </div>
           </div>
 
-          <Separator />
 
           {/* Resolution Details */}
           {ticket.rootCause && (
             <>
-              <div className="space-y-3">
+              <div className="space-y-3 col-span-2 shadow-sm p-4 rounded-md border border-border/50">
                 <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
                   Resolution Details
                 </h4>
@@ -134,14 +132,13 @@ export function TicketDetails({ ticketId }: TicketDetailsProps) {
                   </div>
                 </div>
               </div>
-              <Separator />
             </>
           )}
 
           {/* Materials & Cost */}
           {ticket.materialsUsed && (
             <>
-              <div className="space-y-3">
+              <div className="space-y-3 col-span-2 shadow-sm p-4 rounded-md border border-border/50">
                 <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
                   Materials & Cost
                 </h4>
@@ -159,14 +156,13 @@ export function TicketDetails({ ticketId }: TicketDetailsProps) {
                   </div>
                 </div>
               </div>
-              <Separator />
             </>
           )}
 
           {/* Attachments */}
           {ticket.attachments && (
             <>
-              <div className="space-y-3">
+              <div className="space-y-3 col-span-2 shadow-sm p-4 rounded-md border border-border/50">
                 <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Attachments</h4>
                 <div className="space-y-2">
                   {ticket.attachments.map((attachment, index) => (
@@ -177,12 +173,12 @@ export function TicketDetails({ ticketId }: TicketDetailsProps) {
                   ))}
                 </div>
               </div>
-              <Separator />
+
             </>
           )}
 
           {/* Status Update */}
-          <div className="space-y-3">
+          <div className="space-y-3 col-span-4 shadow-sm p-4 rounded-md border border-border/50">
             <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Update Status</h4>
             <Select value={newStatus} onValueChange={setNewStatus}>
               <SelectTrigger>
@@ -211,7 +207,7 @@ export function TicketDetails({ ticketId }: TicketDetailsProps) {
       </Card>
 
       {/* Activity Timeline */}
-      <Card className="border-border/50">
+      <Card className="border-border/50 col-span-4 shadow-sm p-4 rounded-md border border-border/50">
         <CardHeader>
           <CardTitle className="text-lg">Activity Timeline</CardTitle>
         </CardHeader>
