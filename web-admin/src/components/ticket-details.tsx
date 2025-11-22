@@ -24,6 +24,7 @@ export function TicketDetails({ ticketId }: TicketDetailsProps) {
   const [newStatus, setNewStatus] = useState("")
 
   const ticket = ticketData[ticketId as keyof typeof ticketData]
+  const customer = mockDb.customers.find(c => c.id === ticket.customerId)
 
   if (!ticket) {
     return (
@@ -74,16 +75,16 @@ export function TicketDetails({ ticketId }: TicketDetailsProps) {
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <User className="w-4 h-4 text-muted-foreground" />
-                <span className="font-medium">{ticket.customerName_display}</span>
+                <span className="font-medium">{customer ? customer.name : ticket.customerId}</span>
                 <span className="text-sm text-muted-foreground">({ticket.customerId})</span>
               </div>
               <div className="flex items-center space-x-2">
                 <Phone className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm">{ticket.phone}</span>
+                <span className="text-sm">{customer ? customer.phone : "-"}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <MapPin className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm">{ticket.location}</span>
+                <span className="text-sm">{customer ? customer.splitter : "-"}</span>
               </div>
             </div>
           </div>
@@ -98,7 +99,7 @@ export function TicketDetails({ ticketId }: TicketDetailsProps) {
                 <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5" />
                 <div>
                   <p className="font-medium">{ticket.complaint}</p>
-                  <p className="text-sm text-muted-foreground">Service: {ticket.serviceType_display}</p>
+                  <p className="text-sm text-muted-foreground">Service: {customer ? customer.serviceType : "-"}</p>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
@@ -175,6 +176,33 @@ export function TicketDetails({ ticketId }: TicketDetailsProps) {
                       <span className="text-primary cursor-pointer hover:underline">{attachment.name}</span>
                     </div>
                   ))}
+                </div>
+              </div>
+              <Separator />
+            </>
+          )}
+
+          {/* Break Times */}
+          {ticket.breakTimes && ticket.breakTimes.length > 0 && (
+            <>
+              <div className="space-y-3">
+                <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Break Times</h4>
+                <div className="space-y-2">
+                  {ticket.breakTimes.map((breakTime, idx) => {
+                    const start = new Date(breakTime.startTime).toLocaleString(undefined, {
+                      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                    })
+                    const end = new Date(breakTime.endTime).toLocaleString(undefined, {
+                      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                    })
+                    return (
+                      <div key={idx} className="flex flex-col border rounded p-2 bg-muted/10">
+                        <span className="font-medium">Reason: {breakTime.reason}</span>
+                        <span className="text-sm text-muted-foreground">Start: {start}</span>
+                        <span className="text-sm text-muted-foreground">End: {end}</span>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
               <Separator />

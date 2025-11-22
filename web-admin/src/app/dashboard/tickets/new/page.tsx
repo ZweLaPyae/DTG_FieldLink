@@ -19,7 +19,7 @@ export default function NewTicketPage() {
     phone: "",
     email: "",
     serviceType: "",
-    location: "",
+    splitter: "",
     complaint: "",
     priority: "",
     sla: "",
@@ -166,12 +166,12 @@ export default function NewTicketPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="location">Service Location</Label>
+                  <Label htmlFor="splitter">Splitter</Label>
                   <Input
-                    id="location"
-                    placeholder="123 Main St, Downtown, City, State, ZIP"
-                    value={formData.location}
-                    onChange={(e) => handleInputChange("location", e.target.value)}
+                    id="splitter"
+                    placeholder="N9 OLT 0/1/12/58"
+                    value={formData.splitter}
+                    onChange={(e) => handleInputChange("splitter", e.target.value)}
                   />
                 </div>
               </CardContent>

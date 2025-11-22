@@ -18,15 +18,16 @@ interface CreateTicketDialogProps {
 
 export function CreateTicketDialog({ open, onOpenChange }: CreateTicketDialogProps) {
   const [formData, setFormData] = useState({
+    ticketId: "",
     customerId: "",
     customerName: "",
     phone: "",
     serviceType: "",
-    location: "",
+    splitter: "",
     sla: "",
     complaint: "",
     priority: "",
-    technician: "",
+    issueTime: "",
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -36,15 +37,16 @@ export function CreateTicketDialog({ open, onOpenChange }: CreateTicketDialogPro
     onOpenChange(false)
     // Reset form
     setFormData({
+      ticketId: "",
       customerId: "",
       customerName: "",
       phone: "",
       serviceType: "",
-      location: "",
+      splitter: "",
       sla: "",
       complaint: "",
       priority: "",
-      technician: "",
+      issueTime: "",
     })
   }
 
@@ -59,6 +61,16 @@ export function CreateTicketDialog({ open, onOpenChange }: CreateTicketDialogPro
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
+              <Label htmlFor="ticketId">Ticket ID</Label>
+              <Input
+                id="ticketId"
+                value={formData.ticketId}
+                onChange={(e) => setFormData({ ...formData, ticketId: e.target.value })}
+                placeholder="TKT-20231122-001"
+                required
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="customerId">Customer ID</Label>
               <Input
                 id="customerId"
@@ -68,6 +80,8 @@ export function CreateTicketDialog({ open, onOpenChange }: CreateTicketDialogPro
                 required
               />
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="customerName">Customer Name</Label>
               <Input
@@ -78,9 +92,6 @@ export function CreateTicketDialog({ open, onOpenChange }: CreateTicketDialogPro
                 required
               />
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
               <Input
@@ -91,6 +102,8 @@ export function CreateTicketDialog({ open, onOpenChange }: CreateTicketDialogPro
                 required
               />
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="serviceType">Service Type</Label>
               <Select
@@ -100,58 +113,55 @@ export function CreateTicketDialog({ open, onOpenChange }: CreateTicketDialogPro
                 <SelectTrigger>
                   <SelectValue placeholder="Select service type" />
                 </SelectTrigger>
-                                  <SelectContent>
-                    {mockDb.service_types.map(service => (
-                      <SelectItem key={service.id} value={service.id}>{service.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                <SelectContent>
+                  {mockDb.service_types.map(service => (
+                    <SelectItem key={service.id} value={service.id}>{service.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="location">Location</Label>
+              <Label htmlFor="splitter">Splitter Information</Label>
               <Input
-                id="location"
-                value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                placeholder="123 Main St, Downtown"
+                id="splitter"
+                value={formData.splitter}
+                onChange={(e) => setFormData({ ...formData, splitter: e.target.value })}
+                placeholder="N9 OLT 0/1/12/58"
                 required
               />
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="sla">SLA</Label>
-                <Select value={formData.sla} onValueChange={(value) => setFormData({ ...formData, sla: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select SLA" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mockDb.sla_options.map(sla => (
-                      <SelectItem key={sla} value={sla}>{sla}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="priority">Priority</Label>
-                <Select
-                  value={formData.priority}
-                  onValueChange={(value) => setFormData({ ...formData, priority: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select priority" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mockDb.priorities.map(priority => (
-                      <SelectItem key={priority.id} value={priority.id}>{priority.display}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="sla">SLA</Label>
+              <Select value={formData.sla} onValueChange={(value) => setFormData({ ...formData, sla: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select SLA" />
+                </SelectTrigger>
+                <SelectContent>
+                  {mockDb.sla_options.map(sla => (
+                    <SelectItem key={sla} value={sla}>{sla}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-
+            <div className="space-y-2">
+              <Label htmlFor="priority">Priority</Label>
+              <Select
+                value={formData.priority}
+                onValueChange={(value) => setFormData({ ...formData, priority: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  {mockDb.priorities.map(priority => (
+                    <SelectItem key={priority.id} value={priority.id}>{priority.display}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="complaint">Complaint Description</Label>
             <Textarea
@@ -163,22 +173,15 @@ export function CreateTicketDialog({ open, onOpenChange }: CreateTicketDialogPro
               required
             />
           </div>
-
           <div className="space-y-2">
-            <Label htmlFor="technician">Assign Technician</Label>
-            <Select
-              value={formData.technician}
-              onValueChange={(value) => setFormData({ ...formData, technician: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select technician" />
-              </SelectTrigger>
-              <SelectContent>
-                {mockDb.technicians.map(tech => (
-                  <SelectItem key={tech.id} value={tech.id}>{tech.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="issueTime">Issue Date & Time</Label>
+            <Input
+              id="issueTime"
+              type="datetime-local"
+              value={formData.issueTime}
+              onChange={(e) => setFormData({ ...formData, issueTime: e.target.value })}
+              required
+            />
           </div>
 
           <div className="flex justify-end space-x-2 pt-4">

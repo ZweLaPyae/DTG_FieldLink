@@ -38,8 +38,10 @@ export function TicketList({
   onSelectTicket,
 }: TicketListProps) {
   const filteredTickets = tickets.filter((ticket) => {
+    const customer = mockDb.customers.find(c => c.id === ticket.customerId)
+    const customerName = customer ? customer.name : ""
     const matchesSearch =
-      ticket.customerName_display.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       ticket.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       ticket.complaint.toLowerCase().includes(searchQuery.toLowerCase())
 
@@ -51,60 +53,63 @@ export function TicketList({
 
   return (
     <div className="space-y-4">
-      {filteredTickets.map((ticket) => (
-        <Card
-          key={ticket.id}
-          className={cn(
-            "cursor-pointer transition-all duration-200 hover:shadow-md border-border/50",
-            selectedTicket === ticket.id && "ring-2 ring-primary border-primary/50",
-          )}
-          onClick={() => onSelectTicket(ticket.id)}
-        >
-          <CardContent className="p-4">
-            <div className="space-y-3">
-              {/* Header */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <span className="font-semibold text-foreground">{ticket.id}</span>
-                  <Badge variant="outline" className={statusColors[ticket.status as keyof typeof statusColors]}>
-                    {ticket.status.replace("-", " ")}
-                  </Badge>
-                  <Badge variant="outline" className={priorityColors[ticket.priority as keyof typeof priorityColors]}>
-                    {ticket.priority}
-                  </Badge>
+      {filteredTickets.map((ticket) => {
+        const customer = mockDb.customers.find(c => c.id === ticket.customerId)
+        return (
+          <Card
+            key={ticket.id}
+            className={cn(
+              "cursor-pointer transition-all duration-200 hover:shadow-md border-border/50",
+              selectedTicket === ticket.id && "ring-2 ring-primary border-primary/50",
+            )}
+            onClick={() => onSelectTicket(ticket.id)}
+          >
+            <CardContent className="p-4">
+              <div className="space-y-3">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <span className="font-semibold text-foreground">{ticket.id}</span>
+                    <Badge variant="outline" className={statusColors[ticket.status as keyof typeof statusColors]}>
+                      {ticket.status.replace("-", " ")}
+                    </Badge>
+                    <Badge variant="outline" className={priorityColors[ticket.priority as keyof typeof priorityColors]}>
+                      {ticket.priority}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <Clock className="w-4 h-4 mr-1" />
+                    {ticket.issueTime}
+                  </div>
                 </div>
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <Clock className="w-4 h-4 mr-1" />
-                  {ticket.issueTime}
-                </div>
-              </div>
 
-              {/* Customer Info */}
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <User className="w-4 h-4 text-muted-foreground" />
-                  <span className="font-medium">{ticket.customerName_display}</span>
+                {/* Customer Info */}
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <User className="w-4 h-4 text-muted-foreground" />
+                    <span className="font-medium">{customer ? customer.name : ticket.customerId}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <MapPin className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">{customer ? customer.splitter : "-"}</span>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <MapPin className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">{ticket.location}</span>
-                </div>
-              </div>
 
-              {/* Issue */}
-              <div className="flex items-start space-x-2">
-                <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">{ticket.complaint}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Assigned to: {ticket.technician_display} • SLA: {ticket.sla}
-                  </p>
+                {/* Issue */}
+                <div className="flex items-start space-x-2">
+                  <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">{ticket.complaint}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Assigned to: {ticket.technician_display} • SLA: {ticket.sla}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        )
+      })}
 
       {filteredTickets.length === 0 && (
         <div className="text-center py-8">

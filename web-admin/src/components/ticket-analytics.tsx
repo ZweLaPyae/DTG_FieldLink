@@ -43,7 +43,13 @@ const weeklyData = getWeekDates().map(date => {
     const ticketDate = new Date(ticket.issueTime)
     return ticketDate.toDateString() === date.toDateString()
   })
-  const resolvedTickets = dayTickets.filter(ticket => ticket.status === 'completed')
+  const resolvedTickets = mockDb.tickets.filter(ticket => {
+    if (ticket.status === 'completed' && ticket.completionTime) {
+      const completionDate = new Date(ticket.completionTime)
+      return completionDate.toDateString() === date.toDateString()
+    }
+    return false
+  })
   return {
     day: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()],
     tickets: dayTickets.length,
