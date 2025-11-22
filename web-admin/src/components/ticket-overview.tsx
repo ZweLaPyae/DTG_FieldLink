@@ -5,68 +5,47 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { AlertCircle, CheckCircle, Clock, TrendingUp, Plus, Filter } from "lucide-react"
 import Link from "next/link"
+import mockDb from "../../mock_database.json"
 
-const tickets = [
-  {
-    id: "TK-2024-001",
-    customerId: "CUST-12345",
-    customerName: "John Smith",
-    phone: "+1 (555) 123-4567",
-    serviceType: "Fiber 100Mbps",
-    location: "123 Main St, Downtown",
-    sla: "4 hours",
-    complaint: "No internet connection",
-    status: "In Progress",
-    priority: "High",
-    technician: "Mike Johnson",
-    issueTime: "2024-01-15 09:30",
-    estimatedCompletion: "2024-01-15 13:30",
-  },
-  {
-    id: "TK-2024-002",
-    customerId: "CUST-67890",
-    customerName: "Sarah Wilson",
-    phone: "+1 (555) 987-6543",
-    serviceType: "Fiber 500Mbps",
-    location: "456 Oak Ave, Uptown",
-    sla: "2 hours",
-    complaint: "Slow internet speed",
-    status: "Pending",
-    priority: "Medium",
-    technician: "Unassigned",
-    issueTime: "2024-01-15 11:15",
-    estimatedCompletion: "TBD",
-  },
-  {
-    id: "TK-2024-003",
-    customerId: "CUST-11111",
-    customerName: "Robert Davis",
-    phone: "+1 (555) 456-7890",
-    serviceType: "Fiber 1Gbps",
-    location: "789 Pine St, Midtown",
-    sla: "1 hour",
-    complaint: "Complete service outage",
-    status: "Completed",
-    priority: "Critical",
-    technician: "Alex Chen",
-    issueTime: "2024-01-15 08:00",
-    estimatedCompletion: "2024-01-15 09:00",
-  },
-]
+// Helper function to get hours between dates
+const getHoursBetween = (start: string, end: string) => {
+  const startDate = new Date(start)
+  const endDate = new Date(end)
+  return (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60)
+}
+
+// Get most recent tickets first
+const tickets = [...mockDb.tickets]
+  .sort((a, b) => new Date(b.issueTime).getTime() - new Date(a.issueTime).getTime())
+  .slice(0, 3)
 
 const statusColors = {
-  Pending: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20 dark:text-yellow-400",
-  "In Progress": "bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400",
-  Completed: "bg-green-500/10 text-green-600 border-green-500/20 dark:text-green-400",
-  "On Hold": "bg-gray-500/10 text-gray-600 border-gray-500/20 dark:text-gray-400",
+  pending: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20 dark:text-yellow-400",
+  "in-progress": "bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400",
+  completed: "bg-green-500/10 text-green-600 border-green-500/20 dark:text-green-400",
+  "on-hold": "bg-gray-500/10 text-gray-600 border-gray-500/20 dark:text-gray-400",
 }
 
 const priorityColors = {
-  Low: "bg-slate-500/10 text-slate-600 border-slate-500/20 dark:text-slate-400",
-  Medium: "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400",
-  High: "bg-orange-500/10 text-orange-600 border-orange-500/20 dark:text-orange-400",
-  Critical: "bg-red-500/10 text-red-600 border-red-500/20 dark:text-red-400",
+  low: "bg-slate-500/10 text-slate-600 border-slate-500/20 dark:text-slate-400",
+  medium: "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400",
+  high: "bg-orange-500/10 text-orange-600 border-orange-500/20 dark:text-orange-400",
+  critical: "bg-red-500/10 text-red-600 border-red-500/20 dark:text-red-400",
 }
+
+// Calculate metrics
+const totalTickets = mockDb.tickets.length
+const inProgressTickets = mockDb.tickets.filter(t => t.status === 'in-progress').length
+const completedToday = mockDb.tickets.filter(t => 
+  t.status === 'completed' && 
+  t.completionTime && 
+  new Date(t.completionTime).toDateString() === new Date().toDateString()
+).length
+
+const avgResolutionHours = mockDb.tickets
+  .filter(t => t.status === 'completed' && t.issueTime && t.completionTime)
+  .reduce((acc, t) => acc + getHoursBetween(t.issueTime!, t.completionTime!), 0) / 
+  mockDb.tickets.filter(t => t.status === 'completed' && t.issueTime && t.completionTime).length || 0
 
 export function TicketOverview() {
   return (
@@ -79,9 +58,9 @@ export function TicketOverview() {
             <AlertCircle className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">24</div>
+            <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">{totalTickets}</div>
             <p className="text-xs text-blue-600 dark:text-blue-400">
-              <span className="text-green-500">+12%</span> from last week
+              <span className="text-green-500">+{completedToday}</span> today
             </p>
           </CardContent>
         </Card>
@@ -92,7 +71,7 @@ export function TicketOverview() {
             <Clock className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">8</div>
+            <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">{inProgressTickets}</div>
             <p className="text-xs text-orange-600 dark:text-orange-400">
               <span className="text-blue-500">Active</span> assignments
             </p>
@@ -105,9 +84,9 @@ export function TicketOverview() {
             <CheckCircle className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-900 dark:text-green-100">12</div>
+            <div className="text-2xl font-bold text-green-900 dark:text-green-100">{completedToday}</div>
             <p className="text-xs text-green-600 dark:text-green-400">
-              <span className="text-green-500">+8</span> since yesterday
+              <span className="text-green-500">{((completedToday / totalTickets) * 100).toFixed(1)}%</span> completion rate
             </p>
           </CardContent>
         </Card>
@@ -118,9 +97,9 @@ export function TicketOverview() {
             <TrendingUp className="h-4 w-4 text-purple-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">2.4h</div>
+            <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">{avgResolutionHours.toFixed(1)}h</div>
             <p className="text-xs text-purple-600 dark:text-purple-400">
-              <span className="text-green-500">-15min</span> improvement
+              <span className="text-green-500">{completedToday}</span> resolved today
             </p>
           </CardContent>
         </Card>
@@ -168,7 +147,7 @@ export function TicketOverview() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     <div>
                       <span className="text-muted-foreground">Customer:</span>
-                      <div className="font-medium">{ticket.customerName}</div>
+                      <div className="font-medium">{ticket.customerName_display}</div>
                       <div className="text-muted-foreground">{ticket.phone}</div>
                     </div>
                     <div>
@@ -178,7 +157,7 @@ export function TicketOverview() {
                     </div>
                     <div>
                       <span className="text-muted-foreground">Technician:</span>
-                      <div className="font-medium">{ticket.technician}</div>
+                      <div className="font-medium">{ticket.technician_display}</div>
                       <div className="text-muted-foreground">SLA: {ticket.sla}</div>
                     </div>
                   </div>

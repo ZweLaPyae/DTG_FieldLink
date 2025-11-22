@@ -21,46 +21,128 @@ import {
 } from "recharts"
 import { TrendingUp, TrendingDown, Clock, CheckCircle, AlertTriangle, Download } from "lucide-react"
 
-const performanceData = [
-  { month: "Jan", tickets: 145, resolved: 142, avgTime: 2.3 },
-  { month: "Feb", tickets: 132, resolved: 128, avgTime: 2.1 },
-  { month: "Mar", tickets: 168, resolved: 165, avgTime: 2.4 },
-  { month: "Apr", tickets: 156, resolved: 151, avgTime: 2.2 },
-  { month: "May", tickets: 189, resolved: 186, avgTime: 2.0 },
-  { month: "Jun", tickets: 201, resolved: 198, avgTime: 1.9 },
-]
+import mockDb from "../../../../mock_database.json"
 
-const rootCauseData = [
-  { name: "Fiber Cut", value: 35, color: "#3b82f6", count: 42 }, // Blue
-  { name: "Equipment Failure", value: 25, color: "#ef4444", count: 30 }, // Red
-  { name: "Power Outage", value: 20, color: "#f97316", count: 24 }, // Orange
-  { name: "Configuration Error", value: 15, color: "#22c55e", count: 18 }, // Green
-  { name: "Other", value: 5, color: "#8b5cf6", count: 6 }, // Purple
-]
+// Helper function to calculate date differences in hours
+const getHoursBetween = (start: string, end: string) => {
+  const startDate = new Date(start)
+  const endDate = new Date(end)
+  return (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60)
+}
 
-const technicianPerformance = [
-  { name: "Mike Johnson", tickets: 45, avgTime: 1.8, satisfaction: 4.8 },
-  { name: "Alex Chen", tickets: 38, avgTime: 2.1, satisfaction: 4.6 },
-  { name: "David Lee", tickets: 42, avgTime: 2.3, satisfaction: 4.7 },
-  { name: "Sarah Wilson", tickets: 35, avgTime: 1.9, satisfaction: 4.9 },
-]
+// Get completed tickets
+const completedTickets = mockDb.tickets.filter(ticket => ticket.status === 'completed')
 
-const costAnalysis = [
-  { month: "Jan", materials: 12500, labor: 18000, total: 30500 },
-  { month: "Feb", materials: 11200, labor: 16800, total: 28000 },
-  { month: "Mar", materials: 14800, labor: 21600, total: 36400 },
-  { month: "Apr", materials: 13200, labor: 19200, total: 32400 },
-  { month: "May", materials: 15600, labor: 22800, total: 38400 },
-  { month: "Jun", materials: 16800, labor: 24000, total: 40800 },
-]
+// Calculate average resolution time
+const avgResolutionTime = completedTickets.reduce((acc, ticket) => {
+  if (ticket.issueTime && ticket.completionTime) {
+    return acc + getHoursBetween(ticket.issueTime, ticket.completionTime)
+  }
+  return acc
+}, 0) / completedTickets.length
 
-const slaPerformance = [
-  { sla: "1 hour", met: 85, missed: 15 },
-  { sla: "2 hours", met: 92, missed: 8 },
-  { sla: "4 hours", met: 96, missed: 4 },
-  { sla: "6 hours", met: 98, missed: 2 },
-  { sla: "24 hours", met: 99, missed: 1 },
-]
+// Group tickets by day for performance data
+const today = new Date()
+const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const performanceData = days.map(day => {
+  const dayTickets = mockDb.tickets.filter(ticket => {
+    const ticketDate = new Date(ticket.issueTime)
+    return days[ticketDate.getDay()] === day
+  })
+  const resolvedTickets = dayTickets.filter(ticket => ticket.status === 'completed')
+  return {
+    month: day,
+    tickets: dayTickets.length,
+    resolved: resolvedTickets.length,
+    avgTime: avgResolutionTime
+  }
+})
+
+// Calculate root cause distribution
+const rootCauseCounts = mockDb.tickets.reduce((acc: { [key: string]: number }, ticket) => {
+  if (ticket.rootCause) {
+    acc[ticket.rootCause] = (acc[ticket.rootCause] || 0) + 1
+  }
+  return acc
+}, {})
+
+const rootCauseData = mockDb.root_causes.map(cause => {
+  const count = rootCauseCounts[cause.id] || 0
+  const total = mockDb.tickets.length
+  return {
+    name: cause.name,
+    value: Math.round((count / total) * 100),
+    color: cause.color,
+    count: count
+  }
+})
+
+// Calculate technician performance
+const technicianPerformance = mockDb.technicians.map(tech => {
+  const techTickets = mockDb.tickets.filter(ticket => ticket.technicianId === tech.id)
+  const completedTechTickets = techTickets.filter(ticket => ticket.status === 'completed')
+  const avgTime = completedTechTickets.reduce((acc, ticket) => {
+    if (ticket.issueTime && ticket.completionTime) {
+      return acc + getHoursBetween(ticket.issueTime, ticket.completionTime)
+    }
+    return acc
+  }, 0) / (completedTechTickets.length || 1)
+  
+  return {
+    name: tech.name,
+    tickets: techTickets.length,
+    avgTime: Math.round(avgTime * 10) / 10,
+    satisfaction: 4.5 + (techTickets.length > 0 ? 0.5 * (completedTechTickets.length / techTickets.length) : 0)
+  }
+})
+
+// Calculate cost analysis
+const costAnalysis = days.map(day => {
+  const dayTickets = mockDb.tickets.filter(ticket => {
+    const ticketDate = new Date(ticket.issueTime)
+    return days[ticketDate.getDay()] === day
+  })
+  
+  const materialCosts = dayTickets.reduce((acc, ticket) => {
+    return acc + (ticket.materialsUsed?.reduce((sum, material) => sum + material.cost, 0) || 0)
+  }, 0)
+  
+  const laborCosts = dayTickets.reduce((acc, ticket) => {
+    if (ticket.issueTime && ticket.completionTime) {
+      const hours = getHoursBetween(ticket.issueTime, ticket.completionTime)
+      return acc + (hours * 100) // Assuming $100 per hour labor cost
+    }
+    return acc
+  }, 0)
+
+  return {
+    month: day,
+    materials: materialCosts,
+    labor: laborCosts,
+    total: materialCosts + laborCosts
+  }
+})
+
+// Calculate SLA performance
+const slaPerformance = mockDb.sla_options.map(sla => {
+  const slaTickets = mockDb.tickets.filter(ticket => ticket.sla === sla && ticket.status === 'completed')
+  const metSLA = slaTickets.filter(ticket => {
+    if (ticket.issueTime && ticket.completionTime) {
+      const hours = getHoursBetween(ticket.issueTime, ticket.completionTime)
+      const targetHours = parseInt(sla)
+      return hours <= targetHours
+    }
+    return false
+  })
+  
+  const metPercentage = slaTickets.length > 0 ? Math.round((metSLA.length / slaTickets.length) * 100) : 100
+  
+  return {
+    sla,
+    met: metPercentage,
+    missed: 100 - metPercentage
+  }
+})
 
 export default function AnalyticsPage() {
   return (
@@ -98,13 +180,13 @@ export default function AnalyticsPage() {
               <CheckCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">1,091</div>
+              <div className="text-2xl font-bold">{mockDb.tickets.length}</div>
               <p className="text-xs">
                 <span className="text-green-500 flex items-center">
                   <TrendingUp className="w-3 h-3 mr-1" />
-                  +12.5%
+                  +{((completedTickets.length / mockDb.tickets.length) * 100).toFixed(1)}%
                 </span>
-                from last period
+                completion rate
               </p>
             </CardContent>
           </Card>
@@ -115,13 +197,13 @@ export default function AnalyticsPage() {
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">2.1h</div>
+              <div className="text-2xl font-bold">{avgResolutionTime.toFixed(1)}h</div>
               <p className="text-xs text-muted-foreground">
                 <span className="text-green-500 flex items-center">
                   <TrendingDown className="w-3 h-3 mr-1" />
-                  -8.7%
+                  {((completedTickets.length / mockDb.tickets.length) * 100).toFixed(1)}%
                 </span>
-                improvement
+                resolution rate
               </p>
             </CardContent>
           </Card>
@@ -132,13 +214,19 @@ export default function AnalyticsPage() {
               <AlertTriangle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">94.2%</div>
+              <div className="text-2xl font-bold">
+                {((mockDb.tickets.filter(t => 
+                    t.status === 'completed' && 
+                    t.completionTime && 
+                    new Date(t.completionTime).toDateString() === new Date().toDateString()
+                  ).length / mockDb.tickets.length) * 100).toFixed(1)}%
+              </div>
               <p className="text-xs text-muted-foreground">
                 <span className="text-green-500 flex items-center">
                   <TrendingUp className="w-3 h-3 mr-1" />
-                  +2.1%
+                  {completedTickets.length}
                 </span>
-                from last period
+                total completed
               </p>
             </CardContent>
           </Card>
@@ -149,13 +237,19 @@ export default function AnalyticsPage() {
               <CardDescription>Cost breakdown by materials and labor</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">$206K</div>
+              <div className="text-2xl font-bold">
+                ${(mockDb.tickets.reduce((sum, ticket) => 
+                  sum + (ticket.materialsUsed?.reduce((acc, material) => acc + material.cost, 0) || 0) +
+                  (ticket.completionTime && ticket.issueTime ? 
+                    getHoursBetween(ticket.issueTime, ticket.completionTime) * 100 : 0), // Labor cost
+                  0) / 1000).toFixed(1)}K
+              </div>
               <p className="text-xs text-muted-foreground">
                 <span className="text-red-500 flex items-center">
                   <TrendingUp className="w-3 h-3 mr-1" />
-                  +5.3%
+                  {completedTickets.length} tickets
                 </span>
-                from last period
+                completed
               </p>
             </CardContent>
           </Card>

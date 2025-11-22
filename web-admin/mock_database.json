@@ -1,0 +1,282 @@
+{
+  "_meta": {
+    "generated_from": [
+      "src/components/ticket-list.tsx",
+      "src/components/ticket-overview.tsx",
+      "src/components/ticket-details.tsx",
+      "src/components/ticket-analytics.tsx",
+      "src/components/create-ticket-dialog.tsx"
+    ],
+    "notes": "This mock database JSON mirrors the mock data embedded in the UI components. Fields are normalized for a relational schema where practical (IDs reference customers/technicians). Display fields (capitalization) are preserved as *_display when source components used different casing. Do not edit component mock data — this file is a separate visualization of what the actual DB could look like."
+  },
+
+  "customers": [
+    {
+      "id": "CUST-12345",
+      "name": "John Smith",
+      "phone": "+1 (555) 123-4567",
+      "address": "123 Main St, Downtown",
+      "coordinates": { "lat": 40.7128, "lng": -74.0060 }
+    },
+    {
+      "id": "CUST-67890",
+      "name": "Sarah Wilson",
+      "phone": "+1 (555) 987-6543",
+      "address": "456 Oak Ave, Uptown"
+    },
+    {
+      "id": "CUST-11111",
+      "name": "Robert Davis",
+      "phone": "+1 (555) 456-7890",
+      "address": "789 Pine St, Midtown"
+    },
+    {
+      "id": "CUST-22222",
+      "name": "Emily Johnson",
+      "phone": "+1 (555) 234-5678",
+      "address": "321 Elm St, Westside"
+    }
+  ],
+
+  "technicians": [
+    { "id": "mike-johnson", "name": "Mike Johnson", "phone": null, "skills": ["fiber"] },
+    { "id": "alex-chen", "name": "Alex Chen", "phone": null, "skills": ["fiber"] },
+    { "id": "david-lee", "name": "David Lee", "phone": null, "skills": ["fiber"] },
+    { "id": "sarah-wilson", "name": "Sarah Wilson", "phone": null, "skills": ["support"] }
+  ],
+
+  "service_types": [
+    { "id": "fiber-100", "name": "Fiber 100Mbps", "speed_mbps": 100 },
+    { "id": "fiber-200", "name": "Fiber 200Mbps", "speed_mbps": 200 },
+    { "id": "fiber-500", "name": "Fiber 500Mbps", "speed_mbps": 500 },
+    { "id": "fiber-1gb", "name": "Fiber 1Gbps", "speed_mbps": 1000 }
+  ],
+
+  "sla_options": ["1-hour", "2-hours", "4-hours", "6-hours", "24-hours"],
+
+  "priorities": [
+    { "id": "low", "display": "Low" },
+    { "id": "medium", "display": "Medium" },
+    { "id": "high", "display": "High" },
+    { "id": "critical", "display": "Critical" }
+  ],
+
+  "root_causes": [
+    { "id": "fiber-cut", "name": "Fiber Cut", "color": "#3b82f6" },
+    { "id": "equipment-failure", "name": "Equipment Failure", "color": "#ef4444" },
+    { "id": "power-outage", "name": "Power Outage", "color": "#f97316" },
+    { "id": "config-error", "name": "Configuration Error", "color": "#22c55e" },
+    { "id": "other", "name": "Other", "color": "#8b5cf6" }
+  ],
+
+  "tickets": [
+    {
+      "id": "TK-2024-001",
+      "customerId": "CUST-12345",
+      "customerName_display": "John Smith",
+      "phone": "+1 (555) 123-4567",
+      "serviceType": "fiber-100",
+      "serviceType_display": "Fiber 100Mbps",
+      "location": "123 Main St, Downtown",
+      "coordinates": { "lat": 40.7128, "lng": -74.0060 },
+      "sla": "4-hours",
+      "complaint": "No internet connection",
+      "status": "completed",
+      "status_display": "Completed",
+      "priority": "high",
+      "priority_display": "High",
+      "technicianId": "mike-johnson",
+      "technician_display": "Mike Johnson",
+      "issueTime": "2024-01-15T09:30:00Z",
+      "startTime": "2024-01-15T09:45:00Z",
+      "completionTime": "2024-01-15T12:30:00Z",
+      "rootCause": "fiber-cut",
+      "rootCause_display": "Fiber Cut",
+      "rootCauseDetails": "Construction work damaged fiber cable on Main St",
+      "wayToFix": "Replace damaged fiber section and re-splice connections",
+      "materialsUsed": [
+        { "item": "Fiber optic cable (50m)", "cost": 150 },
+        { "item": "Splice enclosure", "cost": 25 },
+        { "item": "Labor (2 hours)", "cost": 200 }
+      ],
+      "totalCost": 375,
+      "attachments": [
+        { "name": "damage_photo_1.jpg", "type": "image" },
+        { "name": "repair_video.mp4", "type": "video" }
+      ],
+      "updates": [
+        { "time": "2024-01-15T09:30:00Z", "user": "System", "message": "Ticket created" },
+        { "time": "2024-01-15T09:45:00Z", "user": "Mike Johnson", "message": "Accepted ticket, heading to location" },
+        { "time": "2024-01-15T10:15:00Z", "user": "Mike Johnson", "message": "On site, investigating issue" },
+        { "time": "2024-01-15T12:30:00Z", "user": "Mike Johnson", "message": "Issue resolved, fiber repaired" }
+      ]
+    },
+    {
+      "id": "TK-2024-002",
+      "customerId": "CUST-67890",
+      "customerName_display": "Sarah Wilson",
+      "phone": "+1 (555) 987-6543",
+      "serviceType": "fiber-500",
+      "serviceType_display": "Fiber 500Mbps",
+      "location": "456 Oak Ave, Uptown",
+      "sla": "2-hours",
+      "complaint": "Slow internet speed",
+      "status": "in-progress",
+      "status_display": "In Progress",
+      "priority": "medium",
+      "priority_display": "Medium",
+      "technicianId": "alex-chen",
+      "technician_display": "Alex Chen",
+      "issueTime": "2024-01-15T11:15:00Z",
+      "startTime": "2024-01-15T11:30:00Z",
+      "completionTime": null,
+      "rootCause": "config-error",
+      "rootCause_display": "Configuration Error",
+      "materialsUsed": [],
+      "attachments": [],
+      "updates": [
+        { "time": "2024-01-15T11:15:00Z", "user": "System", "message": "Ticket created" },
+        { "time": "2024-01-15T11:30:00Z", "user": "Alex Chen", "message": "Started remote diagnostics" }
+      ]
+    },
+    {
+      "id": "TK-2024-003",
+      "customerId": "CUST-11111",
+      "customerName_display": "Robert Davis",
+      "phone": "+1 (555) 456-7890",
+      "serviceType": "fiber-1gb",
+      "serviceType_display": "Fiber 1Gbps",
+      "location": "789 Pine St, Midtown",
+      "sla": "1-hour",
+      "complaint": "Complete service outage",
+      "status": "completed",
+      "status_display": "Completed",
+      "priority": "critical",
+      "priority_display": "Critical",
+      "technicianId": "alex-chen",
+      "technician_display": "Alex Chen",
+      "issueTime": "2024-01-15T08:00:00Z",
+      "startTime": "2024-01-15T08:10:00Z",
+      "completionTime": "2024-01-15T08:45:00Z",
+      "rootCause": "equipment-failure",
+      "rootCause_display": "Equipment Failure",
+      "materialsUsed": [
+        { "item": "ONT Device", "cost": 180 },
+        { "item": "Labor (1 hour)", "cost": 100 }
+      ],
+      "totalCost": 280,
+      "attachments": [],
+      "updates": [
+        { "time": "2024-01-15T08:00:00Z", "user": "System", "message": "Ticket created" },
+        { "time": "2024-01-15T08:10:00Z", "user": "Alex Chen", "message": "Started investigation" },
+        { "time": "2024-01-15T08:45:00Z", "user": "Alex Chen", "message": "Replaced faulty ONT device" }
+      ]
+    },
+    {
+      "id": "TK-2024-004",
+      "customerId": "CUST-22222",
+      "customerName_display": "Emily Johnson",
+      "phone": "+1 (555) 234-5678",
+      "serviceType": "fiber-200",
+      "serviceType_display": "Fiber 200Mbps",
+      "location": "321 Elm St, Westside",
+      "sla": "6-hours",
+      "complaint": "Intermittent connection drops",
+      "status": "completed",
+      "status_display": "Completed",
+      "priority": "low",
+      "priority_display": "Low",
+      "technicianId": "david-lee",
+      "technician_display": "David Lee",
+      "issueTime": "2024-01-15T14:20:00Z",
+      "startTime": "2024-01-15T14:45:00Z",
+      "completionTime": "2024-01-15T16:20:00Z",
+      "rootCause": "equipment-failure",
+      "rootCause_display": "Equipment Failure",
+      "materialsUsed": [
+        { "item": "Fiber patch cable", "cost": 25 },
+        { "item": "Labor (1.5 hours)", "cost": 150 }
+      ],
+      "totalCost": 175,
+      "attachments": [],
+      "updates": [
+        { "time": "2024-01-15T14:20:00Z", "user": "System", "message": "Ticket created" },
+        { "time": "2024-01-15T14:45:00Z", "user": "David Lee", "message": "Started troubleshooting" },
+        { "time": "2024-01-15T16:20:00Z", "user": "David Lee", "message": "Replaced damaged patch cable" }
+      ]
+    },
+    {
+      "id": "TK-2024-005",
+      "customerId": "CUST-12345",
+      "customerName_display": "John Smith",
+      "phone": "+1 (555) 123-4567",
+      "serviceType": "fiber-100",
+      "serviceType_display": "Fiber 100Mbps",
+      "location": "123 Main St, Downtown",
+      "sla": "4-hours",
+      "complaint": "Service quality issues",
+      "status": "completed",
+      "status_display": "Completed",
+      "priority": "medium",
+      "priority_display": "Medium",
+      "technicianId": "mike-johnson",
+      "technician_display": "Mike Johnson",
+      "issueTime": "2024-01-14T13:00:00Z",
+      "startTime": "2024-01-14T13:15:00Z",
+      "completionTime": "2024-01-14T15:30:00Z",
+      "rootCause": "power-outage",
+      "rootCause_display": "Power Outage",
+      "materialsUsed": [
+        { "item": "Battery backup", "cost": 120 },
+        { "item": "Labor (2 hours)", "cost": 200 }
+      ],
+      "totalCost": 320,
+      "updates": [
+        { "time": "2024-01-14T13:00:00Z", "user": "System", "message": "Ticket created" },
+        { "time": "2024-01-14T13:15:00Z", "user": "Mike Johnson", "message": "Started investigation" },
+        { "time": "2024-01-14T15:30:00Z", "user": "Mike Johnson", "message": "Installed backup power solution" }
+      ]
+    }
+  ],
+
+  "materials_catalog": [
+    { "id": 1, "name": "Fiber optic cable (50m)", "unit_cost": 150 },
+    { "id": 2, "name": "Splice enclosure", "unit_cost": 25 },
+    { "id": 3, "name": "Labor (hour)", "unit_cost": 100 }
+  ],
+
+  "teams": [
+    {
+      "id": "team-1",
+      "name": "Fiber Installation Team A",
+      "leaderId": "mike-johnson",
+      "memberIds": ["alex-chen", "david-lee"],
+      "specialization": "fiber-installation",
+      "activeTickets": 3,
+      "completedTickets": 45,
+      "location": "Downtown District",
+      "status": "active"
+    },
+    {
+      "id": "team-2",
+      "name": "Support Team B",
+      "leaderId": "sarah-wilson",
+      "memberIds": [],
+      "specialization": "customer-support",
+      "activeTickets": 1,
+      "completedTickets": 28,
+      "location": "Uptown District",
+      "status": "active"
+    }
+  ],
+
+  "system_settings": {
+    "business_hours": {
+      "weekday_start": "08:00",
+      "weekday_end": "18:00",
+      "weekend_start": "09:00",
+      "weekend_end": "15:00",
+      "timezone": "America/New_York"
+    }
+  }
+}
