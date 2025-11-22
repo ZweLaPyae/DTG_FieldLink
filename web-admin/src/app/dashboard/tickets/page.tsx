@@ -68,7 +68,7 @@ export default function TicketsPage() {
           </Select>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2">
             <TicketList
               searchQuery={searchQuery}
@@ -78,7 +78,7 @@ export default function TicketsPage() {
               onSelectTicket={setSelectedTicket}
             />
           </div>
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-3">
             {selectedTicket ? (
               <TicketDetails ticketId={selectedTicket} />
             ) : (
