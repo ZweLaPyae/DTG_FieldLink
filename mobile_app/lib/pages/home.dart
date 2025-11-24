@@ -5,7 +5,7 @@ import '../data_service.dart';
 import 'ticket_detail.dart';
 
 class HomePage extends StatelessWidget {
-  final DataService dataService = DataService(jsonPath: 'lib/mock_database.json');
+  final DataService dataService = DataService(jsonPath: 'lib/mock_database_mod.json');
 
   HomePage({super.key});
 

@@ -129,44 +129,47 @@ export function TicketOverview() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {tickets.map((ticket) => (
-              <div
-                key={ticket.id}
-                className="flex items-center justify-between p-4 border border-border/50 rounded-lg hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center space-x-4">
-                    <div className="font-medium text-foreground">{ticket.id}</div>
-                    <Badge variant="outline" className={statusColors[ticket.status as keyof typeof statusColors]}>
-                      {ticket.status}
-                    </Badge>
-                    <Badge variant="outline" className={priorityColors[ticket.priority as keyof typeof priorityColors]}>
-                      {ticket.priority}
-                    </Badge>
+            {tickets.map((ticket) => {
+              const customer = mockDb.customers.find(c => c.id === ticket.customerId)
+              return (
+                <div
+                  key={ticket.id}
+                  className="flex items-center justify-between p-4 border border-border/50 rounded-lg hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center space-x-4">
+                      <div className="font-medium text-foreground">{ticket.id}</div>
+                      <Badge variant="outline" className={statusColors[ticket.status as keyof typeof statusColors]}>
+                        {ticket.status}
+                      </Badge>
+                      <Badge variant="outline" className={priorityColors[ticket.priority as keyof typeof priorityColors]}>
+                        {ticket.priority}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Customer:</span>
+                        <div className="font-medium">{customer ? customer.name : ticket.customerId}</div>
+                        <div className="text-muted-foreground">{customer ? customer.phone : "-"}</div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Issue:</span>
+                        <div className="font-medium">{ticket.complaint}</div>
+                        <div className="text-muted-foreground">{customer ? customer.splitter : "-"}</div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Technician:</span>
+                        <div className="font-medium">{ticket.technician_display}</div>
+                        <div className="text-muted-foreground">SLA: {ticket.sla}</div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Customer:</span>
-                      <div className="font-medium">{ticket.customerName_display}</div>
-                      <div className="text-muted-foreground">{ticket.phone}</div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Issue:</span>
-                      <div className="font-medium">{ticket.complaint}</div>
-                      <div className="text-muted-foreground">{ticket.location}</div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Technician:</span>
-                      <div className="font-medium">{ticket.technician_display}</div>
-                      <div className="text-muted-foreground">SLA: {ticket.sla}</div>
-                    </div>
-                  </div>
+                  <Button variant="ghost" size="sm">
+                    View Details
+                  </Button>
                 </div>
-                <Button variant="ghost" size="sm">
-                  View Details
-                </Button>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </CardContent>
       </Card>
