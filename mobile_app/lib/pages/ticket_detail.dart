@@ -13,7 +13,7 @@ class TicketDetailPage extends StatefulWidget {
 }
 
 class _TicketDetailPageState extends State<TicketDetailPage> {
-  final DataService dataService = DataService(jsonPath: 'lib/mock_database.json');
+  final DataService dataService = DataService(jsonPath: 'lib/mock_database_mod.json');
   late Future<Ticket?> _ticketFuture;
   final TextEditingController _notesController = TextEditingController();
 
