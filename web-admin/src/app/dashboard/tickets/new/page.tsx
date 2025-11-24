@@ -8,16 +8,17 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Save, Send, MapPin, Phone, User, Wifi, Clock, AlertTriangle } from "lucide-react"
-import Link from "next/link"
+import { ArrowLeft, Save, Send, User, Wifi, AlertTriangle } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
 
 export default function NewTicketPage() {
+  const router = useRouter()
   const [formData, setFormData] = useState({
+    ticketId: "",
     customerId: "",
     customerName: "",
     phone: "",
-    email: "",
     serviceType: "",
     splitter: "",
     complaint: "",
@@ -25,10 +26,95 @@ export default function NewTicketPage() {
     sla: "",
     description: "",
     technician: "",
+    issueTime: "",
   })
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const parseTicketFromPaste = (pastedText: string) => {
+    // Format: ticket id>> complaint description Customer ID Customer Name SLA ?hrs Splitter Information phone number issue date&time
+    // Example: MMI 225110592>> Site Down M1CDWS00029001 Wai Wai Thein SOHO 24 hrs N9 OLT 0/1/12/58  09-440401401 22/11/2025 09:25
+    
+    const ticketPattern = /^([A-Z]{3}\s+\d+)\s*>>\s*(.+?)\s+(M1[A-Z0-9]+)\s+((?:HTK\s+)?[A-Z](?:[a-z]+|\s)+(?:\s+[A-Z][a-z]+)*)\s+(SOHO|Enterprise|Business|HTK)\s+(\d+)\s*hrs?\s+(N\d+\s+OLT\s+[\d/]+)\s+([\d\-/]+(?:\/[\d\-]+)?)\s+([\d/]+\s+[\d:]+)/i
+    
+    const match = pastedText.trim().match(ticketPattern)
+    
+    if (match) {
+      const [
+        ,
+        ticketId,
+        complaint,
+        customerId,
+        customerName,
+        serviceType,
+        slaHours,
+        splitter,
+        phone,
+        issueDateTime
+      ] = match
+
+      // Map SLA hours to appropriate values
+      let slaValue = ""
+      const hours = parseInt(slaHours)
+      if (hours <= 1) slaValue = "1-hour"
+      else if (hours <= 2) slaValue = "2-hours"
+      else if (hours <= 4) slaValue = "4-hours"
+      else slaValue = "8-hours"
+
+      // Map service type
+      let serviceTypeValue = ""
+      const serviceTypeLower = serviceType.toLowerCase()
+      if (serviceTypeLower === "soho" || serviceTypeLower === "htk") serviceTypeValue = "fiber-100"
+      else if (serviceTypeLower === "enterprise") serviceTypeValue = "fiber-enterprise"
+      else if (serviceTypeLower === "business") serviceTypeValue = "fiber-500"
+
+      // Determine priority based on complaint keywords
+      let priority = "medium"
+      const complaintLower = complaint.toLowerCase()
+      if (complaintLower.includes("site down") || complaintLower.includes("down") || complaintLower.includes("outage")) {
+        priority = "critical"
+      } else if (complaintLower.includes("slow") || complaintLower.includes("degradation")) {
+        priority = "high"
+      }
+
+      // Parse date and time to datetime-local format (YYYY-MM-DDTHH:mm)
+      const dateTimeParts = issueDateTime.trim().match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/)
+      let formattedDateTime = ""
+      if (dateTimeParts) {
+        const [, day, month, year, hour, minute] = dateTimeParts
+        formattedDateTime = `${year}-${month}-${day}T${hour}:${minute}`
+      }
+
+      setFormData({
+        ticketId: ticketId.trim(),
+        customerId: customerId.trim(),
+        customerName: customerName.trim(),
+        phone: phone.trim(),
+        serviceType: serviceTypeValue,
+        splitter: splitter.trim(),
+        complaint: complaint.trim(),
+        priority: priority,
+        sla: slaValue,
+        description: `${complaint.trim()}\n\nIssue reported at: ${issueDateTime}`,
+        technician: "",
+        issueTime: formattedDateTime,
+      })
+
+      return true
+    }
+    
+    return false
+  }
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const pastedText = e.clipboardData.getData("text")
+    
+    if (parseTicketFromPaste(pastedText)) {
+      e.preventDefault()
+      // Show success message or notification here if needed
+    }
   }
 
   const handleSubmit = (isDraft = false) => {
@@ -40,90 +126,93 @@ export default function NewTicketPage() {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Link href="/dashboard/tickets">
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Tickets
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Create New Ticket</h1>
-              <p className="text-muted-foreground">Fill in the details for the new maintenance request</p>
-            </div>
-          </div>
-          <div className="flex space-x-2">
-            <Button variant="outline" onClick={() => handleSubmit(true)}>
-              <Save className="w-4 h-4 mr-2" />
-              Save Draft
-            </Button>
-            <Button onClick={() => handleSubmit(false)} className="bg-primary hover:bg-primary/90">
-              <Send className="w-4 h-4 mr-2" />
-              Create Ticket
-            </Button>
+        <div className="flex items-center space-x-4">
+          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Create New Ticket</h1>
+            <p className="text-muted-foreground">Fill in the details for the new maintenance request</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Form */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Customer Information */}
-            <Card className="border-blue-200 dark:border-blue-800">
-              <CardHeader className="bg-blue-50 dark:bg-blue-950/50">
-                <CardTitle className="flex items-center text-blue-700 dark:text-blue-300">
-                  <User className="w-5 h-5 mr-2" />
-                  Customer Information
-                </CardTitle>
-                <CardDescription>Basic customer details and contact information</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 pt-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="customerId">Customer ID</Label>
-                    <Input
-                      id="customerId"
-                      placeholder="CUST-12345"
-                      value={formData.customerId}
-                      onChange={(e) => handleInputChange("customerId", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="customerName">Customer Name</Label>
-                    <Input
-                      id="customerName"
-                      placeholder="John Smith"
-                      value={formData.customerName}
-                      onChange={(e) => handleInputChange("customerName", e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input
-                      id="phone"
-                      placeholder="+1 (555) 123-4567"
-                      value={formData.phone}
-                      onChange={(e) => handleInputChange("phone", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email Address</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="john.smith@email.com"
-                      value={formData.email}
-                      onChange={(e) => handleInputChange("email", e.target.value)}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+        {/* Paste Area */}
+        <Card className="border-purple-200 dark:border-purple-800">
+          <CardHeader className="bg-purple-50 dark:bg-purple-950/50">
+            <CardTitle className="text-purple-700 dark:text-purple-300">Quick Import from LINE</CardTitle>
+            <CardDescription>Paste ticket information from LINE app to auto-fill the form</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <Textarea
+              placeholder="Paste ticket information here (e.g., MMI 225110592>> Site Down M1CDWS00029001 Wai Wai Thein SOHO 24 hrs N9 OLT 0/1/12/58 09-440401401 22/11/2025 09:25)"
+              rows={2}
+              onPaste={handlePaste}
+              className="font-mono text-sm"
+            />
+            <p className="text-xs text-muted-foreground mt-2">Paste ticket info from LINE app to auto-fill all fields below</p>
+          </CardContent>
+        </Card>
 
-            {/* Service Information */}
-            <Card className="border-green-200 dark:border-green-800">
+        <div className="space-y-6">
+            {/* Customer and Service Information Side by Side */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Customer Information */}
+              <Card className="border-blue-200 dark:border-blue-800">
+                <CardHeader className="bg-blue-50 dark:bg-blue-950/50">
+                  <CardTitle className="flex items-center text-blue-700 dark:text-blue-300">
+                    <User className="w-5 h-5 mr-2" />
+                    Customer Information
+                  </CardTitle>
+                  <CardDescription>Basic customer details and contact information</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4 pt-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="ticketId">Ticket ID</Label>
+                      <Input
+                        id="ticketId"
+                        placeholder="MMI 225110592"
+                        value={formData.ticketId}
+                        onChange={(e) => handleInputChange("ticketId", e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="customerId">Customer ID</Label>
+                      <Input
+                        id="customerId"
+                        placeholder="M1CDWS00029001"
+                        value={formData.customerId}
+                        onChange={(e) => handleInputChange("customerId", e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="customerName">Customer Name</Label>
+                      <Input
+                        id="customerName"
+                        placeholder="John Smith"
+                        value={formData.customerName}
+                        onChange={(e) => handleInputChange("customerName", e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone Number</Label>
+                      <Input
+                        id="phone"
+                        placeholder="09-440401401"
+                        value={formData.phone}
+                        onChange={(e) => handleInputChange("phone", e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Service Information */}
+              <Card className="border-green-200 dark:border-green-800">
               <CardHeader className="bg-green-50 dark:bg-green-950/50">
                 <CardTitle className="flex items-center text-green-700 dark:text-green-300">
                   <Wifi className="w-5 h-5 mr-2" />
@@ -131,7 +220,7 @@ export default function NewTicketPage() {
                 </CardTitle>
                 <CardDescription>Service type and location details</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4 pt-6">
+              <CardContent className="pt-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="serviceType">Service Type</Label>
@@ -164,18 +253,30 @@ export default function NewTicketPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="splitter">Splitter</Label>
-                  <Input
-                    id="splitter"
-                    placeholder="N9 OLT 0/1/12/58"
-                    value={formData.splitter}
-                    onChange={(e) => handleInputChange("splitter", e.target.value)}
-                  />
+                  <div className="space-y-2">
+                    <Label htmlFor="splitter">Splitter</Label>
+                    <Input
+                      id="splitter"
+                      placeholder="N9 OLT 0/1/12/58"
+                      value={formData.splitter}
+                      onChange={(e) => handleInputChange("splitter", e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="issueTime">Issue Date & Time</Label>
+                    <Input
+                      id="issueTime"
+                      type="datetime-local"
+                      value={formData.issueTime}
+                      onChange={(e) => handleInputChange("issueTime", e.target.value)}
+                      required
+                    />
+                  </div>
                 </div>
               </CardContent>
-            </Card>
+              </Card>
+            </div>
 
             {/* Issue Details */}
             <Card className="border-orange-200 dark:border-orange-800">
@@ -194,6 +295,7 @@ export default function NewTicketPage() {
                     placeholder="Brief description of the issue"
                     value={formData.complaint}
                     onChange={(e) => handleInputChange("complaint", e.target.value)}
+                    required
                   />
                 </div>
                 <div className="space-y-2">
@@ -204,12 +306,13 @@ export default function NewTicketPage() {
                     rows={4}
                     value={formData.description}
                     onChange={(e) => handleInputChange("description", e.target.value)}
+                    required
                   />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="priority">Priority Level</Label>
-                    <Select value={formData.priority} onValueChange={(value) => handleInputChange("priority", value)}>
+                    <Select value={formData.priority} onValueChange={(value) => handleInputChange("priority", value)} required>
                       <SelectTrigger>
                         <SelectValue placeholder="Select priority" />
                       </SelectTrigger>
@@ -241,89 +344,18 @@ export default function NewTicketPage() {
                 </div>
               </CardContent>
             </Card>
-          </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Quick Actions */}
-            <Card className="border-purple-200 dark:border-purple-800">
-              <CardHeader className="bg-purple-50 dark:bg-purple-950/50">
-                <CardTitle className="text-purple-700 dark:text-purple-300">Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-6">
-                <Button variant="outline" className="w-full justify-start bg-transparent">
-                  <MapPin className="w-4 h-4 mr-2" />
-                  View Location Map
-                </Button>
-                <Button variant="outline" className="w-full justify-start bg-transparent">
-                  <Phone className="w-4 h-4 mr-2" />
-                  Call Customer
-                </Button>
-                <Button variant="outline" className="w-full justify-start bg-transparent">
-                  <Clock className="w-4 h-4 mr-2" />
-                  Check Service History
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Priority Guide */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Priority Guidelines</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20">
-                    Critical
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">Complete outage</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Badge variant="outline" className="bg-orange-500/10 text-orange-500 border-orange-500/20">
-                    High
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">Severe degradation</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">
-                    Medium
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">Minor issues</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Badge variant="outline" className="bg-gray-500/10 text-gray-500 border-gray-500/20">
-                    Low
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">Enhancement requests</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* SLA Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">SLA Response Times</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Critical:</span>
-                  <span className="font-medium">1 Hour</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">High:</span>
-                  <span className="font-medium">2 Hours</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Medium:</span>
-                  <span className="font-medium">4 Hours</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Low:</span>
-                  <span className="font-medium">8 Hours</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => handleSubmit(true)}>
+                <Save className="w-4 h-4 mr-2" />
+                Save Draft
+              </Button>
+              <Button onClick={() => handleSubmit(false)} className="bg-primary hover:bg-primary/90">
+                <Send className="w-4 h-4 mr-2" />
+                Create Ticket
+              </Button>
+            </div>
         </div>
       </div>
     </DashboardLayout>

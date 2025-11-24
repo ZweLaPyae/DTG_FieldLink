@@ -1,18 +1,18 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { TicketList } from "@/components/ticket-list"
 import { TicketDetails } from "@/components/ticket-details"
-import { CreateTicketDialog } from "@/components/create-ticket-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Search } from "lucide-react"
 
 export default function TicketsPage() {
+  const router = useRouter()
   const [selectedTicket, setSelectedTicket] = useState<string | null>(null)
-  const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
@@ -25,7 +25,7 @@ export default function TicketsPage() {
             <h1 className="text-3xl font-bold text-foreground">Tickets</h1>
             <p className="text-muted-foreground">Manage and track maintenance tickets</p>
           </div>
-          <Button onClick={() => setShowCreateDialog(true)}>
+          <Button onClick={() => router.push("/dashboard/tickets/new")}>
             <Plus className="w-4 h-4 mr-2" />
             New Ticket
           </Button>
@@ -80,7 +80,7 @@ export default function TicketsPage() {
           </div>
           <div className="lg:col-span-3">
             {selectedTicket ? (
-              <TicketDetails ticketId={selectedTicket} />
+              <TicketDetails ticketId={selectedTicket} isSelected={true} />
             ) : (
               <div className="bg-muted/20 border border-dashed border-border rounded-lg p-8 text-center">
                 <p className="text-muted-foreground">Select a ticket to view details</p>
@@ -88,8 +88,6 @@ export default function TicketsPage() {
             )}
           </div>
         </div>
-
-        <CreateTicketDialog open={showCreateDialog} onOpenChange={setShowCreateDialog} />
       </div>
     </DashboardLayout>
   )
