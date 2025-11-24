@@ -8,10 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator"
 import { useState } from "react"
 import { User, Phone, MapPin, Clock, AlertCircle, Wrench, FileText, Camera, Edit3 } from "lucide-react"
+import { cn } from "@/lib/utils"
 import mockDb from "../../mock_database.json"
 
 interface TicketDetailsProps {
   ticketId: string
+  isSelected?: boolean
 }
 
 const ticketData = mockDb.tickets.reduce((acc, ticket) => {
@@ -19,7 +21,7 @@ const ticketData = mockDb.tickets.reduce((acc, ticket) => {
   return acc
 }, {} as Record<string, typeof mockDb.tickets[0]>)
 
-export function TicketDetails({ ticketId }: TicketDetailsProps) {
+export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsProps) {
   const [newUpdate, setNewUpdate] = useState("")
   const [newStatus, setNewStatus] = useState("")
 
@@ -52,7 +54,10 @@ export function TicketDetails({ ticketId }: TicketDetailsProps) {
 
   return (
     <div className="space-y-4">
-      <Card className="border-border/50 ">
+      <Card className={cn(
+        "border-border/50",
+        isSelected && "ring-2 ring-primary border-primary/50"
+      )}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">{ticket.id}</CardTitle>

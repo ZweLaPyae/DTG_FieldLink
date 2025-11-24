@@ -67,7 +67,7 @@ export function TicketList({
             <CardContent className="p-4">
               <div className="space-y-3">
                 {/* Header */}
-                <div className="flex items-center justify-between">
+                <div className="space-y-2">
                   <div className="flex items-center space-x-3">
                     <span className="font-semibold text-foreground">{ticket.id}</span>
                     <Badge variant="outline" className={statusColors[ticket.status as keyof typeof statusColors]}>
