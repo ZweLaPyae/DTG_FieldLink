@@ -25,9 +25,9 @@ const statusColors = {
 
 const priorityColors = {
   low: "bg-gray-500/10 text-gray-500 border-gray-500/20",
-  medium: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
-  high: "bg-orange-500/10 text-orange-500 border-orange-500/20",
-  critical: "bg-red-500/10 text-red-500 border-red-500/20",
+  medium: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+  high: "bg-amber-500/10 text-amber-500 border-amber-500/20",
+  critical: "bg-red-600/10 text-red-600 border-red-600/20",
 }
 
 export function TicketList({
@@ -60,7 +60,9 @@ export function TicketList({
             key={ticket.id}
             className={cn(
               "cursor-pointer transition-all duration-200 hover:shadow-md border-border/50",
-              selectedTicket === ticket.id && "ring-2 ring-primary border-primary/50",
+              selectedTicket === ticket.id && (ticket.priority !== "critical" || ticket.status === "completed") && "ring-2 ring-primary border-primary/50",
+              ticket.priority === "critical" && ticket.status !== "completed" && "border-2 border-red-600 shadow-red-500/20 shadow-lg",
+              selectedTicket === ticket.id && ticket.priority === "critical" && ticket.status !== "completed" && "ring-2 ring-red-600",
             )}
             onClick={() => onSelectTicket(ticket.id)}
           >

@@ -18,7 +18,7 @@ export default function NewTicketPage() {
     ticketId: "",
     customerId: "",
     customerName: "",
-    phone: "",
+    phone: [""],
     serviceType: "",
     splitter: "",
     complaint: "",
@@ -33,79 +33,153 @@ export default function NewTicketPage() {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
+  const handlePhoneChange = (index: number, value: string) => {
+    setFormData((prev) => {
+      const newPhone = [...prev.phone]
+      newPhone[index] = value
+      return { ...prev, phone: newPhone }
+    })
+  }
+
+  const addPhoneNumber = () => {
+    // Only add if the last phone number is filled
+    const lastPhone = formData.phone[formData.phone.length - 1]
+    if (lastPhone && lastPhone.trim() !== "") {
+      setFormData((prev) => ({
+        ...prev,
+        phone: [...prev.phone, ""]
+      }))
+    }
+  }
+
+  const removePhoneNumber = (index: number) => {
+    if (formData.phone.length > 1) {
+      setFormData((prev) => ({
+        ...prev,
+        phone: prev.phone.filter((_, i) => i !== index)
+      }))
+    }
+  }
+
   const parseTicketFromPaste = (pastedText: string) => {
-    // Format: ticket id>> complaint description Customer ID Customer Name SLA ?hrs Splitter Information phone number issue date&time
-    // Example: MMI 225110592>> Site Down M1CDWS00029001 Wai Wai Thein SOHO 24 hrs N9 OLT 0/1/12/58  09-440401401 22/11/2025 09:25
+    // Pattern-based extraction - each field has unique characteristics
+    // Works regardless of which fields are missing
     
-    const ticketPattern = /^([A-Z]{3}\s+\d+)\s*>>\s*(.+?)\s+(M1[A-Z0-9]+)\s+((?:HTK\s+)?[A-Z](?:[a-z]+|\s)+(?:\s+[A-Z][a-z]+)*)\s+(SOHO|Enterprise|Business|HTK)\s+(\d+)\s*hrs?\s+(N\d+\s+OLT\s+[\d/]+)\s+([\d\-/]+(?:\/[\d\-]+)?)\s+([\d/]+\s+[\d:]+)/i
+    const text = pastedText.trim()
     
-    const match = pastedText.trim().match(ticketPattern)
+    // 1. Extract Ticket ID: 3 letters + space + numbers + ">>"
+    const ticketMatch = text.match(/^([A-Z]{3}\s+\d+)\s*>>/i)
+    if (!ticketMatch) return false
+    const ticketId = ticketMatch[1].trim()
     
-    if (match) {
-      const [
-        ,
-        ticketId,
-        complaint,
-        customerId,
-        customerName,
-        serviceType,
-        slaHours,
-        splitter,
-        phone,
-        issueDateTime
-      ] = match
+    // 2. Extract Date/Time: DD/MM/YYYY HH:mm format
+    const dateTimeMatch = text.match(/(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2})/)
+    const issueDateTime = dateTimeMatch ? dateTimeMatch[1] : ""
+    
+    // 3. Extract Phone: 8-12 digits with optional dashes, separated by /
+    const phoneMatch = text.match(/(\d[\d\-]{7,11}(?:\/\d[\d\-]{7,11})*)(?=\s+\d{2}\/\d{2}\/\d{4})/)
+    const phoneNumbers = phoneMatch ? phoneMatch[1].split('/').map(p => p.trim()).filter(p => {
+      const digitCount = p.replace(/\D/g, '').length
+      return digitCount >= 8 && digitCount <= 12
+    }) : []
+    
+    // 4. Extract Splitter: N + digit + OLT + numbers/slashes
+    const splitterMatch = text.match(/(N\d+\s+OLT\s+[\d\/]+)/)
+    const splitter = splitterMatch ? splitterMatch[1].trim() : ""
+    
+    // 5. Extract SLA: number + hrs/hr
+    const slaMatch = text.match(/(\d+)\s*hrs?(?:\s|$)/i)
+    const slaHours = slaMatch ? parseInt(slaMatch[1]) : 24
+    
+    // 6. Extract Service Type: SOHO, Enterprise, Business, or HTK (but not when part of customer name)
+    const serviceTypeMatch = text.match(/\b(SOHO|Enterprise|Business)\b/i)
+    const serviceType = serviceTypeMatch ? serviceTypeMatch[1] : ""
+    
+    // 7. Extract Customer ID: Mix of letters and numbers
+    const customerIdMatch = text.match(/\b([A-Z]+\d+[A-Z0-9]+)\b/)
+    const customerId = customerIdMatch ? customerIdMatch[1] : ""
+    
+    // 8. Extract Customer Name: 2-5 capitalized words (may have HTK or U prefix)
+    // Must come after customer ID and before service type
+    let customerName = ""
+    if (customerIdMatch) {
+      const afterCustomerId = text.slice(customerIdMatch.index! + customerIdMatch[0].length).trim()
+      const nameMatch = afterCustomerId.match(/^((?:HTK\s+)?(?:U\s+)?[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,4})(?=\s+(?:SOHO|Enterprise|Business))/i)
+      if (nameMatch) {
+        customerName = nameMatch[1].trim()
+      }
+    }
+    
+    // 9. Extract Complaint: Everything between ">>" and customer ID (or first recognizable field)
+    let complaint = ""
+    const afterTicketId = text.slice(text.indexOf(">>") + 2).trim()
+    
+    if (customerIdMatch) {
+      // Get text from after ">>" to before customer ID
+      complaint = afterTicketId.slice(0, afterTicketId.indexOf(customerIdMatch[0])).trim()
+    } else {
+      // If no customer ID, remove all other patterns
+      let remainingText = afterTicketId
+      if (dateTimeMatch) remainingText = remainingText.replace(dateTimeMatch[0], "")
+      if (phoneMatch) remainingText = remainingText.replace(phoneMatch[0], "")
+      if (splitterMatch) remainingText = remainingText.replace(splitterMatch[0], "")
+      if (slaMatch) remainingText = remainingText.replace(slaMatch[0], "")
+      if (serviceTypeMatch) remainingText = remainingText.replace(serviceTypeMatch[0], "")
+      complaint = remainingText.trim()
+    }
 
-      // Map SLA hours to appropriate values
-      let slaValue = ""
-      const hours = parseInt(slaHours)
-      if (hours <= 1) slaValue = "1-hour"
-      else if (hours <= 2) slaValue = "2-hours"
-      else if (hours <= 4) slaValue = "4-hours"
-      else slaValue = "8-hours"
+    // Map SLA hours to dropdown values
+    let slaValue = ""
+    if (slaHours <= 1) slaValue = "1-hour"
+    else if (slaHours <= 2) slaValue = "2-hours"
+    else if (slaHours <= 4) slaValue = "4-hours"
+    else slaValue = "8-hours"
 
-      // Map service type
-      let serviceTypeValue = ""
+    // Map service type to dropdown values
+    let serviceTypeValue = ""
+    if (serviceType) {
       const serviceTypeLower = serviceType.toLowerCase()
       if (serviceTypeLower === "soho" || serviceTypeLower === "htk") serviceTypeValue = "fiber-100"
       else if (serviceTypeLower === "enterprise") serviceTypeValue = "fiber-enterprise"
       else if (serviceTypeLower === "business") serviceTypeValue = "fiber-500"
-
-      // Determine priority based on complaint keywords
-      let priority = "medium"
-      const complaintLower = complaint.toLowerCase()
-      if (complaintLower.includes("site down") || complaintLower.includes("down") || complaintLower.includes("outage")) {
-        priority = "critical"
-      } else if (complaintLower.includes("slow") || complaintLower.includes("degradation")) {
-        priority = "high"
-      }
-
-      // Parse date and time to datetime-local format (YYYY-MM-DDTHH:mm)
-      const dateTimeParts = issueDateTime.trim().match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/)
-      let formattedDateTime = ""
-      if (dateTimeParts) {
-        const [, day, month, year, hour, minute] = dateTimeParts
-        formattedDateTime = `${year}-${month}-${day}T${hour}:${minute}`
-      }
-
-      setFormData({
-        ticketId: ticketId.trim(),
-        customerId: customerId.trim(),
-        customerName: customerName.trim(),
-        phone: phone.trim(),
-        serviceType: serviceTypeValue,
-        splitter: splitter.trim(),
-        complaint: complaint.trim(),
-        priority: priority,
-        sla: slaValue,
-        description: `${complaint.trim()}\n\nIssue reported at: ${issueDateTime}`,
-        technician: "",
-        issueTime: formattedDateTime,
-      })
-
-      return true
     }
-    
-    return false
+
+    // Determine priority from complaint keywords
+    let priority = "medium"
+    const complaintLower = complaint.toLowerCase()
+    if (complaintLower.includes("site down") || complaintLower.includes("down") || complaintLower.includes("outage")) {
+      priority = "critical"
+    } else if (complaintLower.includes("slow") || complaintLower.includes("degradation")) {
+      priority = "high"
+    }
+
+    // Format date/time to datetime-local (YYYY-MM-DDTHH:mm)
+    const dateTimeParts = issueDateTime.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/)
+    let formattedDateTime = ""
+    if (dateTimeParts) {
+      const [, day, month, year, hour, minute] = dateTimeParts
+      formattedDateTime = `${year}-${month}-${day}T${hour}:${minute}`
+    }
+
+    // Update only fields that were found
+    setFormData((prev) => ({
+      ...prev,
+      ...(ticketId && { ticketId }),
+      ...(customerId && { customerId }),
+      ...(customerName && { customerName }),
+      ...(phoneNumbers.length > 0 && { phone: phoneNumbers }),
+      ...(serviceTypeValue && { serviceType: serviceTypeValue }),
+      ...(splitter && { splitter }),
+      ...(complaint && { 
+        complaint,
+        description: `${complaint}${issueDateTime ? `\n\nIssue reported at: ${issueDateTime}` : ""}`
+      }),
+      ...(priority && { priority }),
+      ...(slaValue && { sla: slaValue }),
+      ...(formattedDateTime && { issueTime: formattedDateTime }),
+    }))
+
+    return true
   }
 
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -198,14 +272,42 @@ export default function NewTicketPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="phone">Phone Number</Label>
-                      <Input
-                        id="phone"
-                        placeholder="09-440401401"
-                        value={formData.phone}
-                        onChange={(e) => handleInputChange("phone", e.target.value)}
-                        required
-                      />
+                      <div className="flex items-center justify-between">
+                        <Label>Phone Number(s)</Label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={addPhoneNumber}
+                          disabled={!formData.phone[formData.phone.length - 1]?.trim()}
+                          className="h-7 text-xs"
+                        >
+                          Add +
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        {formData.phone.map((phoneNum, index) => (
+                          <div key={index} className="flex gap-2">
+                            <Input
+                              placeholder="09-440401401"
+                              value={phoneNum}
+                              onChange={(e) => handlePhoneChange(index, e.target.value)}
+                              required={index === 0}
+                            />
+                            {formData.phone.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removePhoneNumber(index)}
+                                className="px-3"
+                              >
+                                ✕
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </CardContent>
