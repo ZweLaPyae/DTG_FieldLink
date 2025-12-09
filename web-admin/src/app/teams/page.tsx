@@ -31,7 +31,17 @@ import mockDb from "../../../mock_database.json"
 import { DashboardLayout } from "@/components/dashboard-layout"
 
 export default function TeamsPage() {
-  const [teams, setTeams] = useState(mockDb.teams)
+    const handleDeleteTeam = (teamId: string) => {
+      setTeams(teams.filter(team => team.id !== teamId))
+    }
+  // Convert memberIds and leaderId to string for UI
+  const [teams, setTeams] = useState(
+    mockDb.teams.map(team => ({
+      ...team,
+      leaderId: String(team.leaderId),
+      memberIds: team.memberIds.map(id => String(id)),
+    }))
+  )
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [selectedTeam, setSelectedTeam] = useState<any>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -73,8 +83,9 @@ export default function TeamsPage() {
   }
 
   const getTeamLeaderName = (leaderId: string) => {
-    const leader = mockDb.technicians.find(tech => tech.id === leaderId)
+    const leader = mockDb.technicians.find(tech => String(tech.id) === String(leaderId))
     return leader ? leader.name : "Unknown"
+
   }
 
   return (
@@ -101,7 +112,17 @@ export default function TeamsPage() {
             {teams.map((team) => (
               <TableRow key={team.id}>
                 <TableCell>{team.name}</TableCell>
-                <TableCell>{getTeamLeaderName(team.leaderId)}</TableCell>
+                <TableCell>
+                  {(() => {
+                    const leader = mockDb.technicians.find(tech => String(tech.id) === String(team.leaderId))
+                    return leader ? (
+                      <div className="flex items-center space-x-2">
+                        <img src={"/images/" + leader.picture} alt={leader.name} className="w-8 h-8 rounded-full object-cover" />
+                        <span>{leader.name}</span>
+                      </div>
+                    ) : "Unknown"
+                  })()}
+                </TableCell>
                 <TableCell>{team.memberIds.length} members</TableCell>
                 <TableCell>{team.specialization}</TableCell>
                 <TableCell>{team.location}</TableCell>
@@ -131,26 +152,37 @@ export default function TeamsPage() {
                         </DialogHeader>
                         <div className="space-y-4 mt-4">
                           {mockDb.technicians
-                            .filter(tech => tech.id !== team.leaderId)
-                            .map(tech => (
-                              <div key={tech.id} className="flex items-center space-x-2">
-                                <input
-                                  type="checkbox"
-                                  id={tech.id}
-                                  checked={team.memberIds.includes(tech.id)}
-                                  onChange={(e) => {
-                                    const newMembers = e.target.checked
-                                      ? [...team.memberIds, tech.id]
-                                      : team.memberIds.filter(id => id !== tech.id)
-                                    handleEditMembers(team.id, newMembers)
-                                  }}
-                                />
-                                <label htmlFor={tech.id}>{tech.name}</label>
-                              </div>
-                            ))}
+                            .filter(tech => String(tech.id) !== String(team.leaderId))
+                            .map(tech => {
+                              const techIdStr = String(tech.id)
+                              return (
+                                <div key={techIdStr} className="flex items-center space-x-2">
+                                  <input
+                                    type="checkbox"
+                                    id={techIdStr}
+                                    checked={team.memberIds.includes(techIdStr)}
+                                    onChange={(e) => {
+                                      const newMembers = e.target.checked
+                                        ? [...team.memberIds, techIdStr]
+                                        : team.memberIds.filter(id => id !== techIdStr)
+                                      handleEditMembers(team.id, newMembers)
+                                    }}
+                                  />
+                                  <img src={"/images/" + tech.picture} alt={tech.name} className="w-6 h-6 rounded-full object-cover mr-2" />
+                                  <label htmlFor={techIdStr}>{tech.name}</label>
+                                </div>
+                              )
+                            })}
                         </div>
                       </DialogContent>
                     </Dialog>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleDeleteTeam(team.id)}
+                    >
+                      Delete
+                    </Button>
                   </div>
                 </TableCell>
               </TableRow>
@@ -181,11 +213,17 @@ export default function TeamsPage() {
                     <SelectValue placeholder="Select team leader" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockDb.technicians.map(tech => (
-                      <SelectItem key={tech.id} value={tech.id}>
-                        {tech.name}
-                      </SelectItem>
-                    ))}
+                    {mockDb.technicians.map(tech => {
+                      const techIdStr = String(tech.id)
+                      return (
+                        <SelectItem key={techIdStr} value={techIdStr}>
+                          <div className="flex items-center space-x-2">
+                            <img src={"/images/" + tech.picture} alt={tech.name} className="w-6 h-6 rounded-full object-cover mr-2" />
+                            <span>{tech.name}</span>
+                          </div>
+                        </SelectItem>
+                      )
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -253,11 +291,14 @@ export default function TeamsPage() {
                       <SelectValue placeholder="Select team leader" />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockDb.technicians.map(tech => (
-                        <SelectItem key={tech.id} value={tech.id}>
-                          {tech.name}
-                        </SelectItem>
-                      ))}
+                      {mockDb.technicians.map(tech => {
+                        const techIdStr = String(tech.id)
+                        return (
+                          <SelectItem key={techIdStr} value={techIdStr}>
+                            {tech.name}
+                          </SelectItem>
+                        )
+                      })}
                     </SelectContent>
                   </Select>
                 </div>

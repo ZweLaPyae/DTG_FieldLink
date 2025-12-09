@@ -49,10 +49,10 @@
   ],
 
   "technicians": [
-    { "id": "mike-johnson", "name": "Mike Johnson", "phone": null, "skills": ["fiber"] },
-    { "id": "alex-chen", "name": "Alex Chen", "phone": null, "skills": ["fiber"] },
-    { "id": "david-lee", "name": "David Lee", "phone": null, "skills": ["fiber"] },
-    { "id": "sarah-wilson", "name": "Sarah Wilson", "phone": null, "skills": ["support"] }
+    { "id": 1, "name": "Mike Johnson", "email": "mikejohnson@gmail.com", "phone": "09781181911", "picture": "Me.jpg" },
+    { "id": 2, "name": "Alex Chen", "email": "alexchen@gmail.com", "phone": "1231313213", "picture": "alex-chen.jpg" },
+    { "id": 3, "name": "David Lee", "email": "davidlee@gmail.com", "phone": "+1 (555) 123-4567", "picture": "david-lee.jpg" },
+    { "id": 4, "name": "Sarah Wilson", "email": "sarahwilson@gmail.com", "phone": "+1 (555) 987-6543", "picture": "sarah-wilson.jpg" }
   ],
 
   "service_types": [
@@ -252,8 +252,8 @@
     {
       "id": "team-1",
       "name": "Fiber Installation Team A",
-      "leaderId": "mike-johnson",
-      "memberIds": ["alex-chen", "david-lee"],
+      "leaderId": 1,
+      "memberIds": [2, 3],
       "specialization": "fiber-installation",
       "activeTickets": 3,
       "completedTickets": 45,
@@ -263,7 +263,7 @@
     {
       "id": "team-2",
       "name": "Support Team B",
-      "leaderId": "sarah-wilson",
+      "leaderId": 4,
       "memberIds": [],
       "specialization": "customer-support",
       "activeTickets": 1,
