@@ -30,4 +30,16 @@ class DataService {
     final List customersJson = doc['customers'] ?? [];
     return customersJson.map<Map<String, dynamic>>((c) => Map<String, dynamic>.from(c)).toList();
   }
+
+  Future<Customer?> loadCustomerById(String id) async {
+    final raw = await rootBundle.loadString(jsonPath);
+    final Map<String, dynamic> doc = json.decode(raw);
+    final List customersJson = doc['customers'] ?? [];
+    try {
+      final customerJson = customersJson.firstWhere((c) => c['id'] == id);
+      return Customer.fromJson(Map<String, dynamic>.from(customerJson));
+    } catch (_) {
+      return null;
+    }
+  }
 }

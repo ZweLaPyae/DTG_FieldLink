@@ -91,6 +91,7 @@ class Ticket {
   final int? totalCost;
   final List<Attachment> attachments;
   final List<UpdateEntry> updates;
+  final String? wayToFix;
 
   Ticket({
     required this.id,
@@ -116,6 +117,7 @@ class Ticket {
     this.totalCost,
     required this.attachments,
     required this.updates,
+    this.wayToFix,
   });
 
   factory Ticket.fromJson(Map<String, dynamic> json) {
@@ -145,6 +147,39 @@ class Ticket {
       totalCost: json['totalCost'],
       attachments: attachmentsJson.map((a) => Attachment.fromJson(Map<String, dynamic>.from(a))).toList(),
       updates: updatesJson.map((u) => UpdateEntry.fromJson(Map<String, dynamic>.from(u))).toList(),
+      wayToFix: json['wayToFix'],
+    );
+  }
+
+  Ticket copyWith({
+    String? customerNameDisplay,
+    String? phone,
+  }) {
+    return Ticket(
+      id: id,
+      customerId: customerId,
+      customerNameDisplay: customerNameDisplay ?? this.customerNameDisplay,
+      phone: phone ?? this.phone,
+      location: location,
+      coordinates: coordinates,
+      sla: sla,
+      complaint: complaint,
+      status: status,
+      statusDisplay: statusDisplay,
+      priority: priority,
+      priorityDisplay: priorityDisplay,
+      technicianId: technicianId,
+      technicianDisplay: technicianDisplay,
+      issueTime: issueTime,
+      startTime: startTime,
+      completionTime: completionTime,
+      rootCause: rootCause,
+      rootCauseDisplay: rootCauseDisplay,
+      materialsUsed: materialsUsed,
+      totalCost: totalCost,
+      attachments: attachments,
+      updates: updates,
+      wayToFix: wayToFix,
     );
   }
 }

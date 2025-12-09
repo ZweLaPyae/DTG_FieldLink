@@ -20,7 +20,13 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
   @override
   void initState() {
     super.initState();
-    _ticketFuture = dataService.loadTicketById(widget.ticketId);
+    _ticketFuture = dataService.loadTicketById(widget.ticketId).then((ticket) async {
+      if (ticket != null) {
+        final customer = await dataService.loadCustomerById(ticket.customerId);
+        return ticket.copyWith(customerNameDisplay: customer?.name ?? ticket.customerNameDisplay, phone: customer?.phone);
+      }
+      return ticket;
+    });
   }
 
   @override
@@ -159,6 +165,26 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
                 const SizedBox(height: 12),
                 _sectionCard(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('Root Cause', style: TextStyle(color: Colors.grey)),
+                    const SizedBox(height: 6),
+                    Text(ticket.rootCauseDisplay ?? 'N/A', style: const TextStyle(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 12),
+                    const Text('Way to Fix', style: TextStyle(color: Colors.grey)),
+                    const SizedBox(height: 6),
+                    Text(ticket.wayToFix ?? 'N/A', style: const TextStyle(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 12),
+                    const Text('Materials Used', style: TextStyle(color: Colors.grey)),
+                    const SizedBox(height: 6),
+                    ...ticket.materialsUsed.map((m) => Text('${m['item']} - ${m['cost']} USD', style: const TextStyle(fontWeight: FontWeight.w600))),
+                    const SizedBox(height: 12),
+                    const Text('Total Cost', style: TextStyle(color: Colors.grey)),
+                    const SizedBox(height: 6),
+                    Text('${ticket.totalCost ?? 0} USD', style: const TextStyle(fontWeight: FontWeight.w700)),
+                  ]),
+                ),
+                const SizedBox(height: 12),
+                _sectionCard(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: const [
                       Text('Fault Media', style: TextStyle(fontWeight: FontWeight.w700)),
                       Text('3 files', style: TextStyle(color: Colors.grey)),
@@ -240,7 +266,7 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
                     )
                   ]),
                 ),
-                const SizedBox(height: 60),
+                
               ],
             ),
           ),

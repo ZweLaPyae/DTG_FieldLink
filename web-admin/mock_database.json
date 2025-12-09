@@ -15,7 +15,7 @@
       "id": "M1CDWS00029001",
       "name": "Wai Wai Thein",
       "phone": "+1 (555) 123-4567",
-      "serviceType": "fiber-5gb",
+      "serviceType": "soho",
       "splitter": "N9 OLT 0/1/12/58"
     },
     {
@@ -60,7 +60,7 @@
     { "id": "fiber-200", "name": "Fiber 200Mbps", "speed_mbps": 200 },
     { "id": "fiber-500", "name": "Fiber 500Mbps", "speed_mbps": 500 },
     { "id": "fiber-1gb", "name": "Fiber 1Gbps", "speed_mbps": 1000 },
-    {"id": "fiber-5gb", "name": "SOHO", "speed_mbps": 5000 }
+    {"id": "soho", "name": "SOHO", "speed_mbps": 5000 }
   ],
 
   "sla_options": ["1-hour", "2-hours", "4-hours", "6-hours", "24-hours"],

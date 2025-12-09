@@ -79,7 +79,17 @@ class HomePage extends StatelessWidget {
                   itemCount: tickets.length,
                   itemBuilder: (context, index) {
                     final t = tickets[index];
-                    return _ticketCard(context, t);
+                    final customerFuture = dataService.loadCustomerById(t.customerId);
+                    return FutureBuilder<Customer?>(
+                      future: customerFuture,
+                      builder: (context, customerSnapshot) {
+                        if (customerSnapshot.connectionState != ConnectionState.done) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+                        final customer = customerSnapshot.data;
+                        return _ticketCard(context, t, customer);
+                      },
+                    );
                   },
                 );
               },
@@ -101,7 +111,7 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  Widget _ticketCard(BuildContext context, Ticket t) {
+  Widget _ticketCard(BuildContext context, Ticket t, Customer? customer) {
     Color statusColor = Colors.grey;
     if (t.status.toLowerCase().contains('in-progress')) statusColor = Colors.orange;
     if (t.status.toLowerCase().contains('completed')) statusColor = Colors.green;
@@ -123,9 +133,8 @@ class HomePage extends StatelessWidget {
           ])
         ]),
         const SizedBox(height: 10),
-        _infoRow('Customer', t.customerNameDisplay),
+        _infoRow('Customer', customer?.name ?? 'N/A'),
         _infoRow('Issue', t.complaint),
-        _infoRow('Location', t.location),
         _infoRow('SLA', t.sla),
         const SizedBox(height: 8),
         Row(children: [
