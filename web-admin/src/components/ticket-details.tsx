@@ -47,16 +47,18 @@ export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsPro
 
   const priorityColors = {
     low: "bg-gray-500/10 text-gray-500 border-gray-500/20",
-    medium: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
-    high: "bg-orange-500/10 text-orange-500 border-orange-500/20",
-    critical: "bg-red-500/10 text-red-500 border-red-500/20",
+    medium: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+    high: "bg-amber-500/10 text-amber-500 border-amber-500/20",
+    critical: "bg-red-600/10 text-red-600 border-red-600/20",
   }
 
   return (
     <div className="space-y-4">
       <Card className={cn(
         "border-border/50",
-        isSelected && "ring-2 ring-primary border-primary/50"
+        isSelected && (ticket.priority !== "critical" || ticket.status === "completed") && "ring-2 ring-primary border-primary/50",
+        ticket.priority === "critical" && ticket.status !== "completed" && "border-2 border-red-600 shadow-red-500/20 shadow-lg",
+        isSelected && ticket.priority === "critical" && ticket.status !== "completed" && "ring-2 ring-red-600"
       )}>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -186,7 +188,7 @@ export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsPro
           {/* Break Times */}
           {ticket.breakTimes && ticket.breakTimes.length > 0 && (
             <>
-              <div className="space-y-3">
+              <div className="space-y-3 col-span-2 shadow-sm p-4 rounded-md border border-border/50">
                 <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Break Times</h4>
                 <div className="space-y-2">
                   {ticket.breakTimes.map((breakTime, idx) => {
@@ -206,7 +208,6 @@ export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsPro
                   })}
                 </div>
               </div>
-              <Separator />
             </>
           )}
 
