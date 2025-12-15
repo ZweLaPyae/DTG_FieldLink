@@ -15,6 +15,7 @@ class _HomePageState extends State<HomePage> {
   final DataService dataService = DataService(jsonPath: 'lib/mock_database_mod.json');
   int _currentIndex = 0;
   String _priorityFilter = 'all';
+  bool _sortAscending = true; // true = low to critical, false = critical to low
 
   @override
   Widget build(BuildContext context) {
@@ -42,17 +43,46 @@ class _HomePageState extends State<HomePage> {
           child: Icon(Icons.wifi, color: Colors.white),
         ),
         actions: [
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(20)),
-            child: const Text('3 new', style: TextStyle(color: Colors.white)),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.menu, color: Colors.white),
+            onSelected: (value) {
+              if (value == 'logout') {
+                // Handle logout
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'settings',
+                child: Row(
+                  children: [
+                    Icon(Icons.settings, size: 20),
+                    SizedBox(width: 12),
+                    Text('Settings'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'help',
+                child: Row(
+                  children: [
+                    Icon(Icons.help, size: 20),
+                    SizedBox(width: 12),
+                    Text('Help & Support'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, color: Colors.red, size: 20),
+                    SizedBox(width: 12),
+                    Text('Logout', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
           ),
-          IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_none, color: Colors.white)),
-          const Padding(
-            padding: EdgeInsets.only(right: 12),
-            child: CircleAvatar(radius: 16, child: Icon(Icons.person, size: 18)),
-          )
         ],
       ),
       body: bodyContent,
@@ -88,21 +118,34 @@ class _HomePageState extends State<HomePage> {
                 'Available Tickets',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
-              PopupMenuButton<String>(
+              Row(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                      color: const Color(0xFF2563EB),
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _sortAscending = !_sortAscending;
+                      });
+                    },
+                  ),
+                  PopupMenuButton<String>(
                 icon: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF4F46E5).withOpacity(0.1),
+                    color: const Color(0xFF2563EB).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.filter_list, size: 18, color: Color(0xFF4F46E5)),
+                      const Icon(Icons.filter_list, size: 18, color: Color(0xFF2563EB)),
                       const SizedBox(width: 4),
                       Text(
                         _priorityFilter == 'all' ? 'All' : _priorityFilter.toUpperCase(),
-                        style: const TextStyle(color: Color(0xFF4F46E5), fontWeight: FontWeight.w600),
+                        style: const TextStyle(color: Color(0xFF2563EB), fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),
@@ -118,6 +161,8 @@ class _HomePageState extends State<HomePage> {
                   const PopupMenuItem(value: 'medium', child: Text('Medium')),
                   const PopupMenuItem(value: 'high', child: Text('High')),
                   const PopupMenuItem(value: 'critical', child: Text('Critical')),
+                ],
+              ),
                 ],
               ),
             ],
@@ -138,10 +183,18 @@ class _HomePageState extends State<HomePage> {
               }
               final allTickets = snapshot.data ?? [];
               // Filter for available tickets (show all tickets for now)
-              final tickets = allTickets.where((t) {
+              var tickets = allTickets.where((t) {
                 if (_priorityFilter == 'all') return true;
                 return t.priority.toLowerCase() == _priorityFilter;
               }).toList();
+              
+              // Sort tickets by priority
+              tickets.sort((a, b) {
+                const priorityOrder = {'low': 1, 'medium': 2, 'high': 3, 'critical': 4};
+                final aPriority = priorityOrder[a.priority.toLowerCase()] ?? 0;
+                final bPriority = priorityOrder[b.priority.toLowerCase()] ?? 0;
+                return _sortAscending ? aPriority.compareTo(bPriority) : bPriority.compareTo(aPriority);
+              });
               
               if (tickets.isEmpty) {
                 return const Center(child: Text('No available tickets', style: TextStyle(color: Colors.grey)));
@@ -184,21 +237,34 @@ class _HomePageState extends State<HomePage> {
                 'My Tasks',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
-              PopupMenuButton<String>(
+              Row(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                      color: const Color(0xFF2563EB),
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _sortAscending = !_sortAscending;
+                      });
+                    },
+                  ),
+                  PopupMenuButton<String>(
                 icon: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF4F46E5).withOpacity(0.1),
+                    color: const Color(0xFF2563EB).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.filter_list, size: 18, color: Color(0xFF4F46E5)),
+                      const Icon(Icons.filter_list, size: 18, color: Color(0xFF2563EB)),
                       const SizedBox(width: 4),
                       Text(
                         _priorityFilter == 'all' ? 'All' : _priorityFilter.toUpperCase(),
-                        style: const TextStyle(color: Color(0xFF4F46E5), fontWeight: FontWeight.w600),
+                        style: const TextStyle(color: Color(0xFF2563EB), fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),
@@ -214,6 +280,8 @@ class _HomePageState extends State<HomePage> {
                   const PopupMenuItem(value: 'medium', child: Text('Medium')),
                   const PopupMenuItem(value: 'high', child: Text('High')),
                   const PopupMenuItem(value: 'critical', child: Text('Critical')),
+                ],
+              ),
                 ],
               ),
             ],
@@ -234,7 +302,7 @@ class _HomePageState extends State<HomePage> {
               }
               final allTickets = snapshot.data ?? [];
               // Filter for assigned tickets (in-progress or completed)
-              final tickets = allTickets.where((t) {
+              var tickets = allTickets.where((t) {
                 final isAssigned = t.status.toLowerCase().contains('in-progress') || 
                                  t.status.toLowerCase().contains('completed');
                 if (!isAssigned) return false;
@@ -242,6 +310,22 @@ class _HomePageState extends State<HomePage> {
                 if (_priorityFilter == 'all') return true;
                 return t.priority.toLowerCase() == _priorityFilter;
               }).toList();
+              
+              // Sort tickets: in-progress first, then by priority
+              tickets.sort((a, b) {
+                final aInProgress = a.status.toLowerCase().contains('in-progress');
+                final bInProgress = b.status.toLowerCase().contains('in-progress');
+                
+                // If one is in-progress and the other isn't, prioritize in-progress
+                if (aInProgress && !bInProgress) return -1;
+                if (!aInProgress && bInProgress) return 1;
+                
+                // If both have same status, sort by priority
+                const priorityOrder = {'low': 1, 'medium': 2, 'high': 3, 'critical': 4};
+                final aPriority = priorityOrder[a.priority.toLowerCase()] ?? 0;
+                final bPriority = priorityOrder[b.priority.toLowerCase()] ?? 0;
+                return _sortAscending ? aPriority.compareTo(bPriority) : bPriority.compareTo(aPriority);
+              });
               
               if (tickets.isEmpty) {
                 return const Center(child: Text('No assigned tasks', style: TextStyle(color: Colors.grey)));
@@ -299,8 +383,6 @@ class _HomePageState extends State<HomePage> {
               _profileItem(Icons.phone, 'Phone', '+1 234 567 8900'),
               const Divider(height: 1),
               _profileItem(Icons.badge, 'Employee ID', 'TECH-001'),
-              const Divider(height: 1),
-              _profileItem(Icons.location_on, 'Region', 'North District'),
             ],
           ),
           const SizedBox(height: 16),
@@ -309,32 +391,6 @@ class _HomePageState extends State<HomePage> {
               _profileItem(Icons.assignment_turned_in, 'Completed Tasks', '45'),
               const Divider(height: 1),
               _profileItem(Icons.pending_actions, 'Pending Tasks', '8'),
-              const Divider(height: 1),
-              _profileItem(Icons.timer, 'Avg. Response Time', '2.5 hours'),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _profileCard(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.settings, color: Color(0xFF2563EB)),
-                title: const Text('Settings'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {},
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.help, color: Color(0xFF2563EB)),
-                title: const Text('Help & Support'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {},
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.logout, color: Colors.red),
-                title: const Text('Logout', style: TextStyle(color: Colors.red)),
-                onTap: () {},
-              ),
             ],
           ),
         ],
@@ -398,7 +454,7 @@ class _HomePageState extends State<HomePage> {
         const SizedBox(height: 8),
         ElevatedButton.icon(
           onPressed: () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => TicketDetailPage(ticketId: t.id)));
+            Navigator.push(context, MaterialPageRoute(builder: (_) => TicketDetailPage(ticketId: t.id, isFromTasksTab: false)));
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF2563EB),
@@ -478,7 +534,7 @@ class _HomePageState extends State<HomePage> {
         const SizedBox(height: 8),
         ElevatedButton.icon(
           onPressed: () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => TicketDetailPage(ticketId: t.id)));
+            Navigator.push(context, MaterialPageRoute(builder: (_) => TicketDetailPage(ticketId: t.id, isFromTasksTab: true)));
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF2563EB),
