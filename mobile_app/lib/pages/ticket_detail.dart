@@ -37,10 +37,10 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
 
   Color _priorityColor(String p) {
     final lower = p.toLowerCase();
-    if (lower.contains('critical')) return Colors.red.shade400;
-    if (lower.contains('high')) return Colors.red;
-    if (lower.contains('medium')) return Colors.orange;
-    return Colors.green;
+    if (lower.contains('critical')) return const Color(0xFFDC2626);
+    if (lower.contains('high')) return const Color(0xFFF59E0B);
+    if (lower.contains('medium')) return const Color(0xFF3B82F6);
+    return Colors.grey;
   }
 
   @override
@@ -60,7 +60,7 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
           backgroundColor: const Color(0xFFF5F6FA),
           appBar: AppBar(
             title: Text('Ticket ${ticket.id}', style: const TextStyle(fontWeight: FontWeight.w600)),
-            backgroundColor: const Color.fromARGB(255, 122, 182, 212),
+            backgroundColor: const Color(0xFF2563EB),
             leading: BackButton(onPressed: () => Navigator.pop(context)),
             actions: [
               Container(
@@ -258,7 +258,7 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
                           }
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color.fromARGB(255, 122, 182, 212),
+                          backgroundColor: const Color(0xFF2563EB),
                           foregroundColor: Colors.white,
                         ),
                         child: const Text('Save Updates'),
