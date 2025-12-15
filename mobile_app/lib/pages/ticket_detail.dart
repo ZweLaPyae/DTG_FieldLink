@@ -6,7 +6,8 @@ import 'package:intl/intl.dart';
 
 class TicketDetailPage extends StatefulWidget {
   final String ticketId;
-  const TicketDetailPage({super.key, required this.ticketId});
+  final bool isFromTasksTab;
+  const TicketDetailPage({super.key, required this.ticketId, this.isFromTasksTab = false});
 
   @override
   State<TicketDetailPage> createState() => _TicketDetailPageState();
@@ -37,10 +38,11 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
 
   Color _priorityColor(String p) {
     final lower = p.toLowerCase();
-    if (lower.contains('critical')) return Colors.red.shade400;
-    if (lower.contains('high')) return Colors.red;
-    if (lower.contains('medium')) return Colors.orange;
-    return Colors.green;
+    if (lower.contains('critical')) return const Color(0xFFDC2626);
+    if (lower.contains('high')) return const Color(0xFFF59E0B);
+    if (lower.contains('medium')) return const Color(0xFF3B82F6);
+    if (lower.contains('low')) return const Color(0xFF6B7280);
+    return const Color(0xFF6B7280);
   }
 
   @override
@@ -59,36 +61,57 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
         return Scaffold(
           backgroundColor: const Color(0xFFF5F6FA),
           appBar: AppBar(
-            title: Text('Ticket ${ticket.id}', style: const TextStyle(fontWeight: FontWeight.w600)),
-            backgroundColor: const Color.fromARGB(255, 122, 182, 212),
+            title: Text('Ticket ${ticket.id}', style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white)),
+            backgroundColor: const Color(0xFF2563EB),
+            iconTheme: const IconThemeData(color: Colors.white),
             leading: BackButton(onPressed: () => Navigator.pop(context)),
-            actions: [
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(ticket.statusDisplay),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _priorityColor(ticket.priority).withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(ticket.priorityDisplay),
-              ),
-              const SizedBox(width: 8),
-            ],
           ),
           body: Padding(
             padding: const EdgeInsets.all(14),
             child: ListView(
               children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    children: [
+                      if (widget.isFromTasksTab)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: ticket.status.toLowerCase().contains('in-progress')
+                              ? const Color(0xFF3B82F6).withOpacity(0.12)
+                              : const Color(0xFF10B981).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          ticket.statusDisplay,
+                          style: TextStyle(
+                            color: ticket.status.toLowerCase().contains('in-progress')
+                                ? const Color(0xFF3B82F6)
+                                : const Color(0xFF10B981),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      if (widget.isFromTasksTab)
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _priorityColor(ticket.priority).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          ticket.priorityDisplay,
+                          style: TextStyle(
+                            color: _priorityColor(ticket.priority),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 _sectionCard(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     const Text('Customer', style: TextStyle(color: Colors.grey)),
@@ -152,14 +175,16 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
                     const Text('Assigned Technician', style: TextStyle(color: Colors.grey)),
                     const SizedBox(height: 6),
                     Text(ticket.technicianDisplay, style: const TextStyle(fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 12),
-                    Row(children: [
-                      _statusToggle('Pending', ticket.status.toLowerCase().contains('pending')),
-                      const SizedBox(width: 8),
-                      _statusToggle('In Progress', ticket.status.toLowerCase().contains('in-progress') || ticket.status.toLowerCase().contains('in progress')),
-                      const SizedBox(width: 8),
-                      _statusToggle('Done', ticket.status.toLowerCase().contains('completed')),
-                    ]),
+                    if (widget.isFromTasksTab) ...[
+                      const SizedBox(height: 12),
+                      Row(children: [
+                        _statusToggle('Pending', ticket.status.toLowerCase().contains('pending')),
+                        const SizedBox(width: 8),
+                        _statusToggle('In Progress', ticket.status.toLowerCase().contains('in-progress') || ticket.status.toLowerCase().contains('in progress')),
+                        const SizedBox(width: 8),
+                        _statusToggle('Done', ticket.status.toLowerCase().contains('completed')),
+                      ]),
+                    ],
                   ]),
                 ),
                 const SizedBox(height: 12),
@@ -219,6 +244,7 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
                     TextField(
                       controller: _notesController,
                       maxLines: 4,
+                      enabled: widget.isFromTasksTab,
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: Colors.white,
@@ -241,29 +267,31 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
                           title: Text(u.message),
                           subtitle: Text(DateFormat.Hm().format(u.time.toLocal())),
                         )),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          // Save updates stub
-                          final noteText = _notesController.text.trim();
-                          if (noteText.isNotEmpty) {
-                            // In production, call API to save.
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Updates saved')));
-                            _notesController.clear();
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No changes to save')));
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color.fromARGB(255, 122, 182, 212),
-                          foregroundColor: Colors.white,
+                    if (widget.isFromTasksTab) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            // Save updates stub
+                            final noteText = _notesController.text.trim();
+                            if (noteText.isNotEmpty) {
+                              // In production, call API to save.
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Updates saved')));
+                              _notesController.clear();
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No changes to save')));
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2563EB),
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('Save Updates'),
                         ),
-                        child: const Text('Save Updates'),
                       ),
-                    )
+                    ],
                   ]),
                 ),
                 
