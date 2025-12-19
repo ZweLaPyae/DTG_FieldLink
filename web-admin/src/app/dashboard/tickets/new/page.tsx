@@ -117,9 +117,27 @@ export default function NewTicketPage() {
     }
   }
 
-  const handleSubmit = (isDraft = false) => {
-    console.log("[v0] Form submitted:", { ...formData, isDraft })
-    // Here you would typically send the data to your API
+  const handleSubmit = async (isDraft = false) => {
+    try {
+      const response = await fetch('http://localhost:3000/tickets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ...formData, isDraft }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Ticket created:', result);
+        router.push('/dashboard'); // Redirect to the dashboard after creation
+      } else {
+        const error = await response.json();
+        console.error('Error creating ticket:', error);
+      }
+    } catch (err) {
+      console.error('Network error:', err);
+    }
   }
 
   return (

@@ -79,7 +79,7 @@ const rootCauseData = mockDb.root_causes.map(cause => {
 
 // Calculate technician performance
 const technicianPerformance = mockDb.technicians.map(tech => {
-  const techTickets = mockDb.tickets.filter(ticket => ticket.technicianId === tech.id)
+  const techTickets = mockDb.tickets.filter(ticket => ticket.technicianId === String(tech.id))
   const completedTechTickets = techTickets.filter(ticket => ticket.status === 'completed')
   const avgTime = completedTechTickets.reduce((acc, ticket) => {
     if (ticket.issueTime && ticket.completionTime) {

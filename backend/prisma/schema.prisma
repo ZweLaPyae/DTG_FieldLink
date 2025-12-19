@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id            String      @id
+  name          String
+  phone         String
+  serviceTypeId String
+  splitter      String
+  serviceType   ServiceType @relation(fields: [serviceTypeId], references: [id])
+  tickets       Ticket[]
+}
+
+model Technician {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String
+  phone     String
+  picture   String
+  leadsTeam Team[]
+  tickets   Ticket[]
+}
+
+model ServiceType {
+  id        String     @id
+  name      String
+  speedMbps Int
+  customers Customer[]
+}
+
+model SLAOption {
+  id    String @id
+  value String
+}
+
+model Priority {
+  id      String   @id
+  display String
+  tickets Ticket[]
+}
+
+model RootCause {
+  id      String   @id
+  name    String
+  tickets Ticket[]
+}
+
+model Ticket {
+  id               String      @id
+  customerId       String
+  sla              String
+  complaint        String
+  status           String?
+  priorityId       String
+  technicianId     Int?
+  issueTime        DateTime
+  startTime        DateTime?
+  completionTime   DateTime?
+  rootCauseId      String?
+  rootCauseDetails String?
+  wayToFix         String?
+  materialsUsed    Json?
+  totalCost        Float?
+  attachments      Json?
+  updates          Json?
+  breakTimes       BreakTime[]
+  customer         Customer    @relation(fields: [customerId], references: [id])
+  priority         Priority    @relation(fields: [priorityId], references: [id])
+  rootCause        RootCause?   @relation(fields: [rootCauseId], references: [id])
+  technician       Technician?  @relation(fields: [technicianId], references: [id])
+}
+
+model Team {
+  id               String     @id @default(cuid())
+  name             String
+  leaderId         Int
+  memberIds        Json
+  specialization   String
+  activeTickets    Int
+  completedTickets Int
+  location         String
+  status           String
+  leader           Technician @relation(fields: [leaderId], references: [id])
+}
+
+model MaterialCatalog {
+  id       Int    @id @default(autoincrement())
+  name     String
+  unitCost Float
+}
+
+model SystemSettings {
+  id            Int  @id @default(autoincrement())
+  businessHours Json
+}
+
+model BreakTime {
+  id        Int      @id @default(autoincrement())
+  ticketId  String
+  reason    String
+  startTime DateTime
+  endTime   DateTime
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+}
