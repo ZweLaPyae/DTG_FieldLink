@@ -5,19 +5,14 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { AlertCircle, CheckCircle, Clock, TrendingUp, Plus, Filter } from "lucide-react"
 import Link from "next/link"
-import mockDb from "../../mock_database.json"
+import { useEffect, useState } from 'react';
+import { Ticket } from "../types/ticket"; 
 
-// Helper function to get hours between dates
 const getHoursBetween = (start: string, end: string) => {
   const startDate = new Date(start)
   const endDate = new Date(end)
   return (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60)
 }
-
-// Get most recent tickets first
-const tickets = [...mockDb.tickets]
-  .sort((a, b) => new Date(b.issueTime).getTime() - new Date(a.issueTime).getTime())
-  .slice(0, 3)
 
 const statusColors = {
   pending: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20 dark:text-yellow-400",
@@ -34,20 +29,40 @@ const priorityColors = {
 }
 
 // Calculate metrics
-const totalTickets = mockDb.tickets.length
-const inProgressTickets = mockDb.tickets.filter(t => t.status === 'in-progress').length
-const completedToday = mockDb.tickets.filter(t => 
-  t.status === 'completed' && 
-  t.completionTime && 
-  new Date(t.completionTime).toDateString() === new Date().toDateString()
-).length
-
-const avgResolutionHours = mockDb.tickets
-  .filter(t => t.status === 'completed' && t.issueTime && t.completionTime)
-  .reduce((acc, t) => acc + getHoursBetween(t.issueTime!, t.completionTime!), 0) / 
-  mockDb.tickets.filter(t => t.status === 'completed' && t.issueTime && t.completionTime).length || 0
-
 export function TicketOverview() {
+  const [tickets, setTickets] = useState<Ticket[]>([]); // Explicitly define the type of tickets
+
+  useEffect(() => {
+    const fetchTickets = async () => {
+      try {
+        const response = await fetch(process.env.NEXT_PUBLIC_BACKEND_URL + '/tickets'); // Replace with your backend API URL
+        if (response.ok) {
+          const data: Ticket[] = await response.json(); // Ensure the data matches the Ticket type
+          setTickets(data);
+        } else {
+          console.error('Failed to fetch tickets');
+        }
+      } catch (err) {
+        console.error('Network error:', err);
+      }
+    };
+
+    fetchTickets();
+  }, []);
+
+  const totalTickets = tickets.length
+  const inProgressTickets = tickets.filter(t => t.status === 'in-progress').length
+  const completedToday = tickets.filter(t => 
+    t.status === 'completed' && 
+    t.completionTime && 
+    new Date(t.completionTime).toDateString() === new Date().toDateString()
+  ).length
+
+  const avgResolutionHours = tickets
+    .filter(t => t.status === 'completed' && t.issueTime && t.completionTime)
+    .reduce((acc, t) => acc + getHoursBetween(t.issueTime!, t.completionTime!), 0) / 
+    tickets.filter(t => t.status === 'completed' && t.issueTime && t.completionTime).length || 0
+
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
@@ -58,9 +73,9 @@ export function TicketOverview() {
             <AlertCircle className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">{totalTickets}</div>
+            <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">{tickets.length}</div>
             <p className="text-xs text-blue-600 dark:text-blue-400">
-              <span className="text-green-500">+{completedToday}</span> today
+              <span className="text-green-500">+{tickets.filter(t => t.status === 'completed').length}</span> completed
             </p>
           </CardContent>
         </Card>
@@ -130,7 +145,6 @@ export function TicketOverview() {
         <CardContent>
           <div className="space-y-4">
             {tickets.map((ticket) => {
-              const customer = mockDb.customers.find(c => c.id === ticket.customerId)
               return (
                 <div
                   key={ticket.id}
@@ -142,24 +156,24 @@ export function TicketOverview() {
                       <Badge variant="outline" className={statusColors[ticket.status as keyof typeof statusColors]}>
                         {ticket.status}
                       </Badge>
-                      <Badge variant="outline" className={priorityColors[ticket.priority as keyof typeof priorityColors]}>
-                        {ticket.priority}
+                      <Badge variant="outline" className={priorityColors[ticket.priorityId as keyof typeof priorityColors]}>
+                        {ticket.priorityId}
                       </Badge>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                       <div>
                         <span className="text-muted-foreground">Customer:</span>
-                        <div className="font-medium">{customer ? customer.name : ticket.customerId}</div>
-                        <div className="text-muted-foreground">{customer ? customer.phone : "-"}</div>
+                        <div className="font-medium">{ticket.customerName || "N/A"}</div>
+                        <div className="text-muted-foreground">{ticket.phone || "N/A"}</div>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Issue:</span>
                         <div className="font-medium">{ticket.complaint}</div>
-                        <div className="text-muted-foreground">{customer ? customer.splitter : "-"}</div>
+                        <div className="text-muted-foreground">{ticket.splitter || "N/A"}</div>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Technician:</span>
-                        <div className="font-medium">{ticket.technician_display}</div>
+                        <div className="font-medium">{ticket.technician_display || "N/A"}</div>
                         <div className="text-muted-foreground">SLA: {ticket.sla}</div>
                       </div>
                     </div>
