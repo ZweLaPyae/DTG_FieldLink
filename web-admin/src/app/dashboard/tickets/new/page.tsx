@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,15 +19,15 @@ export default function NewTicketPage() {
     customerId: "",
     customerName: "",
     phone: "",
-    serviceType: "",
+    serviceTypeId: "",
     splitter: "",
     complaint: "",
     priority: "",
     sla: "",
-    description: "",
     technician: "",
     issueTime: "",
   })
+  const [serviceTypes, setServiceTypes] = useState<{ id: string; name: string; speedMbps: number }[]>([])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -36,11 +36,11 @@ export default function NewTicketPage() {
   const parseTicketFromPaste = (pastedText: string) => {
     // Format: ticket id>> complaint description Customer ID Customer Name SLA ?hrs Splitter Information phone number issue date&time
     // Example: MMI 225110592>> Site Down M1CDWS00029001 Wai Wai Thein SOHO 24 hrs N9 OLT 0/1/12/58  09-440401401 22/11/2025 09:25
-    
+
     const ticketPattern = /^([A-Z]{3}\s+\d+)\s*>>\s*(.+?)\s+(M1[A-Z0-9]+)\s+((?:HTK\s+)?[A-Z](?:[a-z]+|\s)+(?:\s+[A-Z][a-z]+)*)\s+(SOHO|Enterprise|Business|HTK)\s+(\d+)\s*hrs?\s+(N\d+\s+OLT\s+[\d/]+)\s+([\d\-/]+(?:\/[\d\-]+)?)\s+([\d/]+\s+[\d:]+)/i
-    
+
     const match = pastedText.trim().match(ticketPattern)
-    
+
     if (match) {
       const [
         ,
@@ -48,7 +48,7 @@ export default function NewTicketPage() {
         complaint,
         customerId,
         customerName,
-        serviceType,
+        serviceTypeId,
         slaHours,
         splitter,
         phone,
@@ -65,11 +65,10 @@ export default function NewTicketPage() {
 
       // Map service type
       let serviceTypeValue = ""
-      const serviceTypeLower = serviceType.toLowerCase()
-      if (serviceTypeLower === "soho" || serviceTypeLower === "htk") serviceTypeValue = "fiber-100"
+      const serviceTypeLower = serviceTypeId.toLowerCase()
+      if (serviceTypeLower === "soho" || serviceTypeLower === "htk") serviceTypeValue = "soho"
       else if (serviceTypeLower === "enterprise") serviceTypeValue = "fiber-enterprise"
       else if (serviceTypeLower === "business") serviceTypeValue = "fiber-500"
-
       // Determine priority based on complaint keywords
       let priority = "medium"
       const complaintLower = complaint.toLowerCase()
@@ -92,25 +91,44 @@ export default function NewTicketPage() {
         customerId: customerId.trim(),
         customerName: customerName.trim(),
         phone: phone.trim(),
-        serviceType: serviceTypeValue,
+        serviceTypeId: serviceTypeId,
         splitter: splitter.trim(),
         complaint: complaint.trim(),
         priority: priority,
         sla: slaValue,
-        description: `${complaint.trim()}\n\nIssue reported at: ${issueDateTime}`,
         technician: "",
         issueTime: formattedDateTime,
       })
 
       return true
     }
-    
+
     return false
   }
+  useEffect(() => {
+    const fetchServiceTypes = async () => {
+      try {
+        const res = await fetch(
+          process.env.NEXT_PUBLIC_BACKEND_URL + "/service-type"
+        )
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch service types")
+        }
+
+        const data = await res.json()
+        setServiceTypes(data)
+      } catch (error) {
+        console.error("Error fetching service types:", error)
+      }
+    }
+    fetchServiceTypes()
+  }, [])
+
 
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const pastedText = e.clipboardData.getData("text")
-    
+
     if (parseTicketFromPaste(pastedText)) {
       e.preventDefault()
       // Show success message or notification here if needed
@@ -119,7 +137,7 @@ export default function NewTicketPage() {
 
   const handleSubmit = async (isDraft = false) => {
     try {
-      const response = await fetch('http://localhost:3000/tickets', {
+      const response = await fetch(process.env.NEXT_PUBLIC_BACKEND_URL + '/tickets', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -130,6 +148,7 @@ export default function NewTicketPage() {
       if (response.ok) {
         const result = await response.json();
         console.log('Ticket created:', result);
+        console.log('Service Type:', formData.serviceTypeId);
         router.push('/dashboard'); // Redirect to the dashboard after creation
       } else {
         const error = await response.json();
@@ -172,65 +191,65 @@ export default function NewTicketPage() {
         </Card>
 
         <div className="space-y-6">
-            {/* Customer and Service Information Side by Side */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Customer Information */}
-              <Card className="border-blue-200 dark:border-blue-800">
-                <CardHeader className="bg-blue-50 dark:bg-blue-950/50">
-                  <CardTitle className="flex items-center text-blue-700 dark:text-blue-300">
-                    <User className="w-5 h-5 mr-2" />
-                    Customer Information
-                  </CardTitle>
-                  <CardDescription>Basic customer details and contact information</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4 pt-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="ticketId">Ticket ID</Label>
-                      <Input
-                        id="ticketId"
-                        placeholder="MMI 225110592"
-                        value={formData.ticketId}
-                        onChange={(e) => handleInputChange("ticketId", e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="customerId">Customer ID</Label>
-                      <Input
-                        id="customerId"
-                        placeholder="M1CDWS00029001"
-                        value={formData.customerId}
-                        onChange={(e) => handleInputChange("customerId", e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="customerName">Customer Name</Label>
-                      <Input
-                        id="customerName"
-                        placeholder="John Smith"
-                        value={formData.customerName}
-                        onChange={(e) => handleInputChange("customerName", e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">Phone Number</Label>
-                      <Input
-                        id="phone"
-                        placeholder="09-440401401"
-                        value={formData.phone}
-                        onChange={(e) => handleInputChange("phone", e.target.value)}
-                        required
-                      />
-                    </div>
+          {/* Customer and Service Information Side by Side */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Customer Information */}
+            <Card className="border-blue-200 dark:border-blue-800">
+              <CardHeader className="bg-blue-50 dark:bg-blue-950/50">
+                <CardTitle className="flex items-center text-blue-700 dark:text-blue-300">
+                  <User className="w-5 h-5 mr-2" />
+                  Customer Information
+                </CardTitle>
+                <CardDescription>Basic customer details and contact information</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ticketId">Ticket ID</Label>
+                    <Input
+                      id="ticketId"
+                      placeholder="MMI 225110592"
+                      value={formData.ticketId}
+                      onChange={(e) => handleInputChange("ticketId", e.target.value)}
+                      required
+                    />
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="space-y-2">
+                    <Label htmlFor="customerId">Customer ID</Label>
+                    <Input
+                      id="customerId"
+                      placeholder="M1CDWS00029001"
+                      value={formData.customerId}
+                      onChange={(e) => handleInputChange("customerId", e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="customerName">Customer Name</Label>
+                    <Input
+                      id="customerName"
+                      placeholder="John Smith"
+                      value={formData.customerName}
+                      onChange={(e) => handleInputChange("customerName", e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input
+                      id="phone"
+                      placeholder="09-440401401"
+                      value={formData.phone}
+                      onChange={(e) => handleInputChange("phone", e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-              {/* Service Information */}
-              <Card className="border-green-200 dark:border-green-800">
+            {/* Service Information */}
+            <Card className="border-green-200 dark:border-green-800">
               <CardHeader className="bg-green-50 dark:bg-green-950/50">
                 <CardTitle className="flex items-center text-green-700 dark:text-green-300">
                   <Wifi className="w-5 h-5 mr-2" />
@@ -243,17 +262,18 @@ export default function NewTicketPage() {
                   <div className="space-y-2">
                     <Label htmlFor="serviceType">Service Type</Label>
                     <Select
-                      value={formData.serviceType}
-                      onValueChange={(value) => handleInputChange("serviceType", value)}
+                      value={formData.serviceTypeId}
+                      onValueChange={(value) => handleInputChange("serviceTypeId", value)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select service type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="fiber-100">Fiber 100Mbps</SelectItem>
-                        <SelectItem value="fiber-500">Fiber 500Mbps</SelectItem>
-                        <SelectItem value="fiber-1gb">Fiber 1Gbps</SelectItem>
-                        <SelectItem value="fiber-enterprise">Fiber Enterprise</SelectItem>
+                        {serviceTypes.map((service) => (
+                          <SelectItem key={service.id} value={service.id}>
+                            {service.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -293,87 +313,76 @@ export default function NewTicketPage() {
                   </div>
                 </div>
               </CardContent>
-              </Card>
-            </div>
-
-            {/* Issue Details */}
-            <Card className="border-orange-200 dark:border-orange-800">
-              <CardHeader className="bg-orange-50 dark:bg-orange-950/50">
-                <CardTitle className="flex items-center text-orange-700 dark:text-orange-300">
-                  <AlertTriangle className="w-5 h-5 mr-2" />
-                  Issue Details
-                </CardTitle>
-                <CardDescription>Detailed description of the problem</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 pt-6">
-                <div className="space-y-2">
-                  <Label htmlFor="complaint">Issue Summary</Label>
-                  <Input
-                    id="complaint"
-                    placeholder="Brief description of the issue"
-                    value={formData.complaint}
-                    onChange={(e) => handleInputChange("complaint", e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Detailed Description</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Provide detailed information about the issue, symptoms, and any troubleshooting steps already taken..."
-                    rows={4}
-                    value={formData.description}
-                    onChange={(e) => handleInputChange("description", e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="priority">Priority Level</Label>
-                    <Select value={formData.priority} onValueChange={(value) => handleInputChange("priority", value)} required>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select priority" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="critical">Critical</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="low">Low</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="technician">Assign Technician</Label>
-                    <Select
-                      value={formData.technician}
-                      onValueChange={(value) => handleInputChange("technician", value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select technician" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="mike-johnson">Mike Johnson</SelectItem>
-                        <SelectItem value="alex-chen">Alex Chen</SelectItem>
-                        <SelectItem value="sarah-davis">Sarah Davis</SelectItem>
-                        <SelectItem value="unassigned">Unassigned</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardContent>
             </Card>
+          </div>
 
-            {/* Action Buttons */}
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => handleSubmit(true)}>
-                <Save className="w-4 h-4 mr-2" />
-                Save Draft
-              </Button>
-              <Button onClick={() => handleSubmit(false)} className="bg-primary hover:bg-primary/90">
-                <Send className="w-4 h-4 mr-2" />
-                Create Ticket
-              </Button>
-            </div>
+          {/* Issue Details */}
+          <Card className="border-orange-200 dark:border-orange-800">
+            <CardHeader className="bg-orange-50 dark:bg-orange-950/50">
+              <CardTitle className="flex items-center text-orange-700 dark:text-orange-300">
+                <AlertTriangle className="w-5 h-5 mr-2" />
+                Issue Details
+              </CardTitle>
+              <CardDescription>Detailed description of the problem</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-6">
+              <div className="space-y-2">
+                <Label htmlFor="complaint">Issue Summary</Label>
+                <Input
+                  id="complaint"
+                  placeholder="Brief description of the issue"
+                  value={formData.complaint}
+                  onChange={(e) => handleInputChange("complaint", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="priority">Priority Level</Label>
+                  <Select value={formData.priority} onValueChange={(value) => handleInputChange("priority", value)} required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="critical">Critical</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="technician">Assign Technician</Label>
+                  <Select
+                    value={formData.technician}
+                    onValueChange={(value) => handleInputChange("technician", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select technician" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mike-johnson">Mike Johnson</SelectItem>
+                      <SelectItem value="alex-chen">Alex Chen</SelectItem>
+                      <SelectItem value="sarah-davis">Sarah Davis</SelectItem>
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => handleSubmit(true)}>
+              <Save className="w-4 h-4 mr-2" />
+              Save Draft
+            </Button>
+            <Button onClick={() => handleSubmit(false)} className="bg-primary hover:bg-primary/90">
+              <Send className="w-4 h-4 mr-2" />
+              Create Ticket
+            </Button>
+          </div>
         </div>
       </div>
     </DashboardLayout>
