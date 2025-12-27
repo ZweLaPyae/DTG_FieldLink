@@ -23,6 +23,16 @@ model Customer {
   tickets       Ticket[]
 }
 
+model AdminUser {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  role         String   @default("admin")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 model Technician {
   id        Int      @id @default(autoincrement())
   name      String
