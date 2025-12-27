@@ -18,7 +18,7 @@ const statusColors = {
   pending: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20 dark:text-yellow-400",
   "NEW": "bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400",
   completed: "bg-green-500/10 text-green-600 border-green-500/20 dark:text-green-400",
-  "IN_PROGRESS": "bg-gray-500/10 text-gray-600 border-gray-500/20 dark:text-gray-400",
+  "COMPLETED": "bg-gray-500/10 text-gray-600 border-gray-500/20 dark:text-gray-400",
 }
 
 const priorityColors = {
@@ -50,18 +50,19 @@ export function TicketOverview() {
     fetchTickets();
   }, []);
 
+  
   const totalTickets = tickets.length
-  const inProgressTickets = tickets.filter(t => t.status === 'in-progress').length
+  const inProgressTickets = tickets.filter(t => t.status === 'IN_PROGRESS').length
   const completedToday = tickets.filter(t => 
-    t.status === 'completed' && 
+    t.status === 'COMPLETED' && 
     t.completionTime && 
     new Date(t.completionTime).toDateString() === new Date().toDateString()
   ).length
 
   const avgResolutionHours = tickets
-    .filter(t => t.status === 'completed' && t.issueTime && t.completionTime)
+    .filter(t => t.status === 'COMPLETED' && t.issueTime && t.completionTime)
     .reduce((acc, t) => acc + getHoursBetween(t.issueTime!, t.completionTime!), 0) / 
-    tickets.filter(t => t.status === 'completed' && t.issueTime && t.completionTime).length || 0
+    tickets.filter(t => t.status === 'COMPLETED' && t.issueTime && t.completionTime).length || 0
 
   return (
     <div className="space-y-6">

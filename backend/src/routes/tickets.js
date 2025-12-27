@@ -65,8 +65,46 @@ router.post('/', async (req, res) => {
 // Read all tickets
 router.get('/', async (req, res) => {
   try {
-    const tickets = await prisma.ticket.findMany();
-    res.status(200).json(tickets);
+    const tickets = await prisma.ticket.findMany({
+      orderBy: { issueTime: 'desc' },
+      include: {
+        customer: {
+          select: {
+            name: true,
+            phone: true,
+            splitter: true,
+          },
+        },
+        technician: {
+          select: {
+            name: true,
+          },
+        },
+        priority: {
+          select: {
+            display: true,
+          },
+        },
+      },
+    })
+    const formattedTickets = tickets.map(t => ({
+      id: t.id,
+      complaint: t.complaint,
+      status: t.status,
+      sla: t.sla,
+      issueTime: t.issueTime,
+      completionTime: t.completionTime,
+
+      priorityId: t.priorityId,
+      priority: t.priority?.display ?? t.priorityId,
+
+      customerName: t.customer?.name ?? null,
+      phone: t.customer?.phone ?? null,
+      splitter: t.customer?.splitter ?? null,
+
+      technician_display: t.technician?.name ?? null,
+    }))
+    res.status(200).json(formattedTickets);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
