@@ -7,13 +7,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum TicketStatus{
+  NEW
+  IN_PROGRESS
+  IN_REVIEW
+  COMPLETED
+}
 model Customer {
   id            String      @id
   name          String
-  phone         String
-  serviceTypeId String
-  splitter      String
-  serviceType   ServiceType @relation(fields: [serviceTypeId], references: [id])
+  phone         String?
+  serviceTypeId String?
+  splitter      String?
+  serviceType   ServiceType? @relation(fields: [serviceTypeId], references: [id])
   tickets       Ticket[]
 }
 
@@ -56,7 +62,7 @@ model Ticket {
   customerId       String
   sla              String
   complaint        String
-  status           String?
+  status           TicketStatus @default(NEW)
   priorityId       String
   technicianId     Int?
   issueTime        DateTime

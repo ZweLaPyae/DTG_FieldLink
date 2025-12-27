@@ -8,29 +8,58 @@ const router = express.Router();
 // Create a new ticket
 router.post('/', async (req, res) => {
   try {
-    const ticket = await prisma.ticket.create({
-      data: {
-        id: req.body.ticketId,          
-        customerId: req.body.customerId,
-        complaint: req.body.complaint,
-        sla: req.body.sla,
-        issueTime: new Date(req.body.issueTime),
+    const {
+      ticketId,
+      customerId,
+      complaint,
+      sla,
+      issueTime,
+      priority,
 
-        status: req.body.isDraft ? 'DRAFT' : 'OPEN',
+      // customer enrichment
+      phone,
+      serviceTypeId,
+      splitter,
 
-        priorityId: req.body.priority,
+      // optional
+      description,
+    } = req.body;
 
-        // optional fields
-        rootCauseDetails: req.body.description,
-      },
-    })
+    const result = await prisma.$transaction(async (tx) => {
+      // 1️⃣ Update customer if new info is provided
+      if (phone || serviceTypeId || splitter) {
+        await tx.customer.update({
+          where: { id: customerId },
+          data: {
+            ...(phone && { phone }),
+            ...(serviceTypeId && { serviceTypeId }),
+            ...(splitter && { splitter }),
+          },
+        });
+      }
 
-    res.status(201).json(ticket)
+      // 2️⃣ Create ticket
+      const ticket = await tx.ticket.create({
+        data: {
+          id: ticketId,
+          customerId,
+          complaint,
+          sla,
+          issueTime: new Date(issueTime),
+          status: 'NEW',
+          priorityId: priority,
+        },
+      });
+
+      return ticket;
+    });
+
+    res.status(201).json(result);
   } catch (error) {
-    console.error('Error creating ticket:', error)
-    res.status(500).json({ error: error.message })
+    console.error('Error creating ticket:', error);
+    res.status(500).json({ error: error.message });
   }
-})
+});
 
 
 // Read all tickets

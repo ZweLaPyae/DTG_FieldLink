@@ -16,9 +16,9 @@ const getHoursBetween = (start: string, end: string) => {
 
 const statusColors = {
   pending: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20 dark:text-yellow-400",
-  "in-progress": "bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400",
+  "NEW": "bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400",
   completed: "bg-green-500/10 text-green-600 border-green-500/20 dark:text-green-400",
-  "on-hold": "bg-gray-500/10 text-gray-600 border-gray-500/20 dark:text-gray-400",
+  "IN_PROGRESS": "bg-gray-500/10 text-gray-600 border-gray-500/20 dark:text-gray-400",
 }
 
 const priorityColors = {
