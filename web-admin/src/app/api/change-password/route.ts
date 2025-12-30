@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 
-const backendUrl = process.env.BACKEND_URL
+const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL
 
 if (!backendUrl) {
   throw new Error("BACKEND_URL is not defined. Add it to .env.local")

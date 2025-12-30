@@ -26,12 +26,25 @@ router.post('/', async (req, res) => {
     } = req.body;
 
     const result = await prisma.$transaction(async (tx) => {
-      // 1️⃣ Update customer if new info is provided
+      // 1️⃣ Fetch existing customer (only if needed)
       if (phone || serviceTypeId || splitter) {
+        const customer = await tx.customer.findUnique({
+          where: { id: customerId },
+          select: { phone: true },
+        });
+
+        const existingPhones = customer?.phone ?? [];
+
+        // 2️⃣ Append phone only if it does NOT exist
+        const updatedPhones =
+          phone && !existingPhones.includes(phone)
+            ? [...existingPhones, phone]
+            : existingPhones;
+
         await tx.customer.update({
           where: { id: customerId },
           data: {
-            ...(phone && { phone }),
+            ...(phone && { phone: updatedPhones }),
             ...(serviceTypeId && { serviceTypeId }),
             ...(splitter && { splitter }),
           },
