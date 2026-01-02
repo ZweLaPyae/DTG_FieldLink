@@ -3,6 +3,9 @@
 import type React from "react"
 
 import { useState } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -14,16 +17,28 @@ export default function LandingPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError(null)
 
-    // Simulate login process
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    const result = await signIn("credentials", {
+      email,
+      password,
+      redirect: false,
+    })
 
-    // For demo purposes, redirect to dashboard
-    window.location.href = "/dashboard"
+    setIsLoading(false)
+
+    if (result?.error) {
+      setError("Invalid email or password")
+      return
+    }
+
+    router.push("/dashboard")
   }
 
   return (
@@ -154,7 +169,13 @@ export default function LandingPage() {
                         )}
                       </Button>
                     </div>
+                    <div className="text-right">
+                      <Link href="/account" className="text-xs font-medium text-primary hover:underline">
+                        Forgot your password?
+                      </Link>
+                    </div>
                   </div>
+                  {error ? <p className="text-sm text-destructive text-center">{error}</p> : null}
                   <Button type="submit" className="w-full h-11 font-medium" disabled={isLoading}>
                     {isLoading ? (
                       <div className="flex items-center space-x-2">
@@ -167,8 +188,8 @@ export default function LandingPage() {
                   </Button>
                 </form>
 
-                <div className="mt-6 text-center">
-                  <p className="text-xs text-muted-foreground">Demo credentials: admin@dtgfieldlink.com / password</p>
+                <div className="mt-6 text-center text-xs text-muted-foreground">
+                  Use your administrator credentials to access the dashboard.
                 </div>
               </CardContent>
             </Card>

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { AlertCircle, CheckCircle, Clock, TrendingUp, Plus, Filter } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from 'react';
-import { Ticket } from "../types/ticket"; 
+import { Ticket } from "../types/ticket";
 
 const getHoursBetween = (start: string, end: string) => {
   const startDate = new Date(start)
@@ -16,9 +16,9 @@ const getHoursBetween = (start: string, end: string) => {
 
 const statusColors = {
   pending: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20 dark:text-yellow-400",
-  "in-progress": "bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400",
+  "NEW": "bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400",
   completed: "bg-green-500/10 text-green-600 border-green-500/20 dark:text-green-400",
-  "on-hold": "bg-gray-500/10 text-gray-600 border-gray-500/20 dark:text-gray-400",
+  "COMPLETED": "bg-gray-500/10 text-gray-600 border-gray-500/20 dark:text-gray-400",
 }
 
 const priorityColors = {
@@ -50,18 +50,19 @@ export function TicketOverview() {
     fetchTickets();
   }, []);
 
+
   const totalTickets = tickets.length
-  const inProgressTickets = tickets.filter(t => t.status === 'in-progress').length
-  const completedToday = tickets.filter(t => 
-    t.status === 'completed' && 
-    t.completionTime && 
+  const inProgressTickets = tickets.filter(t => t.status === 'IN_PROGRESS').length
+  const completedToday = tickets.filter(t =>
+    t.status === 'COMPLETED' &&
+    t.completionTime &&
     new Date(t.completionTime).toDateString() === new Date().toDateString()
   ).length
 
   const avgResolutionHours = tickets
-    .filter(t => t.status === 'completed' && t.issueTime && t.completionTime)
-    .reduce((acc, t) => acc + getHoursBetween(t.issueTime!, t.completionTime!), 0) / 
-    tickets.filter(t => t.status === 'completed' && t.issueTime && t.completionTime).length || 0
+    .filter(t => t.status === 'COMPLETED' && t.issueTime && t.completionTime)
+    .reduce((acc, t) => acc + getHoursBetween(t.issueTime!, t.completionTime!), 0) /
+    tickets.filter(t => t.status === 'COMPLETED' && t.issueTime && t.completionTime).length || 0
 
   return (
     <div className="space-y-6">
@@ -164,7 +165,11 @@ export function TicketOverview() {
                       <div>
                         <span className="text-muted-foreground">Customer:</span>
                         <div className="font-medium">{ticket.customerName || "N/A"}</div>
-                        <div className="text-muted-foreground">{ticket.phone || "N/A"}</div>
+                        <div className="text-muted-foreground">
+                          {Array.isArray(ticket.phone) && ticket.phone.length > 0
+                            ? ticket.phone.join(", ")
+                            : "N/A"}
+                        </div>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Issue:</span>

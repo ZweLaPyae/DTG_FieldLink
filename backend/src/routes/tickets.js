@@ -8,36 +8,116 @@ const router = express.Router();
 // Create a new ticket
 router.post('/', async (req, res) => {
   try {
-    const ticket = await prisma.ticket.create({
-      data: {
-        id: req.body.ticketId,          
-        customerId: req.body.customerId,
-        complaint: req.body.complaint,
-        sla: req.body.sla,
-        issueTime: new Date(req.body.issueTime),
+    const {
+      ticketId,
+      customerId,
+      complaint,
+      sla,
+      issueTime,
+      priority,
 
-        status: req.body.isDraft ? 'DRAFT' : 'OPEN',
+      // customer enrichment
+      phone,
+      serviceTypeId,
+      splitter,
 
-        priorityId: req.body.priority,
+      // optional
+      description,
+    } = req.body;
 
-        // optional fields
-        rootCauseDetails: req.body.description,
-      },
-    })
+    const result = await prisma.$transaction(async (tx) => {
+      // 1️⃣ Fetch existing customer (only if needed)
+      if (phone || serviceTypeId || splitter) {
+        const customer = await tx.customer.findUnique({
+          where: { id: customerId },
+          select: { phone: true },
+        });
 
-    res.status(201).json(ticket)
+        const existingPhones = customer?.phone ?? [];
+
+        // 2️⃣ Append phone only if it does NOT exist
+        const updatedPhones =
+          phone && !existingPhones.includes(phone)
+            ? [...existingPhones, phone]
+            : existingPhones;
+
+        await tx.customer.update({
+          where: { id: customerId },
+          data: {
+            ...(phone && { phone: updatedPhones }),
+            ...(serviceTypeId && { serviceTypeId }),
+            ...(splitter && { splitter }),
+          },
+        });
+      }
+
+      // 2️⃣ Create ticket
+      const ticket = await tx.ticket.create({
+        data: {
+          id: ticketId,
+          customerId,
+          complaint,
+          sla,
+          issueTime: new Date(issueTime),
+          status: 'NEW',
+          priorityId: priority,
+        },
+      });
+
+      return ticket;
+    });
+
+    res.status(201).json(result);
   } catch (error) {
-    console.error('Error creating ticket:', error)
-    res.status(500).json({ error: error.message })
+    console.error('Error creating ticket:', error);
+    res.status(500).json({ error: error.message });
   }
-})
+});
 
 
 // Read all tickets
 router.get('/', async (req, res) => {
   try {
-    const tickets = await prisma.ticket.findMany();
-    res.status(200).json(tickets);
+    const tickets = await prisma.ticket.findMany({
+      orderBy: { issueTime: 'desc' },
+      include: {
+        customer: {
+          select: {
+            name: true,
+            phone: true,
+            splitter: true,
+          },
+        },
+        technician: {
+          select: {
+            name: true,
+          },
+        },
+        priority: {
+          select: {
+            display: true,
+          },
+        },
+      },
+    })
+    const formattedTickets = tickets.map(t => ({
+      id: t.id,
+      complaint: t.complaint,
+      status: t.status,
+      sla: t.sla,
+      issueTime: t.issueTime,
+      completionTime: t.completionTime,
+
+      priorityId: t.priorityId,
+      priority: t.priority?.display ?? t.priorityId,
+
+      customerName: t.customer?.name ?? null,
+      phone: t.customer?.phone ?? null,
+      splitter: t.customer?.splitter ?? null,
+
+      technician_display: t.technician?.name ?? null,
+    }))
+    res.status(200).json(formattedTickets);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
