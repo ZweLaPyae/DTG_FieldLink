@@ -1,10 +1,10 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { Clock, MapPin, User, AlertCircle } from "lucide-react"
-import mockDb from "../../mock_database.json"
 
 interface TicketListProps {
   searchQuery: string
@@ -14,7 +14,18 @@ interface TicketListProps {
   onSelectTicket: (ticketId: string) => void
 }
 
-const tickets = mockDb.tickets
+interface Ticket {
+  id: string
+  complaint: string
+  status: string
+  sla: string
+  issueTime: string
+  priority: string
+  customerName: string | null
+  phone: string[] | null
+  splitter: string | null
+  technician_display: string | null
+}
 
 const statusColors = {
   pending: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
@@ -37,79 +48,104 @@ export function TicketList({
   selectedTicket,
   onSelectTicket,
 }: TicketListProps) {
+  const [tickets, setTickets] = useState<Ticket[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchTickets = async () => {
+      try {
+        setIsLoading(true)
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets`)
+        if (response.ok) {
+          const data = await response.json()
+          setTickets(data)
+        }
+      } catch (error) {
+        console.error("Error fetching tickets:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchTickets()
+  }, [])
+
   const filteredTickets = tickets.filter((ticket) => {
-    const customer = mockDb.customers.find(c => c.id === ticket.customerId)
-    const customerName = customer ? customer.name : ""
+    const customerName = ticket.customerName || ""
     const matchesSearch =
       customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       ticket.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       ticket.complaint.toLowerCase().includes(searchQuery.toLowerCase())
 
     const matchesStatus = statusFilter === "all" || ticket.status === statusFilter
-    const matchesPriority = priorityFilter === "all" || ticket.priority === priorityFilter
+    const matchesPriority = priorityFilter === "all" || ticket.priority.toLowerCase() === priorityFilter
 
     return matchesSearch && matchesStatus && matchesPriority
   })
 
+  if (isLoading) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-muted-foreground">Loading tickets...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
-      {filteredTickets.map((ticket) => {
-        const customer = mockDb.customers.find(c => c.id === ticket.customerId)
-        return (
-          <Card
-            key={ticket.id}
-            className={cn(
-              "cursor-pointer transition-all duration-200 hover:shadow-md border-border/50",
-              selectedTicket === ticket.id && "ring-2 ring-primary border-primary/50",
-            )}
-            onClick={() => onSelectTicket(ticket.id)}
-          >
-            <CardContent className="p-4">
-              <div className="space-y-3">
-                {/* Header */}
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-3">
-                    <span className="font-semibold text-foreground">{ticket.id}</span>
-                    <Badge variant="outline" className={statusColors[ticket.status as keyof typeof statusColors]}>
-                      {ticket.status.replace("-", " ")}
-                    </Badge>
-                    <Badge variant="outline" className={priorityColors[ticket.priority as keyof typeof priorityColors]}>
-                      {ticket.priority}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <Clock className="w-4 h-4 mr-1" />
-                    {ticket.issueTime}
-                  </div>
+      {filteredTickets.map((ticket) => (
+        <Card
+          key={ticket.id}
+          className={cn(
+            "cursor-pointer transition-all duration-200 hover:shadow-md border-border/50",
+            selectedTicket === ticket.id && "ring-2 ring-primary border-primary/50",
+          )}
+          onClick={() => onSelectTicket(ticket.id)}
+        >
+          <CardContent className="p-4">
+            <div className="space-y-3">
+              {/* Header */}
+              <div className="space-y-2">
+                <div className="flex items-center space-x-3">
+                  <span className="font-semibold text-foreground">{ticket.id}</span>
+                  <Badge variant="outline" className={statusColors[ticket.status as keyof typeof statusColors]}>
+                    {ticket.status.replace("-", " ")}
+                  </Badge>
+                  <Badge variant="outline" className={priorityColors[ticket.priority.toLowerCase() as keyof typeof priorityColors]}>
+                    {ticket.priority}
+                  </Badge>
                 </div>
-
-                {/* Customer Info */}
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <User className="w-4 h-4 text-muted-foreground" />
-                    <span className="font-medium">{customer ? customer.name : ticket.customerId}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">{customer ? customer.splitter : "-"}</span>
-                  </div>
-                </div>
-
-                {/* Issue */}
-                <div className="flex items-start space-x-2">
-                  <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium">{ticket.complaint}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Assigned to: {ticket.technician_display} • SLA: {ticket.sla}
-                    </p>
-                  </div>
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <Clock className="w-4 h-4 mr-1" />
+                  {new Date(ticket.issueTime).toLocaleString()}
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        )
-      })}
+
+              {/* Customer Info */}
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <User className="w-4 h-4 text-muted-foreground" />
+                  <span className="font-medium">{ticket.customerName || "Unknown"}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <MapPin className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">{ticket.splitter || "-"}</span>
+                </div>
+              </div>
+
+              {/* Issue */}
+              <div className="flex items-start space-x-2">
+                <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium">{ticket.complaint}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Assigned to: {ticket.technician_display || "Unassigned"} • SLA: {ticket.sla}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
 
       {filteredTickets.length === 0 && (
         <div className="text-center py-8">
