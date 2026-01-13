@@ -16,9 +16,10 @@ enum TicketStatus{
 model Customer {
   id            String      @id
   name          String
-  phone         String?
+  phone         String[]
   serviceTypeId String?
   splitter      String?
+  splitterMap   String? 
   serviceType   ServiceType? @relation(fields: [serviceTypeId], references: [id])
   tickets       Ticket[]
 }
@@ -41,6 +42,7 @@ model Technician {
   picture   String
   leadsTeam Team[]
   tickets   Ticket[]
+  updates   TicketUpdate[]
 }
 
 model ServiceType {
@@ -81,10 +83,11 @@ model Ticket {
   rootCauseId      String?
   rootCauseDetails String?
   wayToFix         String?
-  materialsUsed    Json?
+  materialsUsed    TicketMaterial[]
   totalCost        Float?
   attachments      Json?
-  updates          Json?
+  updates          TicketUpdate[]
+  faultCoordinate  Json?
   breakTimes       BreakTime[]
   customer         Customer    @relation(fields: [customerId], references: [id])
   priority         Priority    @relation(fields: [priorityId], references: [id])
@@ -109,6 +112,7 @@ model MaterialCatalog {
   id       Int    @id @default(autoincrement())
   name     String
   unitCost Float
+  tickets  TicketMaterial[]
 }
 
 model SystemSettings {
@@ -123,4 +127,24 @@ model BreakTime {
   startTime DateTime
   endTime   DateTime
   ticket    Ticket   @relation(fields: [ticketId], references: [id])
+}
+
+model TicketMaterial {
+  id         Int    @id @default(autoincrement())
+  ticketId   String
+  materialId Int
+  quantity   Int
+
+  ticket     Ticket           @relation(fields: [ticketId], references: [id])
+  material   MaterialCatalog  @relation(fields: [materialId], references: [id])
+}
+model TicketUpdate {
+  id           Int      @id @default(autoincrement())
+  ticketId     String
+  technicianId Int
+  message      String
+  createdAt    DateTime @default(now())
+
+  ticket       Ticket       @relation(fields: [ticketId], references: [id])
+  technician   Technician  @relation(fields: [technicianId], references: [id])
 }

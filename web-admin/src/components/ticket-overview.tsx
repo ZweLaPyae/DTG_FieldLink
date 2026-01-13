@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { AlertCircle, CheckCircle, Clock, TrendingUp, Plus, Filter } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from 'react';
-import { Ticket } from "../types/ticket"; 
+import { Ticket } from "../types/ticket";
 
 const getHoursBetween = (start: string, end: string) => {
   const startDate = new Date(start)
@@ -50,18 +50,18 @@ export function TicketOverview() {
     fetchTickets();
   }, []);
 
-  
+
   const totalTickets = tickets.length
   const inProgressTickets = tickets.filter(t => t.status === 'IN_PROGRESS').length
-  const completedToday = tickets.filter(t => 
-    t.status === 'COMPLETED' && 
-    t.completionTime && 
+  const completedToday = tickets.filter(t =>
+    t.status === 'COMPLETED' &&
+    t.completionTime &&
     new Date(t.completionTime).toDateString() === new Date().toDateString()
   ).length
 
   const avgResolutionHours = tickets
     .filter(t => t.status === 'COMPLETED' && t.issueTime && t.completionTime)
-    .reduce((acc, t) => acc + getHoursBetween(t.issueTime!, t.completionTime!), 0) / 
+    .reduce((acc, t) => acc + getHoursBetween(t.issueTime!, t.completionTime!), 0) /
     tickets.filter(t => t.status === 'COMPLETED' && t.issueTime && t.completionTime).length || 0
 
   return (
@@ -165,7 +165,11 @@ export function TicketOverview() {
                       <div>
                         <span className="text-muted-foreground">Customer:</span>
                         <div className="font-medium">{ticket.customerName || "N/A"}</div>
-                        <div className="text-muted-foreground">{ticket.phone || "N/A"}</div>
+                        <div className="text-muted-foreground">
+                          {Array.isArray(ticket.phone) && ticket.phone.length > 0
+                            ? ticket.phone.join(", ")
+                            : "N/A"}
+                        </div>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Issue:</span>
