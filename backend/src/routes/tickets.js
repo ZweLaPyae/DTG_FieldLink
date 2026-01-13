@@ -128,6 +128,16 @@ router.get('/:id', async (req, res) => {
   try {
     const ticket = await prisma.ticket.findUnique({
       where: { id: req.params.id },
+      include: {
+        customer: {
+          include: {
+            serviceType: true,
+          },
+        },
+        technician: true,
+        priority: true,
+        rootCause: true,
+      },
     });
 
     if (!ticket) {

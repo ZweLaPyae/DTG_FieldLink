@@ -6,27 +6,91 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { User, Phone, MapPin, Clock, AlertCircle, Wrench, FileText, Camera, Edit3 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import mockDb from "../../mock_database.json"
 
 interface TicketDetailsProps {
   ticketId: string
   isSelected?: boolean
 }
 
-const ticketData = mockDb.tickets.reduce((acc, ticket) => {
-  acc[ticket.id] = ticket
-  return acc
-}, {} as Record<string, typeof mockDb.tickets[0]>)
+interface Ticket {
+  id: string
+  complaint: string
+  status: string
+  sla: string
+  issueTime: string
+  completionTime: string | null
+  priorityId: string
+  customerId: string
+  rootCauseId: string | null
+  rootCauseDetails: string | null
+  wayToFix: string | null
+  materialsUsed: any
+  totalCost: number | null
+  attachments: any
+  updates: any
+  customer?: {
+    id: string
+    name: string
+    phone: string[]
+    splitter: string | null
+    serviceType?: {
+      name: string
+    }
+  }
+  technician?: {
+    name: string
+  }
+  priority?: {
+    display: string
+  }
+  rootCause?: {
+    name: string
+  }
+  breakTimes?: Array<{
+    reason: string
+    startTime: string
+    endTime: string
+  }>
+}
 
 export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsProps) {
+  const [ticket, setTicket] = useState<Ticket | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const [newUpdate, setNewUpdate] = useState("")
   const [newStatus, setNewStatus] = useState("")
 
-  const ticket = ticketData[ticketId as keyof typeof ticketData]
-  const customer = mockDb.customers.find(c => c.id === ticket.customerId)
+  useEffect(() => {
+    const fetchTicket = async () => {
+      try {
+        setIsLoading(true)
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets/${ticketId}`)
+        if (response.ok) {
+          const data = await response.json()
+          setTicket(data)
+        }
+      } catch (error) {
+        console.error("Error fetching ticket:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    if (ticketId) {
+      fetchTicket()
+    }
+  }, [ticketId])
+
+  if (isLoading) {
+    return (
+      <Card className="border-border/50">
+        <CardContent className="p-6">
+          <p className="text-muted-foreground">Loading ticket details...</p>
+        </CardContent>
+      </Card>
+    )
+  }
 
   if (!ticket) {
     return (
@@ -67,8 +131,8 @@ export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsPro
               <Badge variant="outline" className={statusColors[ticket.status as keyof typeof statusColors]}>
                 {ticket.status.replace("-", " ")}
               </Badge>
-              <Badge variant="outline" className={priorityColors[ticket.priority as keyof typeof priorityColors]}>
-                {ticket.priority}
+              <Badge variant="outline" className={priorityColors[(ticket.priority?.display || "Normal") as keyof typeof priorityColors]}>
+                {ticket.priority?.display || "Normal"}
               </Badge>
             </div>
           </div>
@@ -82,16 +146,16 @@ export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsPro
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <User className="w-4 h-4 text-muted-foreground" />
-                <span className="font-medium">{customer ? customer.name : ticket.customerId}</span>
+                <span className="font-medium">{ticket.customer?.name || ticket.customerId}</span>
                 <span className="text-sm text-muted-foreground">({ticket.customerId})</span>
               </div>
               <div className="flex items-center space-x-2">
                 <Phone className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm">{customer ? customer.phone : "-"}</span>
+                <span className="text-sm">{ticket.customer?.phone?.join(", ") || "-"}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <MapPin className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm">{customer ? customer.splitter : "-"}</span>
+                <span className="text-sm">{ticket.customer?.splitter || "-"}</span>
               </div>
             </div>
           </div>
@@ -105,7 +169,7 @@ export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsPro
                 <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5" />
                 <div>
                   <p className="font-medium">{ticket.complaint}</p>
-                  <p className="text-sm text-muted-foreground">Service: {customer ? customer.serviceType : "-"}</p>
+                  <p className="text-sm text-muted-foreground">Service: {ticket.customer?.serviceType?.name || "-"}</p>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
@@ -127,15 +191,15 @@ export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsPro
                   <div className="flex items-start space-x-2">
                     <Wrench className="w-4 h-4 text-muted-foreground mt-0.5" />
                     <div>
-                      <p className="font-medium">Root Cause: {ticket.rootCause}</p>
-                      <p className="text-sm text-muted-foreground">{ticket.rootCauseDetails}</p>
+                      <p className="font-medium">Root Cause: {ticket.rootCause?.name || "-"}</p>
+                      <p className="text-sm text-muted-foreground">{ticket.rootCauseDetails || "-"}</p>
                     </div>
                   </div>
                   <div className="flex items-start space-x-2">
                     <FileText className="w-4 h-4 text-muted-foreground mt-0.5" />
                     <div>
                       <p className="font-medium">Solution</p>
-                      <p className="text-sm text-muted-foreground">{ticket.wayToFix}</p>
+                      <p className="text-sm text-muted-foreground">{ticket.wayToFix || "-"}</p>
                     </div>
                   </div>
                 </div>
@@ -144,14 +208,14 @@ export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsPro
           )}
 
           {/* Materials & Cost */}
-          {ticket.materialsUsed && (
+          {ticket.materialsUsed && Array.isArray(ticket.materialsUsed) && ticket.materialsUsed.length > 0 && (
             <>
               <div className="space-y-3 col-span-2 shadow-sm p-4 rounded-md border border-border/50">
                 <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
                   Materials & Cost
                 </h4>
                 <div className="space-y-2">
-                  {ticket.materialsUsed.map((material, index) => (
+                  {ticket.materialsUsed.map((material: any, index: number) => (
                     <div key={index} className="flex justify-between items-center text-sm">
                       <span>{material.item}</span>
                       <span className="font-medium">${material.cost}</span>
@@ -160,7 +224,7 @@ export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsPro
                   <Separator />
                   <div className="flex justify-between items-center font-semibold">
                     <span>Total Cost</span>
-                    <span className="text-primary">${ticket.totalCost}</span>
+                    <span className="text-primary">${ticket.totalCost || "0"}</span>
                   </div>
                 </div>
               </div>
@@ -168,12 +232,12 @@ export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsPro
           )}
 
           {/* Attachments */}
-          {ticket.attachments && (
+          {ticket.attachments && Array.isArray(ticket.attachments) && ticket.attachments.length > 0 && (
             <>
               <div className="space-y-3 col-span-2 shadow-sm p-4 rounded-md border border-border/50">
                 <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Attachments</h4>
                 <div className="space-y-2">
-                  {ticket.attachments.map((attachment, index) => (
+                  {ticket.attachments.map((attachment: any, index: number) => (
                     <div key={index} className="flex items-center space-x-2 text-sm">
                       <Camera className="w-4 h-4 text-muted-foreground" />
                       <span className="text-primary cursor-pointer hover:underline">{attachment.name}</span>
@@ -186,12 +250,12 @@ export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsPro
           )}
 
           {/* Break Times */}
-          {ticket.breakTimes && ticket.breakTimes.length > 0 && (
+          {ticket.breakTimes && Array.isArray(ticket.breakTimes) && ticket.breakTimes.length > 0 && (
             <>
               <div className="space-y-3 col-span-2 shadow-sm p-4 rounded-md border border-border/50">
                 <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Break Times</h4>
                 <div className="space-y-2">
-                  {ticket.breakTimes.map((breakTime, idx) => {
+                  {ticket.breakTimes.map((breakTime: any, idx: number) => {
                     const start = new Date(breakTime.startTime).toLocaleString(undefined, {
                       year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
                     })
@@ -247,18 +311,22 @@ export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsPro
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {ticket.updates.map((update, index) => (
-              <div key={index} className="flex space-x-3">
-                <div className="w-2 h-2 bg-primary rounded-full mt-2" />
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm font-medium">{update.user}</span>
-                    <span className="text-xs text-muted-foreground">{update.time}</span>
+            {ticket.updates && Array.isArray(ticket.updates) && ticket.updates.length > 0 ? (
+              ticket.updates.map((update: any, index: number) => (
+                <div key={index} className="flex space-x-3">
+                  <div className="w-2 h-2 bg-primary rounded-full mt-2" />
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-medium">{update.user}</span>
+                      <span className="text-xs text-muted-foreground">{update.time}</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{update.message}</p>
                   </div>
-                  <p className="text-sm text-muted-foreground">{update.message}</p>
                 </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground">No activity updates</p>
+            )}
           </div>
         </CardContent>
       </Card>

@@ -6,14 +6,30 @@ const prisma = new PrismaClient();
 // Create a new customer
 router.post('/', async (req, res) => {
   try {
-    const { name, phone, serviceTypeId, splitter } = req.body;
+    const { id, name, phone, serviceTypeId, splitter, splitterMap } = req.body;
+    
+    // Build data object conditionally
+    const data = {
+      id,
+      name,
+      splitter,
+      splitterMap,
+    };
+    
+    // Only add phone if it's a non-empty array
+    if (Array.isArray(phone) && phone.length > 0) {
+      data.phone = phone;
+    }
+    
+    // Use connect for serviceType relation
+    if (serviceTypeId) {
+      data.serviceType = {
+        connect: { id: serviceTypeId }
+      };
+    }
+    
     const newCustomer = await prisma.customer.create({
-      data: {
-        name,
-        phone,
-        serviceTypeId,
-        splitter,
-      },
+      data,
     });
     res.status(201).json(newCustomer);
   } catch (error) {
@@ -28,6 +44,9 @@ router.get('/', async (req, res) => {
     const customers = await prisma.customer.findMany({
       include: {
         serviceType: true,
+        _count: {
+          select: { tickets: true },
+        },
       },
     });
     res.status(200).json(customers);
@@ -61,15 +80,34 @@ router.get('/:id', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, phone, serviceTypeId, splitter } = req.body;
+    const { name, phone, serviceTypeId, splitter, splitterMap } = req.body;
+    
+    // Build data object conditionally
+    const data = {
+      name,
+      splitter,
+      splitterMap,
+    };
+    
+    // Only add phone if it's a non-empty array
+    if (Array.isArray(phone) && phone.length > 0) {
+      data.phone = phone;
+    }
+    
+    // Use connect/disconnect for serviceType relation
+    if (serviceTypeId) {
+      data.serviceType = {
+        connect: { id: serviceTypeId }
+      };
+    } else if (serviceTypeId === null) {
+      data.serviceType = {
+        disconnect: true
+      };
+    }
+    
     const updatedCustomer = await prisma.customer.update({
       where: { id },
-      data: {
-        name,
-        phone,
-        serviceTypeId,
-        splitter,
-      },
+      data,
     });
     res.status(200).json(updatedCustomer);
   } catch (error) {
