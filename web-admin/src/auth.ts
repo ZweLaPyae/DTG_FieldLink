@@ -1,7 +1,7 @@
 import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 
-const backendUrl = process.env.BACKEND_URL
+const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL
 
 if (!backendUrl) {
   throw new Error("BACKEND_URL is not set. Please define it in .env.local")

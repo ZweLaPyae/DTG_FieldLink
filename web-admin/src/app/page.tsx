@@ -3,7 +3,6 @@
 import type React from "react"
 
 import { useState } from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
@@ -168,11 +167,6 @@ export default function LandingPage() {
                           <Eye className="h-4 w-4 text-muted-foreground" />
                         )}
                       </Button>
-                    </div>
-                    <div className="text-right">
-                      <Link href="/account" className="text-xs font-medium text-primary hover:underline">
-                        Forgot your password?
-                      </Link>
                     </div>
                   </div>
                   {error ? <p className="text-sm text-destructive text-center">{error}</p> : null}
