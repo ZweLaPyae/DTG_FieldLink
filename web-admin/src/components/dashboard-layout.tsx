@@ -23,10 +23,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: Home },
     { name: "Tickets", href: "/dashboard/tickets", icon: Ticket },
-    { name: "Customers", href: "/customers", icon: Users },
+    { name: "Customers", href: "/dashboard/customers", icon: Users },
     { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
-    { name: "Team", href: "/teams", icon: FaUsers },
-    { name: "Technicians", href: "/technicians", icon: FaUserTie },
+    { name: "Team", href: "/dashboard/teams", icon: FaUsers },
+    { name: "Technicians", href: "/dashboard/technicians", icon: FaUserTie },
     { name: "Admin Management", href: "/dashboard/admin-management", icon: UserCog },
     { name: "Settings", href: "/dashboard/settings", icon: Settings },
   ]
