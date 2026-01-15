@@ -1,19 +1,22 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
+import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
+import { uploadKmz } from '../middleware/uploadKMZ.js';
+import { kmzToGeoJson } from '../lib/kmzToGeojson.js';
+import { uploadGeoJson } from '../lib/uploadGeojson.js';
+
 
 // Create a new customer
 router.post('/', async (req, res) => {
   try {
-    const { id, name, phone, serviceTypeId, splitter, splitterMap } = req.body;
+    const { id, name, phone, serviceTypeId, splitter } = req.body;
     
     // Build data object conditionally
     const data = {
       id,
       name,
       splitter,
-      splitterMap,
     };
     
     // Only add phone if it's a non-empty array
@@ -80,13 +83,12 @@ router.get('/:id', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, phone, serviceTypeId, splitter, splitterMap } = req.body;
+    const { name, phone, serviceTypeId, splitter } = req.body;
     
     // Build data object conditionally
     const data = {
       name,
       splitter,
-      splitterMap,
     };
     
     // Only add phone if it's a non-empty array
@@ -130,4 +132,54 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-module.exports = router;
+router.post(
+  '/:id/splitter-map',
+  uploadKmz.single('file'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      if (!req.file) {
+        return res.status(400).json({ error: 'KMZ file is required' });
+      }
+
+      const customer = await prisma.customer.findUnique({
+        where: { id },
+      });
+
+      if (!customer) {
+        return res.status(404).json({ error: 'Customer not found' });
+      }
+
+      // 1️⃣ KMZ → GeoJSON
+      const geojson = await kmzToGeoJson(req.file.path);
+
+      if (!geojson?.features?.length) {
+        return res.status(400).json({ error: 'Invalid or empty GeoJSON' });
+      }
+
+      // 2️⃣ Upload to DigitalOcean Spaces
+      const url = await uploadGeoJson({
+        customerId: id,
+        geojson,
+      });
+
+      // 3️⃣ Save URL
+      await prisma.customer.update({
+        where: { id },
+        data: { splitterMap: url },
+      });
+
+      res.json({
+        message: 'Splitter map uploaded',
+        splitterMap: url,
+      });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+
+export default router;
