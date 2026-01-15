@@ -3,6 +3,8 @@ const ticketRoutes = require('./routes/tickets');
 const serviceTypeRoutes = require('./routes/service-type');
 const customerRoutes = require('./routes/customers');
 const authRoutes = require('./routes/auth');
+const technicianRoutes = require('./routes/technicians');
+const teamRoutes = require('./routes/teams');
 const cors = require('cors');
 require('dotenv').config()
 const app = express();
@@ -14,6 +16,8 @@ app.use(cors());
 app.use('/tickets', ticketRoutes);
 app.use('/service-type', serviceTypeRoutes);
 app.use('/customers', customerRoutes);
+app.use('/technicians', technicianRoutes);
+app.use('/teams', teamRoutes);
 
 // Auth routes
 app.use('/auth', authRoutes);

@@ -91,7 +91,7 @@ export default function EditCustomerPage() {
       })
 
       if (response.ok) {
-        router.push("/customers")
+        router.push("/dashboard/customers")
       } else {
         const error = await response.json()
         alert(`Error: ${error.error || "Failed to update customer"}`)
