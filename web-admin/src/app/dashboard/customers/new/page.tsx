@@ -22,7 +22,7 @@ export default function NewCustomerPage() {
   })
   const [serviceTypes, setServiceTypes] = useState<{ id: string; name: string; speedMbps: number }[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
-
+  const [splitterMapFile, setSplitterMapFile] = useState<File | null>(null)
   useEffect(() => {
     const fetchServiceTypes = async () => {
       try {
@@ -53,13 +53,13 @@ export default function NewCustomerPage() {
     setIsSubmitting(true)
 
     try {
-      const payload = {
+      
+      const updatePayload = {
         id: formData.id.trim(),
         name: formData.name.trim(),
         phone: formData.phone.trim() ? [formData.phone.trim()] : [],
         serviceTypeId: formData.serviceTypeId || null,
-        splitter: formData.splitter.trim() || null,
-        splitterMap: formData.splitterMap.trim() || null,
+        splitter: formData.splitter || null,
       }
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/customers`, {
@@ -67,9 +67,25 @@ export default function NewCustomerPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(updatePayload),
       })
+      if (splitterMapFile) {
+        const fileData = new FormData()
+        fileData.append("file", splitterMapFile)
 
+        const uploadRes = await fetch(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/customers/${formData.id}/splitter-map`,
+          {
+            method: "POST",
+            body: fileData,
+          }
+        )
+
+        if (!uploadRes.ok) {
+          const err = await uploadRes.json()
+          throw new Error(err.error || "Failed to upload splitter map")
+        }
+      }
       if (response.ok) {
         router.push("/dashboard/customers")
       } else {
@@ -183,10 +199,15 @@ export default function NewCustomerPage() {
                 <div className="space-y-2">
                   <Label htmlFor="splitterMap">Splitter Map</Label>
                   <Input
+                    type="file"
                     id="splitterMap"
-                    placeholder="Splitter map information"
-                    value={formData.splitterMap}
-                    onChange={(e) => handleInputChange("splitterMap", e.target.value)}
+                    accept=".kmz"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setSplitterMapFile(file);
+                      }
+                    }}
                   />
                 </div>
               </CardContent>
