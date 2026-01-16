@@ -78,13 +78,13 @@ export default function NewTicketPage() {
         priority = "high"
       }
 
-      // Parse date and time to datetime-local format (YYYY-MM-DDTHH:mm)
-      const dateTimeParts = issueDateTime.trim().match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/)
-      let formattedDateTime = ""
-      if (dateTimeParts) {
-        const [, day, month, year, hour, minute] = dateTimeParts
-        formattedDateTime = `${year}-${month}-${day}T${hour}:${minute}`
-      }
+    // Format date/time to datetime-local (YYYY-MM-DDTHH:mm)
+    const dateTimeParts = issueDateTime.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/)
+    let formattedDateTime = ""
+    if (dateTimeParts) {
+      const [, day, month, year, hour, minute] = dateTimeParts
+      formattedDateTime = `${year}-${month}-${day}T${hour}:${minute}`
+    }
 
       setFormData({
         ticketId: ticketId.trim(),

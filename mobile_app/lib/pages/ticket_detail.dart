@@ -20,7 +20,8 @@ LatLngBounds boundsFromPoints(List<LatLng> points) {
 
 class TicketDetailPage extends StatefulWidget {
   final String ticketId;
-  const TicketDetailPage({super.key, required this.ticketId});
+  final bool isFromTasksTab;
+  const TicketDetailPage({super.key, required this.ticketId, this.isFromTasksTab = false});
 
   @override
   State<TicketDetailPage> createState() => _TicketDetailPageState();
@@ -124,10 +125,11 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
 
   Color _priorityColor(String p) {
     final lower = p.toLowerCase();
-    if (lower.contains('critical')) return Colors.red.shade400;
-    if (lower.contains('high')) return Colors.red;
-    if (lower.contains('medium')) return Colors.orange;
-    return Colors.green;
+    if (lower.contains('critical')) return const Color(0xFFDC2626);
+    if (lower.contains('high')) return const Color(0xFFF59E0B);
+    if (lower.contains('medium')) return const Color(0xFF3B82F6);
+    if (lower.contains('low')) return const Color(0xFF6B7280);
+    return const Color(0xFF6B7280);
   }
 
   @override
@@ -190,6 +192,48 @@ class _TicketDetailPageState extends State<TicketDetailPage> {
             padding: const EdgeInsets.all(14),
             child: ListView(
               children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    children: [
+                      if (widget.isFromTasksTab)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: ticket.status.toLowerCase().contains('in-progress')
+                              ? const Color(0xFF3B82F6).withOpacity(0.12)
+                              : const Color(0xFF10B981).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          ticket.statusDisplay,
+                          style: TextStyle(
+                            color: ticket.status.toLowerCase().contains('in-progress')
+                                ? const Color(0xFF3B82F6)
+                                : const Color(0xFF10B981),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      if (widget.isFromTasksTab)
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _priorityColor(ticket.priority).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          ticket.priorityDisplay,
+                          style: TextStyle(
+                            color: _priorityColor(ticket.priority),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 _sectionCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
