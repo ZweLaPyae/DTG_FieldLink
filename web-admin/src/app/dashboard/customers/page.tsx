@@ -215,7 +215,7 @@ export default function CustomersPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => router.push(`/customers/${customer.id}/edit`)}
+                              onClick={() => router.push(`/dashboard/customers/${customer.id}/edit`)}
                               className="hover:bg-blue-50 dark:hover:bg-blue-950/30"
                             >
                               <Edit className="w-4 h-4" />

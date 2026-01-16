@@ -94,17 +94,11 @@ export default function EditCustomerPage() {
         }
       )
 
-<<<<<<< HEAD:web-admin/src/app/customers/[id]/edit/page.tsx
-      if (!updateRes.ok) {
-        const err = await updateRes.json()
-        throw new Error(err.error || "Failed to update customer")
-=======
-      if (response.ok) {
+      if (updateRes.ok) {
         router.push("/dashboard/customers")
       } else {
-        const error = await response.json()
+        const error = await updateRes.json()
         alert(`Error: ${error.error || "Failed to update customer"}`)
->>>>>>> 3a75d322db1495c194bb5fe529c632882c239e85:web-admin/src/app/dashboard/customers/[id]/edit/page.tsx
       }
 
       // 2️⃣ Upload splitter map (ONLY if file selected)
