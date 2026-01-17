@@ -1,5 +1,4 @@
 // lib/models.dart
-import 'dart:convert';
 
 class Customer {
   final String id;
@@ -16,13 +15,26 @@ class Customer {
     this.coordinates,
   });
 
-  factory Customer.fromJson(Map<String, dynamic> json) => Customer(
-        id: json['id'] ?? '',
-        name: json['name'] ?? '',
-        phone: json['phone'],
-        address: json['address'],
-        coordinates: json['coordinates'] != null ? Map<String, dynamic>.from(json['coordinates']) : null,
-      );
+  factory Customer.fromJson(Map<String, dynamic> json) {
+    // Handle phone field - API returns array, we need string
+    String? phoneStr;
+    if (json['phone'] != null) {
+      if (json['phone'] is List) {
+        final List<dynamic> phoneList = json['phone'] as List;
+        phoneStr = phoneList.isNotEmpty ? phoneList.join(', ') : null;
+      } else {
+        phoneStr = json['phone'].toString();
+      }
+    }
+    
+    return Customer(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      phone: phoneStr,
+      address: json['address'],
+      coordinates: json['coordinates'] != null ? Map<String, dynamic>.from(json['coordinates']) : null,
+    );
+  }
 }
 
 class Technician {
@@ -151,6 +163,70 @@ class Ticket {
     );
   }
 
+  // Factory for API list response (GET /tickets)
+  factory Ticket.fromApiJson(Map<String, dynamic> json) {
+    return Ticket(
+      id: json['id'] ?? '',
+      customerId: '', // Not provided in list response
+      customerNameDisplay: json['customerName'] ?? '',
+      phone: json['phone'] != null ? (json['phone'] is List ? (json['phone'] as List).join(', ') : json['phone'].toString()) : null,
+      location: '', // Not in list response
+      coordinates: null,
+      sla: json['sla'] ?? '',
+      complaint: json['complaint'] ?? '',
+      status: json['status'] ?? '',
+      statusDisplay: json['status'] ?? '',
+      priority: json['priorityId'] ?? '',
+      priorityDisplay: json['priority'] ?? json['priorityId'] ?? '',
+      technicianId: null,
+      technicianDisplay: json['technician_display'] ?? '',
+      issueTime: json['issueTime'] != null ? DateTime.parse(json['issueTime']) : null,
+      startTime: null,
+      completionTime: json['completionTime'] != null ? DateTime.parse(json['completionTime']) : null,
+      rootCause: null,
+      rootCauseDisplay: null,
+      materialsUsed: [],
+      totalCost: null,
+      attachments: [],
+      updates: [],
+      wayToFix: null,
+    );
+  }
+
+  // Factory for API detail response (GET /tickets/:id)
+  factory Ticket.fromApiDetailJson(Map<String, dynamic> json) {
+    return Ticket(
+      id: json['id'] ?? '',
+      customerId: json['customerId'] ?? '',
+      customerNameDisplay: json['customer']?['name'] ?? '',
+      phone: json['customer']?['phone'] != null 
+        ? (json['customer']['phone'] is List 
+          ? (json['customer']['phone'] as List).join(', ') 
+          : json['customer']['phone'].toString()) 
+        : null,
+      location: json['customer']?['address'] ?? '',
+      coordinates: null,
+      sla: json['sla'] ?? '',
+      complaint: json['complaint'] ?? '',
+      status: json['status'] ?? '',
+      statusDisplay: json['status'] ?? '',
+      priority: json['priorityId'] ?? '',
+      priorityDisplay: json['priority']?['display'] ?? json['priorityId'] ?? '',
+      technicianId: json['technicianId'],
+      technicianDisplay: json['technician']?['name'] ?? '',
+      issueTime: json['issueTime'] != null ? DateTime.parse(json['issueTime']) : null,
+      startTime: json['startTime'] != null ? DateTime.parse(json['startTime']) : null,
+      completionTime: json['completionTime'] != null ? DateTime.parse(json['completionTime']) : null,
+      rootCause: json['rootCauseId'],
+      rootCauseDisplay: json['rootCause']?['name'],
+      materialsUsed: [],
+      totalCost: null,
+      attachments: [],
+      updates: [],
+      wayToFix: json['wayToFix'],
+    );
+  }
+
   Ticket copyWith({
     String? customerNameDisplay,
     String? phone,
@@ -181,5 +257,34 @@ class Ticket {
       updates: updates,
       wayToFix: wayToFix,
     );
+  }
+  
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'customerId': customerId,
+      'customerName_display': customerNameDisplay,
+      'phone': phone,
+      'location': location,
+      'coordinates': coordinates,
+      'sla': sla,
+      'complaint': complaint,
+      'status': status,
+      'status_display': statusDisplay,
+      'priority': priority,
+      'priority_display': priorityDisplay,
+      'technicianId': technicianId,
+      'technician_display': technicianDisplay,
+      'issueTime': issueTime?.toIso8601String(),
+      'startTime': startTime?.toIso8601String(),
+      'completionTime': completionTime?.toIso8601String(),
+      'rootCause': rootCause,
+      'rootCause_display': rootCauseDisplay,
+      'materialsUsed': materialsUsed,
+      'totalCost': totalCost,
+      'attachments': attachments.map((a) => {'name': a.name, 'type': a.type}).toList(),
+      'updates': updates.map((u) => {'time': u.time.toIso8601String(), 'user': u.user, 'message': u.message}).toList(),
+      'wayToFix': wayToFix,
+    };
   }
 }

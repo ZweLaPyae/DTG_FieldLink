@@ -33,34 +33,6 @@ export default function NewTicketPage() {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handlePhoneChange = (index: number, value: string) => {
-    setFormData((prev) => {
-      const newPhone = [...prev.phone]
-      newPhone[index] = value
-      return { ...prev, phone: newPhone }
-    })
-  }
-
-  const addPhoneNumber = () => {
-    // Only add if the last phone number is filled
-    const lastPhone = formData.phone[formData.phone.length - 1]
-    if (lastPhone && lastPhone.trim() !== "") {
-      setFormData((prev) => ({
-        ...prev,
-        phone: [...prev.phone, ""]
-      }))
-    }
-  }
-
-  const removePhoneNumber = (index: number) => {
-    if (formData.phone.length > 1) {
-      setFormData((prev) => ({
-        ...prev,
-        phone: prev.phone.filter((_, i) => i !== index)
-      }))
-    }
-  }
-
   const parseTicketFromPaste = (pastedText: string) => {
     // Format: ticket id>> complaint description Customer ID Customer Name SLA ?hrs Splitter Information phone number issue date&time
     // Example: MMI 225110592>> Site Down M1CDWS00029001 Wai Wai Thein SOHO 24 hrs N9 OLT 0/1/12/58  09-440401401 22/11/2025 09:25
