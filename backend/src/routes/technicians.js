@@ -1,7 +1,7 @@
 import express from 'express';
-const router = express.Router();
 import { PrismaClient } from '@prisma/client';
 
+const router = express.Router();
 const prisma = new PrismaClient();
 
 // Get all technicians

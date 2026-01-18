@@ -50,9 +50,10 @@ export default function TechniciansPage() {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/technicians`)
       const data = await response.json()
-      setTechnicians(data)
+      setTechnicians(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Failed to fetch technicians:', error)
+      setTechnicians([])
     } finally {
       setIsLoading(false)
     }
@@ -62,9 +63,10 @@ export default function TechniciansPage() {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/teams`)
       const data = await response.json()
-      setTeams(data)
+      setTeams(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Failed to fetch teams:', error)
+      setTeams([])
     }
   }
 
