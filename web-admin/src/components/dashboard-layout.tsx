@@ -9,7 +9,8 @@ import { Menu, X, Home, Ticket, BarChart3, Settings, LogOut, Wifi, Sun, Moon, Us
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { useTheme } from "next-themes"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
+import { signOut } from "next-auth/react"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -19,6 +20,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const { theme, setTheme } = useTheme()
   const pathname = usePathname()
+  const router = useRouter()
 
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: Home },
@@ -31,8 +33,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: "Settings", href: "/dashboard/settings", icon: Settings },
   ]
 
-  const handleLogout = () => {
-    window.location.href = "/"
+  const handleLogout = async () => {
+    await signOut({ redirect: false })
+    router.push("/")
   }
 
   return (
