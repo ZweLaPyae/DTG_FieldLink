@@ -1,0 +1,10 @@
+{
+"type": "FeatureCollection",
+"name": "MockLocation",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "Name": "SPL 1:16 (9A1-09-C) P3", "tessellate": -1, "extrude": 0, "visibility": -1 }, "geometry": { "type": "Point", "coordinates": [ 100.847350579527003, 13.6124625210795, 0.0 ] } },
+{ "type": "Feature", "properties": { "Name": "QueenSheba Dorm", "tessellate": -1, "extrude": 0, "visibility": -1 }, "geometry": { "type": "Point", "coordinates": [ 100.832471749576996, 13.613804981328499, 0.0 ] } },
+{ "type": "Feature", "properties": { "Name": "Untitled Path", "tessellate": 1, "extrude": 0, "visibility": -1 }, "geometry": { "type": "LineString", "coordinates": [ [ 100.847329722365004, 13.6123378432951, 0.0 ], [ 100.840117239559007, 13.611436204916499, 0.0 ], [ 100.832491735553006, 13.6138326682097, 0.0 ] ] } }
+]
+}

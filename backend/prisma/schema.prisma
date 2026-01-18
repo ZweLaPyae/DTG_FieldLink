@@ -7,7 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum TicketStatus{
+enum TicketStatus {
   NEW
   IN_PROGRESS
   IN_REVIEW
@@ -19,7 +19,8 @@ model Customer {
   phone         String[]
   serviceTypeId String?
   splitter      String?
-  splitterMap   String? 
+  splitterMap   String?
+
   serviceType   ServiceType? @relation(fields: [serviceTypeId], references: [id])
   tickets       Ticket[]
 }
@@ -40,15 +41,16 @@ model Technician {
   email     String
   phone     String
   picture   String
+
   leadsTeam Team[]
   tickets   Ticket[]
-  updates   TicketUpdate[]
 }
 
 model ServiceType {
-  id        String     @id
+  id        String   @id
   name      String
   speedMbps Int
+
   customers Customer[]
 }
 
@@ -70,29 +72,33 @@ model RootCause {
 }
 
 model Ticket {
-  id               String      @id
+  id               String        @id
   customerId       String
   sla              String
   complaint        String
-  status           TicketStatus @default(NEW)
+  status           TicketStatus  @default(NEW)
+
   priorityId       String
   technicianId     Int?
+
   issueTime        DateTime
   startTime        DateTime?
   completionTime   DateTime?
+
   rootCauseId      String?
   rootCauseDetails String?
   wayToFix         String?
-  materialsUsed    TicketMaterial[]
+
+  materialsUsed    Json?
   totalCost        Float?
   attachments      Json?
-  updates          TicketUpdate[]
   faultCoordinate  Json?
-  breakTimes       BreakTime[]
-  customer         Customer    @relation(fields: [customerId], references: [id])
-  priority         Priority    @relation(fields: [priorityId], references: [id])
+  breakTimes       Json?
+
+  customer         Customer     @relation(fields: [customerId], references: [id])
+  priority         Priority     @relation(fields: [priorityId], references: [id])
   rootCause        RootCause?   @relation(fields: [rootCauseId], references: [id])
-  technician       Technician?  @relation(fields: [technicianId], references: [id])
+  technician       Technician? @relation(fields: [technicianId], references: [id])
 }
 
 model Team {
@@ -112,39 +118,4 @@ model MaterialCatalog {
   id       Int    @id @default(autoincrement())
   name     String
   unitCost Float
-  tickets  TicketMaterial[]
-}
-
-model SystemSettings {
-  id            Int  @id @default(autoincrement())
-  businessHours Json
-}
-
-model BreakTime {
-  id        Int      @id @default(autoincrement())
-  ticketId  String
-  reason    String
-  startTime DateTime
-  endTime   DateTime
-  ticket    Ticket   @relation(fields: [ticketId], references: [id])
-}
-
-model TicketMaterial {
-  id         Int    @id @default(autoincrement())
-  ticketId   String
-  materialId Int
-  quantity   Int
-
-  ticket     Ticket           @relation(fields: [ticketId], references: [id])
-  material   MaterialCatalog  @relation(fields: [materialId], references: [id])
-}
-model TicketUpdate {
-  id           Int      @id @default(autoincrement())
-  ticketId     String
-  technicianId Int
-  message      String
-  createdAt    DateTime @default(now())
-
-  ticket       Ticket       @relation(fields: [ticketId], references: [id])
-  technician   Technician  @relation(fields: [technicianId], references: [id])
 }

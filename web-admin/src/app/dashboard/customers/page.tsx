@@ -118,7 +118,7 @@ export default function CustomersPage() {
             </h1>
             <p className="text-muted-foreground mt-1">Create, view, edit, and manage customer records</p>
           </div>
-          <Button onClick={() => router.push("/customers/new")} className="bg-blue-600 hover:bg-blue-700">
+          <Button onClick={() => router.push("/dashboard/customers/new")} className="bg-blue-600 hover:bg-blue-700">
             <Plus className="w-4 h-4 mr-2" />
             Add Customer
           </Button>

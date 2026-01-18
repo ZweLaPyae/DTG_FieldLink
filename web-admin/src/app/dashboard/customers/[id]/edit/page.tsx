@@ -14,7 +14,7 @@ export default function EditCustomerPage() {
   const router = useRouter()
   const params = useParams()
   const customerId = params.id as string
-  
+
   const [formData, setFormData] = useState({
     id: "",
     name: "",
@@ -26,6 +26,7 @@ export default function EditCustomerPage() {
   const [serviceTypes, setServiceTypes] = useState<{ id: string; name: string; speedMbps: number }[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [splitterMapFile, setSplitterMapFile] = useState<File | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -65,7 +66,7 @@ export default function EditCustomerPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!formData.name.trim()) {
       alert("Customer Name is required")
       return
@@ -74,31 +75,62 @@ export default function EditCustomerPage() {
     setIsSubmitting(true)
 
     try {
-      const payload = {
+      // 1️⃣ Update customer info (JSON)
+      const updatePayload = {
         name: formData.name.trim(),
         phone: formData.phone.trim() ? [formData.phone.trim()] : [],
         serviceTypeId: formData.serviceTypeId || null,
-        splitter: formData.splitter.trim() || null,
-        splitterMap: formData.splitterMap.trim() || null,
+        splitter: formData.splitter || null,
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/customers/${customerId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      })
+      const updateRes = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/customers/${customerId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(updatePayload),
+        }
+      )
 
+<<<<<<< HEAD:web-admin/src/app/customers/[id]/edit/page.tsx
+      if (!updateRes.ok) {
+        const err = await updateRes.json()
+        throw new Error(err.error || "Failed to update customer")
+=======
       if (response.ok) {
-        router.push("/customers")
+        router.push("/dashboard/customers")
       } else {
         const error = await response.json()
         alert(`Error: ${error.error || "Failed to update customer"}`)
+>>>>>>> 3a75d322db1495c194bb5fe529c632882c239e85:web-admin/src/app/dashboard/customers/[id]/edit/page.tsx
       }
-    } catch (err) {
-      console.error("Network error:", err)
-      alert("Network error. Please try again.")
+
+      // 2️⃣ Upload splitter map (ONLY if file selected)
+      if (splitterMapFile) {
+        const fileData = new FormData()
+        fileData.append("file", splitterMapFile)
+
+        const uploadRes = await fetch(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/customers/${customerId}/splitter-map`,
+          {
+            method: "POST",
+            body: fileData,
+          }
+        )
+
+        if (!uploadRes.ok) {
+          const err = await uploadRes.json()
+          throw new Error(err.error || "Failed to upload splitter map")
+        }
+      }
+
+      // ✅ Success
+      router.push("/customers")
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message || "Something went wrong")
     } finally {
       setIsSubmitting(false)
     }
@@ -211,10 +243,15 @@ export default function EditCustomerPage() {
                 <div className="space-y-2">
                   <Label htmlFor="splitterMap">Splitter Map</Label>
                   <Input
+                    type="file"
                     id="splitterMap"
-                    placeholder="Splitter map information"
-                    value={formData.splitterMap}
-                    onChange={(e) => handleInputChange("splitterMap", e.target.value)}
+                    accept=".kmz"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setSplitterMapFile(file);
+                      }
+                    }}
                   />
                 </div>
               </CardContent>
