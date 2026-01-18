@@ -1,0 +1,40 @@
+name: Deploy DTG FieldLink
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: DockerHub Login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build & Push Backend
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/dtg-backend ./backend
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/dtg-backend
+
+      - name: Build & Push Web
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/dtg-web ./web-admin
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/dtg-web
+
+      - name: Deploy to Droplet
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/dtg-backend
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/dtg-web
+            docker compose up -d
