@@ -2,7 +2,7 @@ import express from 'express';
 const router = express.Router();
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
-import { uploadKmz } from '../middleware/uploadKMZ.js';
+import { uploadKmz } from '../middleware/uploadKmz.js';
 import { kmzToGeoJson } from '../lib/kmzToGeojson.js';
 import { uploadGeoJson } from '../lib/uploadGeojson.js';
 

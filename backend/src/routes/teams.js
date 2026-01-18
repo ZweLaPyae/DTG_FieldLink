@@ -1,6 +1,6 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -112,4 +112,4 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
