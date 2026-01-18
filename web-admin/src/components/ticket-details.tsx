@@ -115,14 +115,16 @@ export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsPro
     high: "bg-amber-500/10 text-amber-500 border-amber-500/20",
     critical: "bg-red-600/10 text-red-600 border-red-600/20",
   }
+  const priorityKey =
+  (ticket.priorityId?.toLowerCase() as keyof typeof priorityColors) ?? "low"
 
   return (
     <div className="space-y-4">
       <Card className={cn(
         "border-border/50",
-        isSelected && (ticket.priority !== "critical" || ticket.status === "completed") && "ring-2 ring-primary border-primary/50",
-        ticket.priority === "critical" && ticket.status !== "completed" && "border-2 border-red-600 shadow-red-500/20 shadow-lg",
-        isSelected && ticket.priority === "critical" && ticket.status !== "completed" && "ring-2 ring-red-600"
+        isSelected && (priorityKey !== "critical" || ticket.status === "completed") && "ring-2 ring-primary border-primary/50",
+        priorityKey === "critical" && ticket.status !== "completed" && "border-2 border-red-600 shadow-red-500/20 shadow-lg",
+        isSelected && priorityKey === "critical" && ticket.status !== "completed" && "ring-2 ring-red-600"
       )}>
         <CardHeader>
           <div className="flex items-center justify-between">
