@@ -29,7 +29,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { Users as UsersIcon, Plus, Search } from "lucide-react"
+import { Users as Plus, Search } from "lucide-react"
+import { FaUsers } from "react-icons/fa"
 
 interface Team {
   id: string
@@ -222,12 +223,12 @@ export default function TeamsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground flex items-center">
-              <UsersIcon className="w-8 h-8 mr-3 text-blue-600 dark:text-blue-400" />
+              <FaUsers className="w-8 h-8 mr-3 text-blue-600 dark:text-blue-400" />
               Teams Management
             </h1>
             <p className="text-muted-foreground mt-1">Create, view, edit, and manage team records</p>
           </div>
-          <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700">
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
             Create Team
           </Button>
