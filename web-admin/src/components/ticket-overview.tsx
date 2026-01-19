@@ -3,6 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AlertCircle, CheckCircle, Clock, TrendingUp, Plus, Filter } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from 'react';
@@ -15,22 +16,16 @@ const getHoursBetween = (start: string, end: string) => {
 }
 
 const statusColors = {
-  pending: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20 dark:text-yellow-400",
-  "NEW": "bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400",
-  completed: "bg-green-500/10 text-green-600 border-green-500/20 dark:text-green-400",
-  "COMPLETED": "bg-gray-500/10 text-gray-600 border-gray-500/20 dark:text-gray-400",
-}
-
-const priorityColors = {
-  low: "bg-gray-500/10 text-gray-500 border-gray-500/20",
-  medium: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-  high: "bg-amber-500/10 text-amber-500 border-amber-500/20",
-  critical: "bg-red-600/10 text-red-600 border-red-600/20",
+  NEW: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20 dark:text-yellow-400",
+  IN_PROGRESS: "bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400",
+  IN_REVIEW: "bg-purple-500/10 text-purple-600 border-purple-500/20 dark:text-purple-400",
+  COMPLETED: "bg-green-500/10 text-green-600 border-green-500/20 dark:text-green-400",
 }
 
 // Calculate metrics
 export function TicketOverview() {
   const [tickets, setTickets] = useState<Ticket[]>([]); // Explicitly define the type of tickets
+  const [statusFilter, setStatusFilter] = useState("all");
 
   useEffect(() => {
     const fetchTickets = async () => {
@@ -63,6 +58,11 @@ export function TicketOverview() {
     .filter(t => t.status === 'COMPLETED' && t.issueTime && t.completionTime)
     .reduce((acc, t) => acc + getHoursBetween(t.issueTime!, t.completionTime!), 0) /
     tickets.filter(t => t.status === 'COMPLETED' && t.issueTime && t.completionTime).length || 0
+
+  // Filter tickets based on status
+  const filteredTickets = statusFilter === "all" 
+    ? tickets 
+    : tickets.filter(t => t.status === statusFilter);
 
   return (
     <div className="space-y-6">
@@ -130,10 +130,18 @@ export function TicketOverview() {
               <CardDescription>Latest maintenance requests and their current status</CardDescription>
             </div>
             <div className="flex space-x-2">
-              <Button variant="outline" size="sm">
-                <Filter className="w-4 h-4 mr-2" />
-                Filter
-              </Button>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="NEW">New</SelectItem>
+                  <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                  <SelectItem value="IN_REVIEW">In Review</SelectItem>
+                  <SelectItem value="COMPLETED">Completed</SelectItem>
+                </SelectContent>
+              </Select>
               <Button size="sm" asChild className="bg-primary hover:bg-primary/90">
                 <Link href="/dashboard/tickets/new">
                   <Plus className="w-4 h-4 mr-2" />
@@ -145,7 +153,7 @@ export function TicketOverview() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {tickets.map((ticket) => {
+            {filteredTickets.map((ticket) => {
               return (
                 <div
                   key={ticket.id}
@@ -155,10 +163,7 @@ export function TicketOverview() {
                     <div className="flex items-center space-x-4">
                       <div className="font-medium text-foreground">{ticket.id}</div>
                       <Badge variant="outline" className={statusColors[ticket.status as keyof typeof statusColors]}>
-                        {ticket.status}
-                      </Badge>
-                      <Badge variant="outline" className={priorityColors[ticket.priorityId as keyof typeof priorityColors]}>
-                        {ticket.priorityId}
+                        {ticket.status.replace("_", " ")}
                       </Badge>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -183,8 +188,10 @@ export function TicketOverview() {
                       </div>
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm">
-                    View Details
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link href={`/dashboard/tickets?selected=${ticket.id}`}>
+                      View Details
+                    </Link>
                   </Button>
                 </div>
               )

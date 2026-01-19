@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { TicketList } from "@/components/ticket-list"
 import { TicketDetails } from "@/components/ticket-details"
@@ -12,10 +12,23 @@ import { Plus, Search } from "lucide-react"
 
 export default function TicketsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [selectedTicket, setSelectedTicket] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [priorityFilter, setPriorityFilter] = useState("all")
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  // Auto-select ticket from query parameter
+  useEffect(() => {
+    const ticketId = searchParams.get('selected')
+    if (ticketId) {
+      setSelectedTicket(ticketId)
+    }
+  }, [searchParams])
+
+  const handleTicketUpdate = () => {
+    setRefreshKey(prev => prev + 1)
+  }
 
   return (
     <DashboardLayout>
@@ -48,22 +61,10 @@ export default function TicketsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="in-progress">In Progress</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="on-hold">On Hold</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by priority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Priority</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="critical">Critical</SelectItem>
+              <SelectItem value="NEW">New</SelectItem>
+              <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+              <SelectItem value="IN_REVIEW">In Review</SelectItem>
+              <SelectItem value="COMPLETED">Completed</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -73,14 +74,14 @@ export default function TicketsPage() {
             <TicketList
               searchQuery={searchQuery}
               statusFilter={statusFilter}
-              priorityFilter={priorityFilter}
               selectedTicket={selectedTicket}
               onSelectTicket={setSelectedTicket}
+              refreshKey={refreshKey}
             />
           </div>
           <div className="lg:col-span-3 h-[calc(100vh-180px)] overflow-y-auto px-2 py-1">
             {selectedTicket ? (
-              <TicketDetails ticketId={selectedTicket} isSelected={true} />
+              <TicketDetails ticketId={selectedTicket} isSelected={true} onTicketUpdate={handleTicketUpdate} />
             ) : (
               <div className="h-full flex items-center justify-center bg-muted/20 border border-dashed border-border rounded-lg">
                 <p className="text-muted-foreground">Select a ticket to view details</p>
