@@ -8,6 +8,8 @@ import customerRoutes from './routes/customers.js';
 import authRoutes from './routes/auth.js';
 import technicianRoutes from './routes/technicians.js';
 import teamRoutes from './routes/teams.js';
+import rootCauseRoutes from './routes/rootcauses.js';
+import materialRoutes from './routes/materials.js';
 dotenv.config();
 const app = express();
 
@@ -20,6 +22,8 @@ app.use('/service-type', serviceTypeRoutes);
 app.use('/customers', customerRoutes);
 app.use('/technicians', technicianRoutes);
 app.use('/teams', teamRoutes);
+app.use('/rootcauses', rootCauseRoutes);
+app.use('/materials', materialRoutes);
 
 // Auth routes
 app.use('/auth', authRoutes);

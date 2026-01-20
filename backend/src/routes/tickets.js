@@ -106,6 +106,7 @@ router.get('/', async (req, res) => {
       status: t.status,
       sla: t.sla,
       issueTime: t.issueTime,
+      startTime: t.startTime,
       completionTime: t.completionTime,
 
       priorityId: t.priorityId,
@@ -115,6 +116,7 @@ router.get('/', async (req, res) => {
       phone: t.customer?.phone ?? null,
       splitter: t.customer?.splitter ?? null,
 
+      technicianId: t.technicianId,
       technician_display: t.technician?.name ?? null,
     }))
     res.status(200).json(formattedTickets);
@@ -192,12 +194,30 @@ router.get('/:id', async (req, res) => {
 // Update a ticket by ID
 router.put('/:id', async (req, res) => {
   try {
+    console.log('Updating ticket:', req.params.id);
+    console.log('Update data:', req.body);
+    
+    // Convert startTime string to Date if present
+    const updateData = { ...req.body };
+    if (updateData.startTime) {
+      updateData.startTime = new Date(updateData.startTime);
+    }
+    if (updateData.completionTime) {
+      updateData.completionTime = new Date(updateData.completionTime);
+    }
+    if (updateData.issueTime) {
+      updateData.issueTime = new Date(updateData.issueTime);
+    }
+    
     const ticket = await prisma.ticket.update({
       where: { id: req.params.id },
-      data: req.body,
+      data: updateData,
     });
+    
+    console.log('Ticket updated successfully:', ticket.id);
     res.status(200).json(ticket);
   } catch (error) {
+    console.error('Error updating ticket:', error);
     res.status(500).json({ error: error.message });
   }
 });

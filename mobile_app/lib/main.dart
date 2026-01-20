@@ -1,9 +1,17 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
-import 'pages/home.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'config/app_theme.dart';
+import 'pages/login_page.dart';
 
-void main() {
-  runApp(const FieldLinkApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  runApp(
+    const ProviderScope(
+      child: FieldLinkApp(),
+    ),
+  );
 }
 
 class FieldLinkApp extends StatelessWidget {
@@ -13,11 +21,8 @@ class FieldLinkApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'DTG FieldLink',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        scaffoldBackgroundColor: const Color(0xFFF5F6FA),
-      ),
-      home: const HomePage(),
+      theme: AppTheme.lightTheme,
+      home: const LoginPage(),
       debugShowCheckedModeBanner: false,
     );
   }
