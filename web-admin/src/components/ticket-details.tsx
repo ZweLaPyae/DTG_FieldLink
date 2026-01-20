@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils"
 interface TicketDetailsProps {
   ticketId: string
   isSelected?: boolean
+  onTicketUpdate?: () => void
 }
 
 interface Ticket {
@@ -21,6 +22,7 @@ interface Ticket {
   status: string
   sla: string
   issueTime: string
+  startTime: string | null
   completionTime: string | null
   priorityId: string
   customerId: string
@@ -31,6 +33,7 @@ interface Ticket {
   totalCost: number | null
   attachments: any
   updates: any
+  faultCoordinate?: any
   customer?: {
     id: string
     name: string
@@ -56,7 +59,7 @@ interface Ticket {
   }>
 }
 
-export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsProps) {
+export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: TicketDetailsProps) {
   const [ticket, setTicket] = useState<Ticket | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [newUpdate, setNewUpdate] = useState("")
@@ -69,6 +72,9 @@ export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsPro
         const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets/${ticketId}`)
         if (response.ok) {
           const data = await response.json()
+          console.log("Ticket data received:", data)
+          console.log("Materials used:", data.materialsUsed)
+          console.log("Total cost:", data.totalCost)
           setTicket(data)
         }
       } catch (error) {
@@ -81,6 +87,47 @@ export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsPro
       fetchTicket()
     }
   }, [ticketId])
+
+  const handleUpdateTicket = async () => {
+    try {
+      const updateData: any = {}
+      
+      // Only include status if it was changed
+      if (newStatus && newStatus !== ticket?.status) {
+        updateData.status = newStatus
+      }
+
+      // If there's nothing to update, return early
+      if (Object.keys(updateData).length === 0) {
+        return
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets/${ticketId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
+      })
+
+      if (response.ok) {
+        // Re-fetch the ticket to get enriched data (materials with names, etc.)
+        const getResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets/${ticketId}`)
+        if (getResponse.ok) {
+          const enrichedTicket = await getResponse.json()
+          setTicket(enrichedTicket)
+        }
+        setNewStatus("")
+        setNewUpdate("")
+        // Notify parent to refresh the ticket list
+        if (onTicketUpdate) {
+          onTicketUpdate()
+        }
+      }
+    } catch (error) {
+      console.error("Error updating ticket:", error)
+    }
+  }
 
   if (isLoading) {
     return (
@@ -103,38 +150,24 @@ export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsPro
   }
 
   const statusColors = {
-    pending: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
-    "in-progress": "bg-blue-500/10 text-blue-500 border-blue-500/20",
-    completed: "bg-green-500/10 text-green-500 border-green-500/20",
-    "on-hold": "bg-gray-500/10 text-gray-500 border-gray-500/20",
-  }
-
-  const priorityColors = {
-    low: "bg-gray-500/10 text-gray-500 border-gray-500/20",
-    medium: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-    high: "bg-amber-500/10 text-amber-500 border-amber-500/20",
-    critical: "bg-red-600/10 text-red-600 border-red-600/20",
+    NEW: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
+    IN_PROGRESS: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+    IN_REVIEW: "bg-purple-500/10 text-purple-500 border-purple-500/20",
+    COMPLETED: "bg-green-500/10 text-green-500 border-green-500/20",
   }
 
   return (
     <div className="space-y-4">
       <Card className={cn(
         "border-border/50",
-        isSelected && (ticket.priority !== "critical" || ticket.status === "completed") && "ring-2 ring-primary border-primary/50",
-        ticket.priority === "critical" && ticket.status !== "completed" && "border-2 border-red-600 shadow-red-500/20 shadow-lg",
-        isSelected && ticket.priority === "critical" && ticket.status !== "completed" && "ring-2 ring-red-600"
+        isSelected && "ring-2 ring-primary border-primary/50"
       )}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">{ticket.id}</CardTitle>
-            <div className="flex space-x-2">
-              <Badge variant="outline" className={statusColors[ticket.status as keyof typeof statusColors]}>
-                {ticket.status.replace("-", " ")}
-              </Badge>
-              <Badge variant="outline" className={priorityColors[(ticket.priority?.display || "Normal") as keyof typeof priorityColors]}>
-                {ticket.priority?.display || "Normal"}
-              </Badge>
-            </div>
+            <Badge variant="outline" className={statusColors[ticket.status as keyof typeof statusColors]}>
+              {ticket.status.replace("_", " ")}
+            </Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-4 grid grid-cols-4 gap-4">
@@ -176,6 +209,20 @@ export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsPro
                 <Clock className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm">SLA: {ticket.sla}</span>
               </div>
+              <div className="flex flex-col space-y-1 text-sm">
+                <span className="text-muted-foreground">Issue Time: <span className="text-foreground">{new Date(ticket.issueTime).toLocaleString()}</span></span>
+                {ticket.startTime && (
+                  <span className="text-muted-foreground">Start Time: <span className="text-foreground">{new Date(ticket.startTime).toLocaleString()}</span></span>
+                )}
+                {ticket.completionTime && (
+                  <span className="text-muted-foreground">Completion Time: <span className="text-foreground">{new Date(ticket.completionTime).toLocaleString()}</span></span>
+                )}
+              </div>
+              {ticket.technician && (
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Assigned to: <span className="text-foreground font-medium">{ticket.technician.name}</span></span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -208,24 +255,37 @@ export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsPro
           )}
 
           {/* Materials & Cost */}
-          {ticket.materialsUsed && Array.isArray(ticket.materialsUsed) && ticket.materialsUsed.length > 0 && (
+          {(ticket.materialsUsed || ticket.totalCost) && (
             <>
               <div className="space-y-3 col-span-2 shadow-sm p-4 rounded-md border border-border/50">
                 <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
                   Materials & Cost
                 </h4>
                 <div className="space-y-2">
-                  {ticket.materialsUsed.map((material: any, index: number) => (
-                    <div key={index} className="flex justify-between items-center text-sm">
-                      <span>{material.item}</span>
-                      <span className="font-medium">${material.cost}</span>
+                  {ticket.materialsUsed && Array.isArray(ticket.materialsUsed) && ticket.materialsUsed.length > 0 && (
+                    <div className="space-y-1">
+                      {ticket.materialsUsed.map((material: any, index: number) => (
+                        <div key={index} className="flex justify-between items-center text-sm">
+                          <span>
+                            {material.name || `Material ID: ${material.materialId}`}
+                            {material.quantity && ` × ${material.quantity}`}
+                          </span>
+                          {material.unitCost && material.quantity && (
+                            <span className="font-medium">MMK{(material.unitCost * material.quantity).toFixed(2)}</span>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                  <Separator />
-                  <div className="flex justify-between items-center font-semibold">
-                    <span>Total Cost</span>
-                    <span className="text-primary">${ticket.totalCost || "0"}</span>
-                  </div>
+                  )}
+                  {ticket.totalCost && (
+                    <>
+                      <Separator />
+                      <div className="flex justify-between items-center font-semibold">
+                        <span>Total Cost</span>
+                        <span className="text-primary">MMK{ticket.totalCost.toFixed(2)}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </>
@@ -246,6 +306,23 @@ export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsPro
                 </div>
               </div>
 
+            </>
+          )}
+
+          {/* Fault Coordinates */}
+          {ticket.faultCoordinate && (
+            <>
+              <div className="space-y-3 col-span-2 shadow-sm p-4 rounded-md border border-border/50">
+                <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Fault Location</h4>
+                <div className="flex items-center space-x-2 text-sm">
+                  <MapPin className="w-4 h-4 text-muted-foreground" />
+                  <span className="font-medium">
+                    {Array.isArray(ticket.faultCoordinate) 
+                      ? `[${ticket.faultCoordinate.join(', ')}]` 
+                      : JSON.stringify(ticket.faultCoordinate)}
+                  </span>
+                </div>
+              </div>
             </>
           )}
 
@@ -278,14 +355,14 @@ export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsPro
           {/* Status Update */}
           <div className="space-y-3 col-span-4 shadow-sm p-4 rounded-md border border-border/50">
             <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Update Status</h4>
-            <Select value={newStatus} onValueChange={setNewStatus}>
+            <Select value={newStatus || ticket.status} onValueChange={setNewStatus}>
               <SelectTrigger>
                 <SelectValue placeholder="Change status..." />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(statusColors).map(([status]) => (
+                {Object.keys(statusColors).map((status) => (
                   <SelectItem key={status} value={status}>
-                    {status.replace("-", " ")}
+                    {status.replace("_", " ")}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -296,37 +373,10 @@ export function TicketDetails({ ticketId, isSelected = false }: TicketDetailsPro
               onChange={(e) => setNewUpdate(e.target.value)}
               rows={3}
             />
-            <Button className="w-full">
+            <Button className="w-full" onClick={handleUpdateTicket}>
               <Edit3 className="w-4 h-4 mr-2" />
               Update Ticket
             </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Activity Timeline */}
-      <Card className="border-border/50 col-span-4 shadow-sm p-4 rounded-md border border-border/50">
-        <CardHeader>
-          <CardTitle className="text-lg">Activity Timeline</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {ticket.updates && Array.isArray(ticket.updates) && ticket.updates.length > 0 ? (
-              ticket.updates.map((update: any, index: number) => (
-                <div key={index} className="flex space-x-3">
-                  <div className="w-2 h-2 bg-primary rounded-full mt-2" />
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm font-medium">{update.user}</span>
-                      <span className="text-xs text-muted-foreground">{update.time}</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{update.message}</p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">No activity updates</p>
-            )}
           </div>
         </CardContent>
       </Card>

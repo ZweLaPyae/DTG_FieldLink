@@ -146,6 +146,45 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Ticket not found' });
     }
 
+    // If ticket has materials used, fetch material details from catalog
+    if (ticket.materialsUsed && Array.isArray(ticket.materialsUsed)) {
+      const materialIds = ticket.materialsUsed.map(m => m.materialId);
+      const materials = await prisma.materialCatalog.findMany({
+        where: {
+          id: { in: materialIds }
+        }
+      });
+
+      // Create a map for quick lookup
+      const materialMap = {};
+      materials.forEach(m => {
+        materialMap[m.id] = m;
+      });
+
+      // Enrich materials data with catalog info and calculate total cost
+      let calculatedTotalCost = 0;
+      ticket.materialsUsed = ticket.materialsUsed.map(m => {
+        const material = materialMap[m.materialId];
+        const itemCost = material?.unitCost ? material.unitCost * (m.quantity || 0) : 0;
+        calculatedTotalCost += itemCost;
+        
+        return {
+          ...m,
+          name: material?.name || `Unknown Material (ID: ${m.materialId})`,
+          unitCost: material?.unitCost
+        };
+      });
+
+      // Update the total cost in the database if it has changed
+      if (calculatedTotalCost !== ticket.totalCost) {
+        await prisma.ticket.update({
+          where: { id: req.params.id },
+          data: { totalCost: calculatedTotalCost }
+        });
+        ticket.totalCost = calculatedTotalCost;
+      }
+    }
+
     res.status(200).json(ticket);
   } catch (error) {
     res.status(500).json({ error: error.message });

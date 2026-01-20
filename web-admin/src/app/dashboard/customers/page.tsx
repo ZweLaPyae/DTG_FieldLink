@@ -118,7 +118,7 @@ export default function CustomersPage() {
             </h1>
             <p className="text-muted-foreground mt-1">Create, view, edit, and manage customer records</p>
           </div>
-          <Button onClick={() => router.push("/dashboard/customers/new")} className="bg-blue-600 hover:bg-blue-700">
+          <Button onClick={() => router.push("/dashboard/customers/new")}>
             <Plus className="w-4 h-4 mr-2" />
             Add Customer
           </Button>
@@ -215,7 +215,7 @@ export default function CustomersPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => router.push(`/customers/${customer.id}/edit`)}
+                              onClick={() => router.push(`/dashboard/customers/${customer.id}/edit`)}
                               className="hover:bg-blue-50 dark:hover:bg-blue-950/30"
                             >
                               <Edit className="w-4 h-4" />
