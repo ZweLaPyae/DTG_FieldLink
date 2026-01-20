@@ -33,12 +33,14 @@ class ApiConfig {
   // API endpoints
   static const String ticketsEndpoint = '/tickets';
   static const String customersEndpoint = '/customers';
+  static const String techniciansEndpoint = '/technicians';
   static const String serviceTypesEndpoint = '/service-type';
   static const String authEndpoint = '/auth';
   
   // Full URLs
   static String get ticketsUrl => '$baseUrl$ticketsEndpoint';
   static String get customersUrl => '$baseUrl$customersEndpoint';
+  static String get techniciansUrl => '$baseUrl$techniciansEndpoint';
   static String get serviceTypesUrl => '$baseUrl$serviceTypesEndpoint';
   static String get authUrl => '$baseUrl$authEndpoint';
 }

@@ -6,9 +6,11 @@ import '../models.dart';
 import '../data_service.dart';
 import '../config/design_tokens.dart';
 import '../providers/tickets_provider.dart';
+import '../providers/auth_provider.dart';
 import '../widgets/loading_shimmer.dart';
 import 'ticket_detail.dart';
 import 'api_test_page.dart';
+import 'login_page.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -22,6 +24,9 @@ class _HomePageState extends ConsumerState<HomePage> {
   int _currentIndex = 0;
   String _priorityFilter = 'all';
   bool _sortAscending = true; // true = low to critical, false = critical to low
+  bool _inProgressExpanded = true;
+  bool _inReviewExpanded = true;
+  bool _completedExpanded = true;
 
   @override
   Widget build(BuildContext context) {
@@ -275,8 +280,11 @@ class _HomePageState extends ConsumerState<HomePage> {
             child: ticketsAsync.when(
               data: (allTickets) {
                 var tickets = allTickets.where((t) {
-                  final isAvailable = !t.status.toLowerCase().contains('in-progress') && 
-                                     !t.status.toLowerCase().contains('completed');
+                  // Available tickets: status must be NEW and no technician assigned
+                  final hasNoTechnician = t.technicianId == null || t.technicianId!.isEmpty;
+                  final isNew = t.status.toUpperCase() == 'NEW';
+                  
+                  final isAvailable = hasNoTechnician && isNew;
                   if (!isAvailable) return false;
                   
                   if (_priorityFilter == 'all') return true;
@@ -401,52 +409,137 @@ class _HomePageState extends ConsumerState<HomePage> {
         const Text('Assigned to you', style: TextStyle(color: Colors.grey)),
         const SizedBox(height: 10),
         Expanded(
-          child: FutureBuilder<List<Ticket>>(
-            future: dataService.loadTickets(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return Center(child: Text('Error: ${snapshot.error}'));
-              }
-              final allTickets = snapshot.data ?? [];
-              // Filter for assigned tickets (in-progress or completed)
-              var tickets = allTickets.where((t) {
-                final isAssigned = t.status.toLowerCase().contains('in-progress') || 
-                                 t.status.toLowerCase().contains('completed');
-                if (!isAssigned) return false;
-                
-                if (_priorityFilter == 'all') return true;
-                return t.priority.toLowerCase() == _priorityFilter;
-              }).toList();
+          child: Consumer(
+            builder: (context, ref, child) {
+              final ticketsAsync = ref.watch(ticketsProvider);
+              final authState = ref.watch(authProvider);
+              final currentTechnician = authState.technician;
               
-              // Sort tickets: in-progress first, then by priority
-              tickets.sort((a, b) {
-                final aInProgress = a.status.toLowerCase().contains('in-progress');
-                final bInProgress = b.status.toLowerCase().contains('in-progress');
-                
-                // If one is in-progress and the other isn't, prioritize in-progress
-                if (aInProgress && !bInProgress) return -1;
-                if (!aInProgress && bInProgress) return 1;
-                
-                // If both have same status, sort by priority
-                const priorityOrder = {'low': 1, 'medium': 2, 'high': 3, 'critical': 4};
-                final aPriority = priorityOrder[a.priority.toLowerCase()] ?? 0;
-                final bPriority = priorityOrder[b.priority.toLowerCase()] ?? 0;
-                return _sortAscending ? aPriority.compareTo(bPriority) : bPriority.compareTo(aPriority);
-              });
-              
-              if (tickets.isEmpty) {
-                return const Center(child: Text('No assigned tasks', style: TextStyle(color: Colors.grey)));
-              }
-              
-              return ListView.builder(
-                itemCount: tickets.length,
-                itemBuilder: (context, index) {
-                  final t = tickets[index];
-                  return _taskCard(context, t);
+              return ticketsAsync.when(
+                data: (allTickets) {
+                  print('Total tickets: ${allTickets.length}');
+                  print('Current technician ID: ${currentTechnician?.id}');
+                  
+                  // Filter for assigned tickets: status NOT NEW and technician matches
+                  var tickets = allTickets.where((t) {
+                    print('--- Checking ticket ${t.id} ---');
+                    print('  Status: ${t.status}');
+                    print('  TechnicianId: ${t.technicianId} (type: ${t.technicianId.runtimeType})');
+                    
+                    // Check if ticket status is NOT NEW (any other status means assigned)
+                    final isNotNew = t.status.toUpperCase() != 'NEW';
+                    print('  Is not new status: $isNotNew');
+                    if (!isNotNew) {
+                      print('  REJECTED: Status is NEW');
+                      return false;
+                    }
+                    
+                    // Check if ticket is assigned to current technician
+                    if (currentTechnician == null) {
+                      print('  REJECTED: No current technician');
+                      return false;
+                    }
+                    
+                    if (t.technicianId == null) {
+                      print('  REJECTED: Ticket has no technician');
+                      return false;
+                    }
+                    
+                    // Compare technician IDs as strings (backend returns int, we store string)
+                    final ticketTechId = t.technicianId.toString();
+                    final currentTechId = currentTechnician.id.toString();
+                    print('  Comparing: "$ticketTechId" (${ticketTechId.runtimeType}) == "$currentTechId" (${currentTechId.runtimeType})');
+                    final match = ticketTechId == currentTechId;
+                    print('  Match result: $match');
+                    
+                    if (!match) {
+                      print('  REJECTED: Technician ID mismatch');
+                      return false;
+                    }
+                    
+                    if (_priorityFilter == 'all') {
+                      print('  ACCEPTED: All priority filter');
+                      return true;
+                    }
+                    
+                    final priorityMatch = t.priority.toLowerCase() == _priorityFilter;
+                    print('  Priority match: $priorityMatch (${t.priority.toLowerCase()} == $_priorityFilter)');
+                    return priorityMatch;
+                  }).toList();
+                  
+                  print('Filtered tickets for tasks tab: ${tickets.length}');
+                  
+                  // Group tickets by status
+                  final inProgressTickets = tickets.where((t) => t.status.toUpperCase() == 'IN_PROGRESS').toList();
+                  final inReviewTickets = tickets.where((t) => t.status.toUpperCase() == 'IN_REVIEW').toList();
+                  final completedTickets = tickets.where((t) => t.status.toUpperCase() == 'COMPLETED').toList();
+                  
+                  if (tickets.isEmpty) {
+                    return const Center(child: Text('No assigned tasks', style: TextStyle(color: Colors.grey)));
+                  }
+                  
+                  return ListView(
+                    children: [
+                      // In Progress Section
+                      if (inProgressTickets.isNotEmpty) ...[
+                        _statusSection(
+                          'In Progress',
+                          inProgressTickets.length,
+                          const Color(0xFF3B82F6),
+                          Icons.autorenew,
+                          _inProgressExpanded,
+                          () => setState(() => _inProgressExpanded = !_inProgressExpanded),
+                        ),
+                        if (_inProgressExpanded)
+                          ...inProgressTickets.map((t) => _taskCard(context, t, const Color(0xFF3B82F6))),
+                      ],
+                      // In Review Section
+                      if (inReviewTickets.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        _statusSection(
+                          'In Review',
+                          inReviewTickets.length,
+                          const Color(0xFFF59E0B),
+                          Icons.rate_review,
+                          _inReviewExpanded,
+                          () => setState(() => _inReviewExpanded = !_inReviewExpanded),
+                        ),
+                        if (_inReviewExpanded)
+                          ...inReviewTickets.map((t) => _taskCard(context, t, const Color(0xFFF59E0B))),
+                      ],
+                      // Completed Section
+                      if (completedTickets.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        _statusSection(
+                          'Completed',
+                          completedTickets.length,
+                          const Color(0xFF10B981),
+                          Icons.check_circle,
+                          _completedExpanded,
+                          () => setState(() => _completedExpanded = !_completedExpanded),
+                        ),
+                        if (_completedExpanded)
+                          ...completedTickets.map((t) => _taskCard(context, t, const Color(0xFF10B981))),
+                      ],
+                    ],
+                  );
                 },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, stack) => Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                      const SizedBox(height: 16),
+                      Text('Error: $error'),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () => ref.read(ticketsProvider.notifier).loadTickets(forceRefresh: true),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
               );
             },
           ),
@@ -456,42 +549,165 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Widget _buildProfileTab() {
+    final authState = ref.watch(authProvider);
+    final technician = authState.technician;
+
+    // If no technician is logged in, show error
+    if (technician == null) {
+      return const Center(
+        child: Text('No technician data available'),
+      );
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
           const SizedBox(height: 20),
-          const CircleAvatar(
+          // Profile Picture
+          CircleAvatar(
             radius: 60,
-            backgroundColor: Color(0xFF2563EB),
-            child: Icon(Icons.person, size: 60, color: Colors.white),
+            backgroundColor: const Color(0xFF2563EB),
+            backgroundImage: technician.picture.isNotEmpty
+                ? NetworkImage(technician.picture)
+                : null,
+            child: technician.picture.isEmpty
+                ? const Icon(Icons.person, size: 60, color: Colors.white)
+                : null,
           ),
           const SizedBox(height: 16),
-          const Text(
-            'John Technician',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          // Technician Name
+          Text(
+            technician.name,
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const Text(
             'Field Technician',
             style: TextStyle(fontSize: 16, color: Colors.grey),
           ),
           const SizedBox(height: 30),
+          // Contact Information Card
           _profileCard(
             children: [
-              _profileItem(Icons.email, 'Email', 'john.tech@dtg.com'),
+              _profileItem(Icons.email, 'Email', technician.email),
               const Divider(height: 1),
-              _profileItem(Icons.phone, 'Phone', '+1 234 567 8900'),
+              _profileItem(Icons.phone, 'Phone', technician.phone),
               const Divider(height: 1),
-              _profileItem(Icons.badge, 'Employee ID', 'TECH-001'),
+              _profileItem(Icons.badge, 'Employee ID', 'TECH-${technician.id}'),
             ],
           ),
           const SizedBox(height: 16),
-          _profileCard(
-            children: [
-              _profileItem(Icons.assignment_turned_in, 'Completed Tasks', '45'),
-              const Divider(height: 1),
-              _profileItem(Icons.pending_actions, 'Pending Tasks', '8'),
-            ],
+          // Statistics Card
+          Consumer(
+            builder: (context, ref, _) {
+              final ticketsAsync = ref.watch(ticketsProvider);
+              
+              return ticketsAsync.when(
+                data: (tickets) {
+                  final completedCount = tickets.where((t) => 
+                    t.status.toUpperCase() == 'COMPLETED' && 
+                    t.technicianId?.toString() == technician.id.toString()
+                  ).length;
+                  
+                  final pendingCount = tickets.where((t) => 
+                    t.status.toUpperCase() != 'COMPLETED' && 
+                    t.technicianId?.toString() == technician.id.toString()
+                  ).length;
+                  
+                  final totalTickets = completedCount + pendingCount;
+                  
+                  return _profileCard(
+                    children: [
+                      _profileItem(
+                        Icons.assignment_turned_in,
+                        'Total Tickets',
+                        totalTickets.toString(),
+                      ),
+                      const Divider(height: 1),
+                      _profileItem(
+                        Icons.check_circle,
+                        'Completed Tickets',
+                        completedCount.toString(),
+                      ),
+                      const Divider(height: 1),
+                      _profileItem(
+                        Icons.pending_actions,
+                        'Pending Tickets',
+                        pendingCount.toString(),
+                      ),
+                    ],
+                  );
+                },
+                loading: () => _profileCard(
+                  children: [
+                    _profileItem(
+                      Icons.assignment_turned_in,
+                      'Total Tickets',
+                      technician.ticketCount?.toString() ?? '0',
+                    ),
+                    const Divider(height: 1),
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: CircularProgressIndicator(),
+                      ),
+                    ),
+                  ],
+                ),
+                error: (_, __) => _profileCard(
+                  children: [
+                    _profileItem(
+                      Icons.assignment_turned_in,
+                      'Total Tickets',
+                      technician.ticketCount?.toString() ?? '0',
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          // Logout Button
+          ElevatedButton.icon(
+            onPressed: () {
+              // Show confirmation dialog
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Logout'),
+                  content: const Text('Are you sure you want to logout?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        ref.read(authProvider.notifier).logout();
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(builder: (_) => const LoginPage()),
+                          (route) => false,
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                      ),
+                      child: const Text('Logout'),
+                    ),
+                  ],
+                ),
+              );
+            },
+            icon: const Icon(Icons.logout),
+            label: const Text('Logout'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
           ),
         ],
       ),
@@ -659,7 +875,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 const SizedBox(width: 8),
                 Expanded(child: Text(t.complaint, style: const TextStyle(fontSize: 13, color: Color(0xFF475569)))),
               ]),
-              const SizedBox(height: 10),
+              const SizedBox(height: 6),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -676,53 +892,61 @@ class _HomePageState extends ConsumerState<HomePage> {
                       child: Text('SLA: ${t.sla}', style: const TextStyle(fontSize: 12, color: Color(0xFF3B82F6), fontWeight: FontWeight.w600)),
                     ),
                   ]),
-                  // Accept button at same level
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF10B981), Color(0xFF059669)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                  // Accept button as text button
+                  ElevatedButton(
+                    onPressed: () async {
+                      final authState = ref.read(authProvider);
+                      final currentTechnician = authState.technician;
+                      
+                      if (currentTechnician == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Error: No technician logged in')),
+                        );
+                        return;
+                      }
+                      
+                      // Accept ticket - update status, technicianId, and startTime
+                      try {
+                        final techId = int.parse(currentTechnician.id);
+                        print('Accepting ticket ${t.id} for technician $techId');
+                        
+                        final success = await dataService.updateTicket(t.id, {
+                          'status': 'IN_PROGRESS',
+                          'technicianId': techId,
+                          'startTime': DateTime.now().toIso8601String(),
+                        });
+                        if (success && context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Ticket accepted! Check Tasks tab.')),
+                          );
+                          // Refresh tickets
+                          ref.invalidate(ticketsProvider);
+                        } else if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Failed to accept ticket')),
+                          );
+                        }
+                      } catch (e) {
+                        print('Error accepting ticket: $e');
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e')),
+                          );
+                        }
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF10B981).withOpacity(0.4),
-                          blurRadius: 12,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
+                      elevation: 2,
                     ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () async {
-                          // Accept ticket - update status to in-progress
-                          final success = await dataService.updateTicket(t.id, {
-                            'status': 'IN_PROGRESS',
-                          });
-                          if (success && context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Ticket accepted! Check Tasks tab.')),
-                            );
-                            setState(() {
-                              // Refresh the list
-                            });
-                          } else if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Failed to accept ticket')),
-                            );
-                          }
-                        },
-                        borderRadius: BorderRadius.circular(16),
-                        child: const Icon(
-                          Icons.check_circle,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                      ),
+                    child: const Text(
+                      'Accept',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -735,15 +959,15 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  Widget _taskCard(BuildContext context, Ticket t) {
-    Color statusColor = const Color(0xFFFBBF24);
+  Widget _taskCard(BuildContext context, Ticket t, Color statusColor) {
     IconData statusIcon = Icons.pending_actions;
-    if (t.status.toLowerCase().contains('in-progress')) {
-      statusColor = const Color(0xFF3B82F6);
-      statusIcon = Icons.loop;
+    if (t.status.toUpperCase() == 'IN_PROGRESS') {
+      statusIcon = Icons.autorenew;
     }
-    if (t.status.toLowerCase().contains('completed')) {
-      statusColor = const Color(0xFF10B981);
+    if (t.status.toUpperCase() == 'IN_REVIEW') {
+      statusIcon = Icons.rate_review;
+    }
+    if (t.status.toUpperCase() == 'COMPLETED') {
       statusIcon = Icons.check_circle;
     }
     
@@ -767,7 +991,17 @@ class _HomePageState extends ConsumerState<HomePage> {
       priorityIcon = Icons.warning_amber_rounded;
     }
 
-    return Container(
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TicketDetailPage(ticketId: t.id, isFromTasksTab: true),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -885,102 +1119,71 @@ class _HomePageState extends ConsumerState<HomePage> {
                   child: Text('SLA: ${t.sla}', style: const TextStyle(fontSize: 12, color: Color(0xFF3B82F6), fontWeight: FontWeight.w600)),
                 ),
               ]),
-              const SizedBox(height: 18),
-              // Large CTA: Continue/Complete Job
-              Container(
-                height: 56,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: t.status.toLowerCase().contains('completed')
-                        ? [const Color(0xFF10B981), const Color(0xFF059669)]
-                        : [const Color(0xFF3B82F6), const Color(0xFF1E40AF)],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: statusColor.withOpacity(0.4),
-                      blurRadius: 12,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => TicketDetailPage(ticketId: t.id, isFromTasksTab: true)));
-                    },
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            t.status.toLowerCase().contains('completed')
-                                ? Icons.check_circle
-                                : Icons.build,
-                            size: 24,
-                            color: Colors.white,
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            t.status.toLowerCase().contains('completed')
-                                ? 'VIEW COMPLETED'
-                                : 'CONTINUE WORK',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 16,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              // Quick Actions
-              Row(children: [
-                Expanded(
-                  child: _quickActionButton(
-                    icon: Icons.call,
-                    label: 'Call',
-                    color: const Color(0xFF10B981),
-                    onTap: () {
-                      // TODO: Implement call customer
-                    },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _quickActionButton(
-                    icon: Icons.navigation,
-                    label: 'Navigate',
-                    color: const Color(0xFF3B82F6),
-                    onTap: () {
-                      // TODO: Implement navigation
-                    },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _quickActionButton(
-                    icon: Icons.camera_alt,
-                    label: 'Photo',
-                    color: const Color(0xFFF59E0B),
-                    onTap: () {
-                      // TODO: Implement photo capture
-                    },
-                  ),
-                ),
-              ]),
             ],
           ),
         ),
       ]),
+      ),
+    );
+  }
+
+  Widget _statusSection(String title, int count, Color color, IconData icon, bool isExpanded, VoidCallback onToggle) {
+    return InkWell(
+      onTap: onToggle,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [color.withOpacity(0.15), color.withOpacity(0.05)],
+          ),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                count.toString(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              isExpanded ? Icons.expand_less : Icons.expand_more,
+              color: color,
+            ),
+          ],
+        ),
+      ),
     );
   }
 

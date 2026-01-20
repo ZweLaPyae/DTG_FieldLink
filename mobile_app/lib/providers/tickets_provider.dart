@@ -47,10 +47,12 @@ final ticketsProvider = StateNotifierProvider<TicketsNotifier, AsyncValue<List<T
 final availableTicketsProvider = Provider<List<Ticket>>((ref) {
   final ticketsAsync = ref.watch(ticketsProvider);
   return ticketsAsync.when(
-    data: (tickets) => tickets.where((t) => 
-      !t.status.toLowerCase().contains('in-progress') && 
-      !t.status.toLowerCase().contains('completed')
-    ).toList(),
+    data: (tickets) => tickets.where((t) {
+      // Available tickets: status must be NEW and no technician assigned
+      final hasNoTechnician = t.technicianId == null || t.technicianId!.isEmpty;
+      final isNew = t.status.toUpperCase() == 'NEW';
+      return hasNoTechnician && isNew;
+    }).toList(),
     loading: () => [],
     error: (_, __) => [],
   );
@@ -59,10 +61,12 @@ final availableTicketsProvider = Provider<List<Ticket>>((ref) {
 final assignedTicketsProvider = Provider<List<Ticket>>((ref) {
   final ticketsAsync = ref.watch(ticketsProvider);
   return ticketsAsync.when(
-    data: (tickets) => tickets.where((t) => 
-      t.status.toLowerCase().contains('in-progress') || 
-      t.status.toLowerCase().contains('completed')
-    ).toList(),
+    data: (tickets) => tickets.where((t) {
+      // Assigned tickets: status NOT NEW and has technician
+      final hasTechnician = t.technicianId != null && t.technicianId!.isNotEmpty;
+      final isNotNew = t.status.toUpperCase() != 'NEW';
+      return hasTechnician && isNotNew;
+    }).toList(),
     loading: () => [],
     error: (_, __) => [],
   );

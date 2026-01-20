@@ -88,9 +88,11 @@ model Ticket {
   rootCauseId      String?
   rootCauseDetails String?
   wayToFix         String?
+  technicianNote   String?
 
   materialsUsed    Json?
   totalCost        Float?
+
   attachments      Json?
   faultCoordinate  Json?
   breakTimes       Json?
@@ -114,8 +116,20 @@ model Team {
   leader           Technician @relation(fields: [leaderId], references: [id])
 }
 
+enum MaterialUnit {
+  PIECE     // For items sold per piece/bag
+  METER     // For cables sold per length
+}
+
 model MaterialCatalog {
-  id       Int    @id @default(autoincrement())
-  name     String
-  unitCost Float
+  id          Int          @id @default(autoincrement())
+  name        String
+  unit        MaterialUnit @default(PIECE)
+
+  // For PIECE: cost per single item/bag
+  // For METER: cost per referenceLength (e.g., 180000 per 1000m)
+  unitCost    Float
+
+  // Only used when unit = METER (e.g., 1000 for "per 1000m")
+  referenceLength Float?
 }
