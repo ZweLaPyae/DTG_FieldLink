@@ -121,7 +121,7 @@ export default function EditCustomerPage() {
       }
 
       // ✅ Success
-      router.push("/customers")
+      router.push("/dashboard/customers")
     } catch (err: any) {
       console.error(err)
       alert(err.message || "Something went wrong")

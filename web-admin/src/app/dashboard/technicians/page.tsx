@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { UserCog, Plus, Search } from "lucide-react"
+import { FaUser, FaUserTie } from "react-icons/fa"
 
 interface Technician {
   id: number
@@ -50,9 +51,10 @@ export default function TechniciansPage() {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/technicians`)
       const data = await response.json()
-      setTechnicians(data)
+      setTechnicians(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Failed to fetch technicians:', error)
+      setTechnicians([])
     } finally {
       setIsLoading(false)
     }
@@ -62,9 +64,10 @@ export default function TechniciansPage() {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/teams`)
       const data = await response.json()
-      setTeams(data)
+      setTeams(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Failed to fetch teams:', error)
+      setTeams([])
     }
   }
 
@@ -156,12 +159,12 @@ export default function TechniciansPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground flex items-center">
-              <UserCog className="w-8 h-8 mr-3 text-blue-600 dark:text-blue-400" />
+              <FaUserTie className="w-8 h-8 mr-3 text-blue-600 dark:text-blue-400" />
               Technician Management
             </h1>
             <p className="text-muted-foreground mt-1">Create, view, edit, and manage technician records</p>
           </div>
-          <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-blue-600 hover:bg-blue-700">
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="w-4 h-4 mr-2" />
             Invite New Technician
           </Button>

@@ -9,9 +9,9 @@ import { Clock, MapPin, User, AlertCircle } from "lucide-react"
 interface TicketListProps {
   searchQuery: string
   statusFilter: string
-  priorityFilter: string
   selectedTicket: string | null
   onSelectTicket: (ticketId: string) => void
+  refreshKey?: number
 }
 
 interface Ticket {
@@ -20,7 +20,6 @@ interface Ticket {
   status: string
   sla: string
   issueTime: string
-  priority: string
   customerName: string | null
   phone: string[] | null
   splitter: string | null
@@ -28,25 +27,18 @@ interface Ticket {
 }
 
 const statusColors = {
-  pending: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
-  "in-progress": "bg-blue-500/10 text-blue-500 border-blue-500/20",
-  completed: "bg-green-500/10 text-green-500 border-green-500/20",
-  "on-hold": "bg-gray-500/10 text-gray-500 border-gray-500/20",
-}
-
-const priorityColors = {
-  low: "bg-gray-500/10 text-gray-500 border-gray-500/20",
-  medium: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-  high: "bg-amber-500/10 text-amber-500 border-amber-500/20",
-  critical: "bg-red-600/10 text-red-600 border-red-600/20",
+  NEW: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
+  IN_PROGRESS: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+  IN_REVIEW: "bg-purple-500/10 text-purple-500 border-purple-500/20",
+  COMPLETED: "bg-green-500/10 text-green-500 border-green-500/20",
 }
 
 export function TicketList({
   searchQuery,
   statusFilter,
-  priorityFilter,
   selectedTicket,
   onSelectTicket,
+  refreshKey,
 }: TicketListProps) {
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -67,7 +59,7 @@ export function TicketList({
       }
     }
     fetchTickets()
-  }, [])
+  }, [refreshKey])
 
   const filteredTickets = tickets.filter((ticket) => {
     const customerName = ticket.customerName || ""
@@ -77,9 +69,8 @@ export function TicketList({
       ticket.complaint.toLowerCase().includes(searchQuery.toLowerCase())
 
     const matchesStatus = statusFilter === "all" || ticket.status === statusFilter
-    const matchesPriority = priorityFilter === "all" || ticket.priority.toLowerCase() === priorityFilter
 
-    return matchesSearch && matchesStatus && matchesPriority
+    return matchesSearch && matchesStatus
   })
 
   if (isLoading) {
@@ -108,10 +99,7 @@ export function TicketList({
                 <div className="flex items-center space-x-3">
                   <span className="font-semibold text-foreground">{ticket.id}</span>
                   <Badge variant="outline" className={statusColors[ticket.status as keyof typeof statusColors]}>
-                    {ticket.status.replace("-", " ")}
-                  </Badge>
-                  <Badge variant="outline" className={priorityColors[ticket.priority.toLowerCase() as keyof typeof priorityColors]}>
-                    {ticket.priority}
+                    {ticket.status.replace("_", " ")}
                   </Badge>
                 </div>
                 <div className="flex items-center text-sm text-muted-foreground">
