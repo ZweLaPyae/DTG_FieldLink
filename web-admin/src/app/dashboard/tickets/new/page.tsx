@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,140 +18,65 @@ export default function NewTicketPage() {
     ticketId: "",
     customerId: "",
     customerName: "",
-    phone: [""],
-    serviceType: "",
+    phone: "",
+    serviceTypeId: "",
     splitter: "",
     complaint: "",
     priority: "",
     sla: "",
-    description: "",
     technician: "",
     issueTime: "",
   })
+  const [serviceTypes, setServiceTypes] = useState<{ id: string; name: string; speedMbps: number }[]>([])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handlePhoneChange = (index: number, value: string) => {
-    setFormData((prev) => {
-      const newPhone = [...prev.phone]
-      newPhone[index] = value
-      return { ...prev, phone: newPhone }
-    })
-  }
-
-  const addPhoneNumber = () => {
-    // Only add if the last phone number is filled
-    const lastPhone = formData.phone[formData.phone.length - 1]
-    if (lastPhone && lastPhone.trim() !== "") {
-      setFormData((prev) => ({
-        ...prev,
-        phone: [...prev.phone, ""]
-      }))
-    }
-  }
-
-  const removePhoneNumber = (index: number) => {
-    if (formData.phone.length > 1) {
-      setFormData((prev) => ({
-        ...prev,
-        phone: prev.phone.filter((_, i) => i !== index)
-      }))
-    }
-  }
-
   const parseTicketFromPaste = (pastedText: string) => {
-    // Pattern-based extraction - each field has unique characteristics
-    // Works regardless of which fields are missing
-    
-    const text = pastedText.trim()
-    
-    // 1. Extract Ticket ID: 3 letters + space + numbers + ">>"
-    const ticketMatch = text.match(/^([A-Z]{3}\s+\d+)\s*>>/i)
-    if (!ticketMatch) return false
-    const ticketId = ticketMatch[1].trim()
-    
-    // 2. Extract Date/Time: DD/MM/YYYY HH:mm format
-    const dateTimeMatch = text.match(/(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2})/)
-    const issueDateTime = dateTimeMatch ? dateTimeMatch[1] : ""
-    
-    // 3. Extract Phone: 8-12 digits with optional dashes, separated by /
-    const phoneMatch = text.match(/(\d[\d\-]{7,11}(?:\/\d[\d\-]{7,11})*)(?=\s+\d{2}\/\d{2}\/\d{4})/)
-    const phoneNumbers = phoneMatch ? phoneMatch[1].split('/').map(p => p.trim()).filter(p => {
-      const digitCount = p.replace(/\D/g, '').length
-      return digitCount >= 8 && digitCount <= 12
-    }) : []
-    
-    // 4. Extract Splitter: N + digit + OLT + numbers/slashes
-    const splitterMatch = text.match(/(N\d+\s+OLT\s+[\d\/]+)/)
-    const splitter = splitterMatch ? splitterMatch[1].trim() : ""
-    
-    // 5. Extract SLA: number + hrs/hr
-    const slaMatch = text.match(/(\d+)\s*hrs?(?:\s|$)/i)
-    const slaHours = slaMatch ? parseInt(slaMatch[1]) : 24
-    
-    // 6. Extract Service Type: SOHO, Enterprise, Business, or HTK (but not when part of customer name)
-    const serviceTypeMatch = text.match(/\b(SOHO|Enterprise|Business)\b/i)
-    const serviceType = serviceTypeMatch ? serviceTypeMatch[1] : ""
-    
-    // 7. Extract Customer ID: Mix of letters and numbers
-    const customerIdMatch = text.match(/\b([A-Z]+\d+[A-Z0-9]+)\b/)
-    const customerId = customerIdMatch ? customerIdMatch[1] : ""
-    
-    // 8. Extract Customer Name: 2-5 capitalized words (may have HTK or U prefix)
-    // Must come after customer ID and before service type
-    let customerName = ""
-    if (customerIdMatch) {
-      const afterCustomerId = text.slice(customerIdMatch.index! + customerIdMatch[0].length).trim()
-      const nameMatch = afterCustomerId.match(/^((?:HTK\s+)?(?:U\s+)?[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,4})(?=\s+(?:SOHO|Enterprise|Business))/i)
-      if (nameMatch) {
-        customerName = nameMatch[1].trim()
-      }
-    }
-    
-    // 9. Extract Complaint: Everything between ">>" and customer ID (or first recognizable field)
-    let complaint = ""
-    const afterTicketId = text.slice(text.indexOf(">>") + 2).trim()
-    
-    if (customerIdMatch) {
-      // Get text from after ">>" to before customer ID
-      complaint = afterTicketId.slice(0, afterTicketId.indexOf(customerIdMatch[0])).trim()
-    } else {
-      // If no customer ID, remove all other patterns
-      let remainingText = afterTicketId
-      if (dateTimeMatch) remainingText = remainingText.replace(dateTimeMatch[0], "")
-      if (phoneMatch) remainingText = remainingText.replace(phoneMatch[0], "")
-      if (splitterMatch) remainingText = remainingText.replace(splitterMatch[0], "")
-      if (slaMatch) remainingText = remainingText.replace(slaMatch[0], "")
-      if (serviceTypeMatch) remainingText = remainingText.replace(serviceTypeMatch[0], "")
-      complaint = remainingText.trim()
-    }
+    // Format: ticket id>> complaint description Customer ID Customer Name SLA ?hrs Splitter Information phone number issue date&time
+    // Example: MMI 225110592>> Site Down M1CDWS00029001 Wai Wai Thein SOHO 24 hrs N9 OLT 0/1/12/58  09-440401401 22/11/2025 09:25
 
-    // Map SLA hours to dropdown values
-    let slaValue = ""
-    if (slaHours <= 1) slaValue = "1-hour"
-    else if (slaHours <= 2) slaValue = "2-hours"
-    else if (slaHours <= 4) slaValue = "4-hours"
-    else slaValue = "8-hours"
+    const ticketPattern = /^([A-Z]{3}\s+\d+)\s*>>\s*(.+?)\s+(M1[A-Z0-9]+)\s+((?:HTK\s+)?[A-Z](?:[a-z]+|\s)+(?:\s+[A-Z][a-z]+)*)\s+(SOHO|Enterprise|Business|HTK)\s+(\d+)\s*hrs?\s+(N\d+\s+OLT\s+[\d/]+)\s+([\d\-/]+(?:\/[\d\-]+)?)\s+([\d/]+\s+[\d:]+)/i
 
-    // Map service type to dropdown values
-    let serviceTypeValue = ""
-    if (serviceType) {
-      const serviceTypeLower = serviceType.toLowerCase()
-      if (serviceTypeLower === "soho" || serviceTypeLower === "htk") serviceTypeValue = "fiber-100"
+    const match = pastedText.trim().match(ticketPattern)
+
+    if (match) {
+      const [
+        ,
+        ticketId,
+        complaint,
+        customerId,
+        customerName,
+        serviceTypeId,
+        slaHours,
+        splitter,
+        phone,
+        issueDateTime
+      ] = match
+
+      // Map SLA hours to appropriate values
+      let slaValue = ""
+      const hours = parseInt(slaHours)
+      if (hours <= 1) slaValue = "1-hour"
+      else if (hours <= 2) slaValue = "2-hours"
+      else if (hours <= 4) slaValue = "4-hours"
+      else slaValue = "8-hours"
+
+      // Map service type
+      let serviceTypeValue = ""
+      const serviceTypeLower = serviceTypeId.toLowerCase()
+      if (serviceTypeLower === "soho" || serviceTypeLower === "htk") serviceTypeValue = "soho"
       else if (serviceTypeLower === "enterprise") serviceTypeValue = "fiber-enterprise"
       else if (serviceTypeLower === "business") serviceTypeValue = "fiber-500"
-    }
-
-    // Determine priority from complaint keywords
-    let priority = "medium"
-    const complaintLower = complaint.toLowerCase()
-    if (complaintLower.includes("site down") || complaintLower.includes("down") || complaintLower.includes("outage")) {
-      priority = "critical"
-    } else if (complaintLower.includes("slow") || complaintLower.includes("degradation")) {
-      priority = "high"
-    }
+      // Determine priority based on complaint keywords
+      let priority = "medium"
+      const complaintLower = complaint.toLowerCase()
+      if (complaintLower.includes("site down") || complaintLower.includes("down") || complaintLower.includes("outage")) {
+        priority = "critical"
+      } else if (complaintLower.includes("slow") || complaintLower.includes("degradation")) {
+        priority = "high"
+      }
 
     // Format date/time to datetime-local (YYYY-MM-DDTHH:mm)
     const dateTimeParts = issueDateTime.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/)
@@ -161,39 +86,77 @@ export default function NewTicketPage() {
       formattedDateTime = `${year}-${month}-${day}T${hour}:${minute}`
     }
 
-    // Update only fields that were found
-    setFormData((prev) => ({
-      ...prev,
-      ...(ticketId && { ticketId }),
-      ...(customerId && { customerId }),
-      ...(customerName && { customerName }),
-      ...(phoneNumbers.length > 0 && { phone: phoneNumbers }),
-      ...(serviceTypeValue && { serviceType: serviceTypeValue }),
-      ...(splitter && { splitter }),
-      ...(complaint && { 
-        complaint,
-        description: `${complaint}${issueDateTime ? `\n\nIssue reported at: ${issueDateTime}` : ""}`
-      }),
-      ...(priority && { priority }),
-      ...(slaValue && { sla: slaValue }),
-      ...(formattedDateTime && { issueTime: formattedDateTime }),
-    }))
+      setFormData({
+        ticketId: ticketId.trim(),
+        customerId: customerId.trim(),
+        customerName: customerName.trim(),
+        phone: phone.trim(),
+        serviceTypeId: serviceTypeId,
+        splitter: splitter.trim(),
+        complaint: complaint.trim(),
+        priority: priority,
+        sla: slaValue,
+        technician: "",
+        issueTime: formattedDateTime,
+      })
 
-    return true
+      return true
+    }
+
+    return false
   }
+  useEffect(() => {
+    const fetchServiceTypes = async () => {
+      try {
+        const res = await fetch(
+          process.env.NEXT_PUBLIC_BACKEND_URL + "/service-type"
+        )
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch service types")
+        }
+
+        const data = await res.json()
+        setServiceTypes(data)
+      } catch (error) {
+        console.error("Error fetching service types:", error)
+      }
+    }
+    fetchServiceTypes()
+  }, [])
+
 
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const pastedText = e.clipboardData.getData("text")
-    
+
     if (parseTicketFromPaste(pastedText)) {
       e.preventDefault()
       // Show success message or notification here if needed
     }
   }
 
-  const handleSubmit = (isDraft = false) => {
-    console.log("[v0] Form submitted:", { ...formData, isDraft })
-    // Here you would typically send the data to your API
+  const handleSubmit = async (isDraft = false) => {
+    try {
+      const response = await fetch(process.env.NEXT_PUBLIC_BACKEND_URL + '/tickets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ...formData, isDraft }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Ticket created:', result);
+        console.log('Service Type:', formData.serviceTypeId);
+        router.push('/dashboard'); // Redirect to the dashboard after creation
+      } else {
+        const error = await response.json();
+        console.error('Error creating ticket:', error);
+      }
+    } catch (err) {
+      console.error('Network error:', err);
+    }
   }
 
   return (
@@ -228,93 +191,65 @@ export default function NewTicketPage() {
         </Card>
 
         <div className="space-y-6">
-            {/* Customer and Service Information Side by Side */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Customer Information */}
-              <Card className="border-blue-200 dark:border-blue-800">
-                <CardHeader className="bg-blue-50 dark:bg-blue-950/50">
-                  <CardTitle className="flex items-center text-blue-700 dark:text-blue-300">
-                    <User className="w-5 h-5 mr-2" />
-                    Customer Information
-                  </CardTitle>
-                  <CardDescription>Basic customer details and contact information</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4 pt-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="ticketId">Ticket ID</Label>
-                      <Input
-                        id="ticketId"
-                        placeholder="MMI 225110592"
-                        value={formData.ticketId}
-                        onChange={(e) => handleInputChange("ticketId", e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="customerId">Customer ID</Label>
-                      <Input
-                        id="customerId"
-                        placeholder="M1CDWS00029001"
-                        value={formData.customerId}
-                        onChange={(e) => handleInputChange("customerId", e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="customerName">Customer Name</Label>
-                      <Input
-                        id="customerName"
-                        placeholder="John Smith"
-                        value={formData.customerName}
-                        onChange={(e) => handleInputChange("customerName", e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label>Phone Number(s)</Label>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={addPhoneNumber}
-                          disabled={!formData.phone[formData.phone.length - 1]?.trim()}
-                          className="h-7 text-xs"
-                        >
-                          Add +
-                        </Button>
-                      </div>
-                      <div className="space-y-2">
-                        {formData.phone.map((phoneNum, index) => (
-                          <div key={index} className="flex gap-2">
-                            <Input
-                              placeholder="09-440401401"
-                              value={phoneNum}
-                              onChange={(e) => handlePhoneChange(index, e.target.value)}
-                              required={index === 0}
-                            />
-                            {formData.phone.length > 1 && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removePhoneNumber(index)}
-                                className="px-3"
-                              >
-                                ✕
-                              </Button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+          {/* Customer and Service Information Side by Side */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Customer Information */}
+            <Card className="border-blue-200 dark:border-blue-800">
+              <CardHeader className="bg-blue-50 dark:bg-blue-950/50">
+                <CardTitle className="flex items-center text-blue-700 dark:text-blue-300">
+                  <User className="w-5 h-5 mr-2" />
+                  Customer Information
+                </CardTitle>
+                <CardDescription>Basic customer details and contact information</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ticketId">Ticket ID</Label>
+                    <Input
+                      id="ticketId"
+                      placeholder="MMI 225110592"
+                      value={formData.ticketId}
+                      onChange={(e) => handleInputChange("ticketId", e.target.value)}
+                      required
+                    />
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="space-y-2">
+                    <Label htmlFor="customerId">Customer ID</Label>
+                    <Input
+                      id="customerId"
+                      placeholder="M1CDWS00029001"
+                      value={formData.customerId}
+                      onChange={(e) => handleInputChange("customerId", e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="customerName">Customer Name</Label>
+                    <Input
+                      id="customerName"
+                      placeholder="John Smith"
+                      value={formData.customerName}
+                      onChange={(e) => handleInputChange("customerName", e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input
+                      id="phone"
+                      placeholder="09-440401401"
+                      value={formData.phone}
+                      onChange={(e) => handleInputChange("phone", e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-              {/* Service Information */}
-              <Card className="border-green-200 dark:border-green-800">
+            {/* Service Information */}
+            <Card className="border-green-200 dark:border-green-800">
               <CardHeader className="bg-green-50 dark:bg-green-950/50">
                 <CardTitle className="flex items-center text-green-700 dark:text-green-300">
                   <Wifi className="w-5 h-5 mr-2" />
@@ -327,17 +262,18 @@ export default function NewTicketPage() {
                   <div className="space-y-2">
                     <Label htmlFor="serviceType">Service Type</Label>
                     <Select
-                      value={formData.serviceType}
-                      onValueChange={(value) => handleInputChange("serviceType", value)}
+                      value={formData.serviceTypeId}
+                      onValueChange={(value) => handleInputChange("serviceTypeId", value)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select service type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="fiber-100">Fiber 100Mbps</SelectItem>
-                        <SelectItem value="fiber-500">Fiber 500Mbps</SelectItem>
-                        <SelectItem value="fiber-1gb">Fiber 1Gbps</SelectItem>
-                        <SelectItem value="fiber-enterprise">Fiber Enterprise</SelectItem>
+                        {serviceTypes.map((service) => (
+                          <SelectItem key={service.id} value={service.id}>
+                            {service.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -377,87 +313,76 @@ export default function NewTicketPage() {
                   </div>
                 </div>
               </CardContent>
-              </Card>
-            </div>
-
-            {/* Issue Details */}
-            <Card className="border-orange-200 dark:border-orange-800">
-              <CardHeader className="bg-orange-50 dark:bg-orange-950/50">
-                <CardTitle className="flex items-center text-orange-700 dark:text-orange-300">
-                  <AlertTriangle className="w-5 h-5 mr-2" />
-                  Issue Details
-                </CardTitle>
-                <CardDescription>Detailed description of the problem</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 pt-6">
-                <div className="space-y-2">
-                  <Label htmlFor="complaint">Issue Summary</Label>
-                  <Input
-                    id="complaint"
-                    placeholder="Brief description of the issue"
-                    value={formData.complaint}
-                    onChange={(e) => handleInputChange("complaint", e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Detailed Description</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Provide detailed information about the issue, symptoms, and any troubleshooting steps already taken..."
-                    rows={4}
-                    value={formData.description}
-                    onChange={(e) => handleInputChange("description", e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="priority">Priority Level</Label>
-                    <Select value={formData.priority} onValueChange={(value) => handleInputChange("priority", value)} required>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select priority" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="critical">Critical</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="low">Low</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="technician">Assign Technician</Label>
-                    <Select
-                      value={formData.technician}
-                      onValueChange={(value) => handleInputChange("technician", value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select technician" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="mike-johnson">Mike Johnson</SelectItem>
-                        <SelectItem value="alex-chen">Alex Chen</SelectItem>
-                        <SelectItem value="sarah-davis">Sarah Davis</SelectItem>
-                        <SelectItem value="unassigned">Unassigned</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardContent>
             </Card>
+          </div>
 
-            {/* Action Buttons */}
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => handleSubmit(true)}>
-                <Save className="w-4 h-4 mr-2" />
-                Save Draft
-              </Button>
-              <Button onClick={() => handleSubmit(false)} className="bg-primary hover:bg-primary/90">
-                <Send className="w-4 h-4 mr-2" />
-                Create Ticket
-              </Button>
-            </div>
+          {/* Issue Details */}
+          <Card className="border-orange-200 dark:border-orange-800">
+            <CardHeader className="bg-orange-50 dark:bg-orange-950/50">
+              <CardTitle className="flex items-center text-orange-700 dark:text-orange-300">
+                <AlertTriangle className="w-5 h-5 mr-2" />
+                Issue Details
+              </CardTitle>
+              <CardDescription>Detailed description of the problem</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-6">
+              <div className="space-y-2">
+                <Label htmlFor="complaint">Issue Summary</Label>
+                <Input
+                  id="complaint"
+                  placeholder="Brief description of the issue"
+                  value={formData.complaint}
+                  onChange={(e) => handleInputChange("complaint", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="priority">Priority Level</Label>
+                  <Select value={formData.priority} onValueChange={(value) => handleInputChange("priority", value)} required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="critical">Critical</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="technician">Assign Technician</Label>
+                  <Select
+                    value={formData.technician}
+                    onValueChange={(value) => handleInputChange("technician", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select technician" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mike-johnson">Mike Johnson</SelectItem>
+                      <SelectItem value="alex-chen">Alex Chen</SelectItem>
+                      <SelectItem value="sarah-davis">Sarah Davis</SelectItem>
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => handleSubmit(true)}>
+              <Save className="w-4 h-4 mr-2" />
+              Save Draft
+            </Button>
+            <Button onClick={() => handleSubmit(false)} className="bg-primary hover:bg-primary/90">
+              <Send className="w-4 h-4 mr-2" />
+              Create Ticket
+            </Button>
+          </div>
         </div>
       </div>
     </DashboardLayout>

@@ -4,11 +4,13 @@ import type React from "react"
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Menu, X, Home, Ticket, BarChart3, Users, Settings, LogOut, Wifi, Sun, Moon, Badge } from "lucide-react"
+import { FaUsers, FaUserTie } from "react-icons/fa"
+import { Menu, X, Home, Ticket, BarChart3, Settings, LogOut, Wifi, Sun, Moon, UserCog, Building2, Users } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { useTheme } from "next-themes"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
+import { signOut } from "next-auth/react"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -18,18 +20,22 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const { theme, setTheme } = useTheme()
   const pathname = usePathname()
+  const router = useRouter()
 
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: Home },
     { name: "Tickets", href: "/dashboard/tickets", icon: Ticket },
+    { name: "Customers", href: "/dashboard/customers", icon: Users },
     { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
-    { name: "Team", href: "/teams", icon: Users },
-    { name: "Technicians", href: "/technicians", icon: Badge },
+    { name: "Team", href: "/dashboard/teams", icon: FaUsers },
+    { name: "Technicians", href: "/dashboard/technicians", icon: FaUserTie },
+    { name: "Admin Management", href: "/dashboard/admin-management", icon: UserCog },
     { name: "Settings", href: "/dashboard/settings", icon: Settings },
   ]
 
-  const handleLogout = () => {
-    window.location.href = "/"
+  const handleLogout = async () => {
+    await signOut({ redirect: false })
+    router.push("/")
   }
 
   return (
@@ -43,26 +49,34 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       >
         <div className="flex h-full flex-col">
           {/* Header */}
-          <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border">
-            <div
-              className={cn(
-                "flex items-center space-x-3 transition-opacity duration-200",
-                sidebarOpen ? "opacity-100" : "opacity-0",
-              )}
-            >
-              <div className="w-8 h-8 bg-sidebar-primary rounded-lg flex items-center justify-center">
-                <Wifi className="w-5 h-5 text-sidebar-primary-foreground" />
-              </div>
-              <span className="text-lg font-semibold text-sidebar-foreground">DTG FieldLink</span>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="text-sidebar-foreground hover:bg-sidebar-accent"
-            >
-              {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-            </Button>
+          <div className="flex h-16 items-center border-b border-sidebar-border px-4">
+            {sidebarOpen ? (
+              <>
+                <div className="flex items-center space-x-3 flex-1">
+                  <div className="w-8 h-8 bg-sidebar-primary rounded-lg flex items-center justify-center">
+                    <Wifi className="w-5 h-5 text-sidebar-primary-foreground" />
+                  </div>
+                  <span className="text-lg font-semibold text-sidebar-foreground">DTG FieldLink</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                  className="text-sidebar-foreground hover:bg-sidebar-accent"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="w-full text-sidebar-foreground hover:bg-sidebar-accent"
+              >
+                <Menu className="w-4 h-4" />
+              </Button>
+            )}
           </div>
 
           {/* Navigation */}
@@ -75,16 +89,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   key={item.name}
                   href={item.href}
                   className={cn(
-                    "flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    "flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    sidebarOpen ? "space-x-3" : "justify-center",
                     isActive
                       ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
                       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                   )}
                 >
                   <Icon className="w-5 h-5 flex-shrink-0" />
-                  <span className={cn("transition-opacity duration-200", sidebarOpen ? "opacity-100" : "opacity-0")}>
-                    {item.name}
-                  </span>
+                  {sidebarOpen && <span>{item.name}</span>}
                 </Link>
               )
             })}
@@ -96,23 +109,25 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               variant="ghost"
               size="sm"
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
+              className={cn(
+                "w-full text-sidebar-foreground hover:bg-sidebar-accent",
+                sidebarOpen ? "justify-start" : "justify-center"
+              )}
             >
               {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              <span className={cn("ml-3 transition-opacity duration-200", sidebarOpen ? "opacity-100" : "opacity-0")}>
-                {theme === "dark" ? "Light Mode" : "Dark Mode"}
-              </span>
+              {sidebarOpen && <span className="ml-3">{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>}
             </Button>
             <Button
               variant="ghost"
               size="sm"
               onClick={handleLogout}
-              className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
+              className={cn(
+                "w-full text-sidebar-foreground hover:bg-sidebar-accent",
+                sidebarOpen ? "justify-start" : "justify-center"
+              )}
             >
               <LogOut className="w-4 h-4" />
-              <span className={cn("ml-3 transition-opacity duration-200", sidebarOpen ? "opacity-100" : "opacity-0")}>
-                Sign Out
-              </span>
+              {sidebarOpen && <span className="ml-3">Sign Out</span>}
             </Button>
           </div>
         </div>
