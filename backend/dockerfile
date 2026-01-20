@@ -2,10 +2,18 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+# Copy package files first
 COPY package*.json ./
+COPY prisma ./prisma
+
 RUN npm install
 
+# Generate Prisma for Linux
+RUN npx prisma generate
+
+# Copy app source
 COPY . .
 
 EXPOSE 3000
-CMD ["npm", "start"]
+
+CMD ["node", "src/index.js"]

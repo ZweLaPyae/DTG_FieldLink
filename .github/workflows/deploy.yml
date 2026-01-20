@@ -35,6 +35,6 @@ jobs:
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/dtg-backend
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/dtg-web
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/dtg_filedlink-backend
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/dtg_filedlink-web
             docker compose up -d
