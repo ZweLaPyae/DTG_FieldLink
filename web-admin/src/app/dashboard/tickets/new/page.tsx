@@ -28,6 +28,7 @@ export default function NewTicketPage() {
     issueTime: "",
   })
   const [serviceTypes, setServiceTypes] = useState<{ id: string; name: string; speedMbps: number }[]>([])
+  const [slaOptions, setSlaOptions] = useState<{ id: string; value: string }[]>([])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -55,13 +56,10 @@ export default function NewTicketPage() {
         issueDateTime
       ] = match
 
-      // Map SLA hours to appropriate values
+      // Map SLA hours to database format (e.g., "12H", "24H")
       let slaValue = ""
       const hours = parseInt(slaHours)
-      if (hours <= 1) slaValue = "1-hour"
-      else if (hours <= 2) slaValue = "2-hours"
-      else if (hours <= 4) slaValue = "4-hours"
-      else slaValue = "8-hours"
+      slaValue = `${hours}H`
 
       // Map service type
       let serviceTypeValue = ""
@@ -122,7 +120,26 @@ export default function NewTicketPage() {
         console.error("Error fetching service types:", error)
       }
     }
+
+    const fetchSlaOptions = async () => {
+      try {
+        const res = await fetch(
+          process.env.NEXT_PUBLIC_BACKEND_URL + "/sla-options"
+        )
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch SLA options")
+        }
+
+        const data = await res.json()
+        setSlaOptions(data)
+      } catch (error) {
+        console.error("Error fetching SLA options:", error)
+      }
+    }
+
     fetchServiceTypes()
+    fetchSlaOptions()
   }, [])
 
 
@@ -284,10 +301,11 @@ export default function NewTicketPage() {
                         <SelectValue placeholder="Select SLA" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1-hour">1 Hour (Critical)</SelectItem>
-                        <SelectItem value="2-hours">2 Hours (High)</SelectItem>
-                        <SelectItem value="4-hours">4 Hours (Medium)</SelectItem>
-                        <SelectItem value="8-hours">8 Hours (Low)</SelectItem>
+                        {slaOptions.map((sla) => (
+                          <SelectItem key={sla.id} value={sla.value}>
+                            {sla.value}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
