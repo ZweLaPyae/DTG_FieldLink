@@ -10,6 +10,7 @@ import technicianRoutes from './routes/technicians.js';
 import teamRoutes from './routes/teams.js';
 import rootCauseRoutes from './routes/rootcauses.js';
 import materialRoutes from './routes/materials.js';
+import slaOptionsRoutes from './routes/sla-options.js';
 dotenv.config();
 const app = express();
 
@@ -24,6 +25,7 @@ app.use('/technicians', technicianRoutes);
 app.use('/teams', teamRoutes);
 app.use('/rootcauses', rootCauseRoutes);
 app.use('/materials', materialRoutes);
+app.use('/sla-options', slaOptionsRoutes);
 
 // Auth routes
 app.use('/auth', authRoutes);
