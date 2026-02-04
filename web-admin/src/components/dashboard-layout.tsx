@@ -5,7 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { FaUsers, FaUserTie } from "react-icons/fa"
-import { Menu, X, Home, Ticket, BarChart3, Settings, LogOut, Wifi, Sun, Moon, UserCog, Building2, Users } from "lucide-react"
+import { Menu, X, Home, Ticket, BarChart3, Settings, LogOut, Wifi, Sun, Moon, UserCog, Building2, Users, Package } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { useTheme } from "next-themes"
@@ -26,6 +26,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: "Dashboard", href: "/dashboard", icon: Home },
     { name: "Tickets", href: "/dashboard/tickets", icon: Ticket },
     { name: "Customers", href: "/dashboard/customers", icon: Users },
+    { name: "Materials", href: "/dashboard/materials", icon: Package },
     { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
     { name: "Team", href: "/dashboard/teams", icon: FaUsers },
     { name: "Technicians", href: "/dashboard/technicians", icon: FaUserTie },
