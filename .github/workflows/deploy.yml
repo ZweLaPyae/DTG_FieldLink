@@ -29,10 +29,10 @@ jobs:
         run: |
           docker build \
             --platform linux/amd64 \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/dtg-backend:latest \
+            -t ${{ secrets.DOCKERHUB_USERNAME }}/dtg_fieldlink-backend:latest \
             ./backend
 
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/dtg-backend:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/dtg_fieldlink-backend:latest
 
       # -----------------------------
       # Build & Push Frontend (Next.js)
@@ -42,10 +42,10 @@ jobs:
           docker build \
             --platform linux/amd64 \
             --build-arg NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }} \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/dtg-web:latest \
+            -t ${{ secrets.DOCKERHUB_USERNAME }}/dtg_fieldlink-web:latest \
             ./web-admin
 
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/dtg-web:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/dtg_fieldlink-web:latest
 
       # -----------------------------
       # Deploy on VM
@@ -61,6 +61,6 @@ jobs:
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/dtg-backend:latest
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/dtg-web:latest
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/dtg_fieldlink-backend:latest
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/dtg_fieldlink-web:latest
             docker compose up -d
