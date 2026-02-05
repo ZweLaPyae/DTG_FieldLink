@@ -102,7 +102,8 @@ export default function TechniciansPage() {
 
   const handleCreateTechnician = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const formData = new FormData(e.currentTarget)
+    const form = e.currentTarget
+    const formData = new FormData(form)
     const nameValue = formData.get("name") as string
     const emailValue = formData.get("email") as string
     const phoneValue = formData.get("phone") as string
@@ -135,7 +136,7 @@ export default function TechniciansPage() {
         // Wait a bit for database to update
         setTimeout(async () => {
           await fetchTechnicians()
-          e.currentTarget.reset()
+          form.reset()
           setIsCreateDialogOpen(false)
           alert('Technician invited successfully!')
         }, 300)
