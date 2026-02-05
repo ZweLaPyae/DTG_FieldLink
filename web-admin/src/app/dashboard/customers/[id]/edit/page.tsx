@@ -257,9 +257,9 @@ export default function EditCustomerPage() {
             <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting}>
               <Save className="w-4 h-4 mr-2" />
-              {isSubmitting ? "Updating..." : "Update Customer"}
+              {isSubmitting ? "Updating..." : "Update"}
             </Button>
           </div>
         </form>

@@ -8,6 +8,7 @@ import '../config/design_tokens.dart';
 import '../providers/tickets_provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/loading_shimmer.dart';
+import '../widgets/primary_button.dart';
 import 'ticket_detail.dart';
 import 'api_test_page.dart';
 import 'login_page.dart';
@@ -24,14 +25,54 @@ class _HomePageState extends ConsumerState<HomePage> {
   int _currentIndex = 0;
   String _priorityFilter = 'all';
   bool _sortAscending = true; // true = low to critical, false = critical to low
-  bool _inProgressExpanded = true;
+  bool _inProgressExpanded = true;  // Expanded by default
   bool _inReviewExpanded = true;
-  bool _completedExpanded = true;
+  bool _completedExpanded = false;  // Not expanded by default
+  Map<String, dynamic>? _currentTeam; // Store current technician's team
+  bool _teamLoaded = false; // Track if team has been loaded
+  String? _lastTechnicianId; // Track last technician to avoid reloading
+
+  Future<void> _loadTeamData(String technicianId) async {
+    // Avoid reloading if already loaded for this technician
+    if (_teamLoaded && _lastTechnicianId == technicianId) {
+      return;
+    }
+    
+    try {
+      print('Loading team data for technician: $technicianId');
+      final teamData = await dataService.getTeamForTechnician(int.parse(technicianId));
+      if (mounted) {
+        setState(() {
+          _currentTeam = teamData;
+          _teamLoaded = true;
+          _lastTechnicianId = technicianId;
+        });
+        print('Loaded team for technician $technicianId: ${teamData?['name']}');
+        print('Team ID: ${teamData?['id']}');
+        print('Team role: ${teamData?['role']}');
+      }
+    } catch (e) {
+      print('Error loading team: $e');
+      if (mounted) {
+        setState(() {
+          _teamLoaded = true;
+          _lastTechnicianId = technicianId;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final ticketsAsync = ref.watch(ticketsProvider);
     final isSyncing = ticketsAsync.isLoading;
+    final authState = ref.watch(authProvider);
+    final currentTechnician = authState.technician;
+    
+    // Load team data when we have a technician
+    if (currentTechnician != null && !_teamLoaded) {
+      _loadTeamData(currentTechnician.id);
+    }
     
     Widget bodyContent;
     
@@ -419,12 +460,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                 data: (allTickets) {
                   print('Total tickets: ${allTickets.length}');
                   print('Current technician ID: ${currentTechnician?.id}');
+                  print('Current team ID: ${_currentTeam?['id']}');
+                  print('Team loaded: $_teamLoaded');
                   
-                  // Filter for assigned tickets: status NOT NEW and technician matches
+                  // Filter for assigned tickets: status NOT NEW and team matches
                   var tickets = allTickets.where((t) {
                     print('--- Checking ticket ${t.id} ---');
                     print('  Status: ${t.status}');
-                    print('  TechnicianId: ${t.technicianId} (type: ${t.technicianId.runtimeType})');
+                    print('  Ticket TeamId: ${t.teamId}');
                     
                     // Check if ticket status is NOT NEW (any other status means assigned)
                     final isNotNew = t.status.toUpperCase() != 'NEW';
@@ -434,26 +477,33 @@ class _HomePageState extends ConsumerState<HomePage> {
                       return false;
                     }
                     
-                    // Check if ticket is assigned to current technician
+                    // Check if technician is logged in
                     if (currentTechnician == null) {
                       print('  REJECTED: No current technician');
                       return false;
                     }
                     
-                    if (t.technicianId == null) {
-                      print('  REJECTED: Ticket has no technician');
+                    // Check if ticket has a team assigned
+                    if (t.teamId == null) {
+                      print('  REJECTED: Ticket has no team');
                       return false;
                     }
                     
-                    // Compare technician IDs as strings (backend returns int, we store string)
-                    final ticketTechId = t.technicianId.toString();
-                    final currentTechId = currentTechnician.id.toString();
-                    print('  Comparing: "$ticketTechId" (${ticketTechId.runtimeType}) == "$currentTechId" (${currentTechId.runtimeType})');
-                    final match = ticketTechId == currentTechId;
-                    print('  Match result: $match');
+                    // Check if current technician is part of the ticket's team
+                    // Compare ticket's teamId with current technician's team id
+                    bool isInTeam = false;
+                    if (_currentTeam != null && _currentTeam!['id'] != null) {
+                      final ticketTeamId = t.teamId.toString();
+                      final currentTeamId = _currentTeam!['id'].toString();
+                      isInTeam = ticketTeamId == currentTeamId;
+                      print('  Ticket team: $ticketTeamId, Current team: $currentTeamId');
+                      print('  Is in team: $isInTeam');
+                    } else {
+                      print('  Current technician has no team');
+                    }
                     
-                    if (!match) {
-                      print('  REJECTED: Technician ID mismatch');
+                    if (!isInTeam) {
+                      print('  REJECTED: Technician not in ticket\'s team');
                       return false;
                     }
                     
@@ -564,16 +614,44 @@ class _HomePageState extends ConsumerState<HomePage> {
       child: Column(
         children: [
           const SizedBox(height: 20),
-          // Profile Picture
-          CircleAvatar(
-            radius: 60,
-            backgroundColor: const Color(0xFF2563EB),
-            backgroundImage: technician.picture.isNotEmpty
-                ? NetworkImage(technician.picture)
-                : null,
-            child: technician.picture.isEmpty
-                ? const Icon(Icons.person, size: 60, color: Colors.white)
-                : null,
+          // Profile Picture with Edit Icon
+          Stack(
+            children: [
+              CircleAvatar(
+                radius: 60,
+                backgroundColor: const Color(0xFF2563EB),
+                backgroundImage: technician.picture.isNotEmpty
+                    ? NetworkImage(technician.picture)
+                    : null,
+                child: technician.picture.isEmpty
+                    ? const Icon(Icons.person, size: 60, color: Colors.white)
+                    : null,
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2563EB),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.edit,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           // Technician Name
@@ -594,6 +672,36 @@ class _HomePageState extends ConsumerState<HomePage> {
               _profileItem(Icons.phone, 'Phone', technician.phone),
               const Divider(height: 1),
               _profileItem(Icons.badge, 'Employee ID', 'TECH-${technician.id}'),
+              const Divider(height: 1),
+              // Team information - fetch from API
+              FutureBuilder<Map<String, dynamic>?>(
+                future: dataService.getTeamForTechnician(int.parse(technician.id)),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return _profileItem(Icons.groups, 'Team', 'Loading...');
+                  } else if (snapshot.hasData && snapshot.data != null) {
+                    final teamData = snapshot.data!;
+                    final teamName = teamData['name'] ?? 'Unknown Team';
+                    final role = teamData['role'] ?? 'Member';
+                    
+                    return Column(
+                      children: [
+                        _profileItem(Icons.groups, 'Team', teamName),
+                        const Divider(height: 1),
+                        _profileItem(Icons.workspace_premium, 'Role in Team', role),
+                      ],
+                    );
+                  } else {
+                    return Column(
+                      children: [
+                        _profileItem(Icons.groups, 'Team', 'No Team Yet'),
+                        const Divider(height: 1),
+                        _profileItem(Icons.workspace_premium, 'Role in Team', '-'),
+                      ],
+                    );
+                  }
+                },
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -604,14 +712,19 @@ class _HomePageState extends ConsumerState<HomePage> {
               
               return ticketsAsync.when(
                 data: (tickets) {
-                  final completedCount = tickets.where((t) => 
-                    t.status.toUpperCase() == 'COMPLETED' && 
-                    t.technicianId?.toString() == technician.id.toString()
+                  // Filter tickets by team membership, not individual technician
+                  final myTeamTickets = tickets.where((t) {
+                    if (_currentTeam == null || _currentTeam!['id'] == null) return false;
+                    if (t.teamId == null) return false;
+                    return t.teamId.toString() == _currentTeam!['id'].toString();
+                  }).toList();
+                  
+                  final completedCount = myTeamTickets.where((t) => 
+                    t.status.toUpperCase() == 'COMPLETED'
                   ).length;
                   
-                  final pendingCount = tickets.where((t) => 
-                    t.status.toUpperCase() != 'COMPLETED' && 
-                    t.technicianId?.toString() == technician.id.toString()
+                  final pendingCount = myTeamTickets.where((t) => 
+                    t.status.toUpperCase() != 'COMPLETED' && t.status.toUpperCase() != 'NEW'
                   ).length;
                   
                   final totalTickets = completedCount + pendingCount;
@@ -892,8 +1005,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                       child: Text('SLA: ${t.sla}', style: const TextStyle(fontSize: 12, color: Color(0xFF3B82F6), fontWeight: FontWeight.w600)),
                     ),
                   ]),
-                  // Accept button as text button
-                  ElevatedButton(
+                  // Accept button using primary button component
+                  PrimaryButton(
+                    text: 'Accept',
+                    variant: ButtonVariant.primary,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     onPressed: () async {
                       final authState = ref.read(authProvider);
                       final currentTechnician = authState.technician;
@@ -905,14 +1021,29 @@ class _HomePageState extends ConsumerState<HomePage> {
                         return;
                       }
                       
-                      // Accept ticket - update status, technicianId, and startTime
+                      // Accept ticket - update status, teamId, and startTime
                       try {
                         final techId = int.parse(currentTechnician.id);
                         print('Accepting ticket ${t.id} for technician $techId');
                         
+                        // Get the team ID for this technician
+                        int? teamId;
+                        if (_currentTeam != null && _currentTeam!['id'] != null) {
+                          teamId = _currentTeam!['id'] as int;
+                          print('Assigning ticket to team: $teamId');
+                        } else {
+                          print('WARNING: Technician has no team!');
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('You must be assigned to a team to accept tickets')),
+                            );
+                          }
+                          return;
+                        }
+                        
                         final success = await dataService.updateTicket(t.id, {
                           'status': 'IN_PROGRESS',
-                          'technicianId': techId,
+                          'teamId': teamId,
                           'startTime': DateTime.now().toIso8601String(),
                         });
                         if (success && context.mounted) {
@@ -935,19 +1066,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                         }
                       }
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF10B981),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      elevation: 2,
-                    ),
-                    child: const Text(
-                      'Accept',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                    ),
                   ),
                 ],
               ),

@@ -28,9 +28,15 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const team = await prisma.team.findUnique({
-      where: { id: req.params.id },
+      where: { id: parseInt(req.params.id) },
       include: {
         leader: true,
+        tickets: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
       },
     });
 
@@ -87,7 +93,7 @@ router.put('/:id', async (req, res) => {
     if (completedTickets !== undefined) data.completedTickets = completedTickets;
 
     const team = await prisma.team.update({
-      where: { id: req.params.id },
+      where: { id: parseInt(req.params.id) },
       data,
       include: {
         leader: true,
@@ -104,7 +110,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     await prisma.team.delete({
-      where: { id: req.params.id },
+      where: { id: parseInt(req.params.id) },
     });
     res.status(200).json({ message: 'Team deleted successfully' });
   } catch (error) {

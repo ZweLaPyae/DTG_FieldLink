@@ -1,3 +1,19 @@
+// Top-level build file for Android
+// TODO: Ensure you have google-services.json in android/app/ directory
+// See FIREBASE_SETUP.md for instructions
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // Firebase Google Services plugin
+        // ⚠️ Requires google-services.json in android/app/
+        classpath("com.google.gms:google-services:4.4.4") // Firebase plugin
+    }
+}
+
 allprojects {
     repositories {
         google()

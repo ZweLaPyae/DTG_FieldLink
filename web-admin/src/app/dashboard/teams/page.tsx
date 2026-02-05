@@ -29,11 +29,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { Users as Plus, Search } from "lucide-react"
+import { Users as Plus, Search, Edit, Trash2, Crown } from "lucide-react"
 import { FaUsers } from "react-icons/fa"
 
 interface Team {
-  id: string
+  id: number
   name: string
   leaderId: number
   memberIds: number[]
@@ -65,12 +65,14 @@ export default function TeamsPage() {
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [teamToDelete, setTeamToDelete] = useState<string | null>(null)
+  const [teamToDelete, setTeamToDelete] = useState<number | null>(null)
   const [selectedMembers, setSelectedMembers] = useState<number[]>([])
   const [editSelectedMembers, setEditSelectedMembers] = useState<number[]>([])
   const [selectedLeader, setSelectedLeader] = useState<number | null>(null)
   const [editSelectedLeader, setEditSelectedLeader] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [membersModalOpen, setMembersModalOpen] = useState(false)
+  const [selectedTeamForMembers, setSelectedTeamForMembers] = useState<Team | null>(null)
 
   useEffect(() => {
     fetchTeams()
@@ -177,7 +179,7 @@ export default function TeamsPage() {
     }
   }
 
-  const handleDeleteTeam = (teamId: string) => {
+  const handleDeleteTeam = (teamId: number) => {
     setTeamToDelete(teamId)
     setDeleteDialogOpen(true)
   }
@@ -285,7 +287,17 @@ export default function TeamsPage() {
               <TableRow key={team.id}>
                 <TableCell className="font-semibold">{team.name}</TableCell>
                 <TableCell>{team.leader?.name || "Unknown"}</TableCell>
-                <TableCell>{Array.isArray(team.memberIds) ? team.memberIds.length : 0} members</TableCell>
+                <TableCell>
+                  <button
+                    onClick={() => {
+                      setSelectedTeamForMembers(team)
+                      setMembersModalOpen(true)
+                    }}
+                    className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-medium"
+                  >
+                    {Array.isArray(team.memberIds) ? team.memberIds.length : 0} members
+                  </button>
+                </TableCell>
                 <TableCell>{team.specialization}</TableCell>
                 <TableCell>{team.location}</TableCell>
                 <TableCell>{team.activeTickets}</TableCell>
@@ -298,7 +310,7 @@ export default function TeamsPage() {
                 <TableCell>
                   <div className="flex space-x-2">
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
                       onClick={() => {
                         setSelectedTeam(team)
@@ -306,15 +318,17 @@ export default function TeamsPage() {
                         setEditSelectedLeader(team.leaderId)
                         setIsEditDialogOpen(true)
                       }}
+                      className="hover:bg-blue-50 dark:hover:bg-blue-950/30 text-blue-600 hover:text-blue-700"
                     >
-                      Edit
+                      <Edit className="w-4 h-4" />
                     </Button>
                     <Button
-                      variant="destructive"
+                      variant="ghost"
                       size="sm"
                       onClick={() => handleDeleteTeam(team.id)}
+                      className="hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 hover:text-red-700"
                     >
-                      Delete
+                      <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
                 </TableCell>
@@ -503,6 +517,55 @@ export default function TeamsPage() {
             <div className="flex justify-end space-x-2 pt-4">
               <Button type="button" variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
               <Button type="button" variant="destructive" onClick={confirmDeleteTeam}>Delete</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Team Members Modal */}
+        <Dialog open={membersModalOpen} onOpenChange={setMembersModalOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FaUsers className="w-5 h-5 text-blue-600" />
+                {selectedTeamForMembers?.name} - Team Members
+              </DialogTitle>
+              <DialogDescription>
+                {selectedTeamForMembers?.memberIds ? selectedTeamForMembers.memberIds.length : 0} member(s) in this team
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-4 space-y-2 max-h-96 overflow-y-auto">
+              {selectedTeamForMembers && Array.isArray(selectedTeamForMembers.memberIds) && selectedTeamForMembers.memberIds.map((memberId) => {
+                const member = technicians.find(t => t.id === memberId)
+                const isLeader = memberId === selectedTeamForMembers.leaderId
+                return (
+                  <div 
+                    key={memberId} 
+                    className={`flex items-center gap-3 p-3 rounded-lg border ${
+                      isLeader ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800' : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800'
+                    }`}
+                  >
+                    <img 
+                      src={member?.picture || "/images/default-avatar.png"} 
+                      alt={member?.name || "Member"} 
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-sm">{member?.name || `Member #${memberId}`}</p>
+                        {isLeader && (
+                          <Crown className="w-4 h-4 text-yellow-500" />
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">{member?.email || "No email"}</p>
+                      {isLeader && (
+                        <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">
+                          Team Leader
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </DialogContent>
         </Dialog>

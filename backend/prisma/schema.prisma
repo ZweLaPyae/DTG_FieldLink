@@ -7,20 +7,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum TicketStatus {
-  NEW
-  IN_PROGRESS
-  IN_REVIEW
-  COMPLETED
-}
 model Customer {
-  id            String      @id
+  id            String       @id
   name          String
-  phone         String[]
   serviceTypeId String?
   splitter      String?
   splitterMap   String?
-
+  phone         String[]
   serviceType   ServiceType? @relation(fields: [serviceTypeId], references: [id])
   tickets       Ticket[]
 }
@@ -36,21 +29,19 @@ model AdminUser {
 }
 
 model Technician {
-  id        Int      @id @default(autoincrement())
+  id        Int     @id @default(autoincrement())
   name      String
-  email     String
+  email     String  @unique
   phone     String
   picture   String
-
+  password  String?
   leadsTeam Team[]
-  tickets   Ticket[]
 }
 
 model ServiceType {
-  id        String   @id
+  id        String     @id
   name      String
   speedMbps Int
-
   customers Customer[]
 }
 
@@ -72,64 +63,61 @@ model RootCause {
 }
 
 model Ticket {
-  id               String        @id
+  id               String       @id
   customerId       String
   sla              String
   complaint        String
-  status           TicketStatus  @default(NEW)
-
   priorityId       String
-  technicianId     Int?
-
   issueTime        DateTime
   startTime        DateTime?
   completionTime   DateTime?
-
   rootCauseId      String?
   rootCauseDetails String?
   wayToFix         String?
-  technicianNote   String?
-
-  materialsUsed    Json?
   totalCost        Float?
-
   attachments      Json?
+  status           TicketStatus @default(NEW)
   faultCoordinate  Json?
   breakTimes       Json?
-
+  materialsUsed    Json?
+  technicianNote   String?
+  teamId           Int?
   customer         Customer     @relation(fields: [customerId], references: [id])
   priority         Priority     @relation(fields: [priorityId], references: [id])
   rootCause        RootCause?   @relation(fields: [rootCauseId], references: [id])
-  technician       Technician? @relation(fields: [technicianId], references: [id])
+  team             Team?        @relation(fields: [teamId], references: [id])
 }
 
 model Team {
-  id               String     @id @default(cuid())
+  id               Int        @id @default(autoincrement())
   name             String
   leaderId         Int
   memberIds        Json
   specialization   String
-  activeTickets    Int
-  completedTickets Int
+  activeTickets    Int        @default(0)
+  completedTickets Int        @default(0)
   location         String
-  status           String
+  status           String     @default("active")
   leader           Technician @relation(fields: [leaderId], references: [id])
-}
-
-enum MaterialUnit {
-  PIECE     // For items sold per piece/bag
-  METER     // For cables sold per length
+  tickets          Ticket[]
 }
 
 model MaterialCatalog {
-  id          Int          @id @default(autoincrement())
-  name        String
-  unit        MaterialUnit @default(PIECE)
-
-  // For PIECE: cost per single item/bag
-  // For METER: cost per referenceLength (e.g., 180000 per 1000m)
-  unitCost    Float
-
-  // Only used when unit = METER (e.g., 1000 for "per 1000m")
+  id              Int          @id @default(autoincrement())
+  name            String
+  unitCost        Float
   referenceLength Float?
+  unit            MaterialUnit @default(PIECE)
+}
+
+enum TicketStatus {
+  NEW
+  IN_PROGRESS
+  IN_REVIEW
+  COMPLETED
+}
+
+enum MaterialUnit {
+  PIECE
+  METER
 }
