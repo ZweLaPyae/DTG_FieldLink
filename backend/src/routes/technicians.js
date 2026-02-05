@@ -9,15 +9,12 @@ router.get('/', async (req, res) => {
   try {
     const technicians = await prisma.technician.findMany({
       include: {
-        _count: {
-          select: {
-            tickets: true,
-          },
-        },
+        leadsTeam: true,
       },
     });
     res.status(200).json(technicians);
   } catch (error) {
+    console.error('Error fetching technicians:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -28,7 +25,6 @@ router.get('/:id', async (req, res) => {
     const technician = await prisma.technician.findUnique({
       where: { id: parseInt(req.params.id) },
       include: {
-        tickets: true,
         leadsTeam: true,
       },
     });
@@ -39,6 +35,7 @@ router.get('/:id', async (req, res) => {
 
     res.status(200).json(technician);
   } catch (error) {
+    console.error('Error fetching technician:', error);
     res.status(500).json({ error: error.message });
   }
 });
