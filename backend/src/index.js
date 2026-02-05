@@ -15,7 +15,12 @@ dotenv.config();
 const app = express();
 
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+  origin: "https://dtg-fieldlink.site",
+  credentials: true
+}
+));
+
 
 // Routes
 app.use('/tickets', ticketRoutes);
