@@ -28,7 +28,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const team = await prisma.team.findUnique({
-      where: { id: req.params.id },
+      where: { id: parseInt(req.params.id) },
       include: {
         leader: true,
       },
@@ -40,6 +40,7 @@ router.get('/:id', async (req, res) => {
 
     res.status(200).json(team);
   } catch (error) {
+    console.error('Error fetching team by ID:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -87,7 +88,7 @@ router.put('/:id', async (req, res) => {
     if (completedTickets !== undefined) data.completedTickets = completedTickets;
 
     const team = await prisma.team.update({
-      where: { id: req.params.id },
+      where: { id: parseInt(req.params.id) },
       data,
       include: {
         leader: true,
@@ -96,6 +97,7 @@ router.put('/:id', async (req, res) => {
 
     res.status(200).json(team);
   } catch (error) {
+    console.error('Error updating team:', error);
     res.status(500).json({ error: error.message });
   }
 });
