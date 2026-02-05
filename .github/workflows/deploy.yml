@@ -47,13 +47,15 @@ jobs:
 
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/dtg-web:latest
 
+      - name: Debug SHH Key
+        run: |
+          echo "SSH key character count:"
+          echo "${{ secrets.VM_SSH_KEY }}" | wc -c
+
       # -----------------------------
       # Deploy on VM
       # -----------------------------
       - name: Deploy to Droplet
-        run: |
-          echo "Key length:"
-          echo "${{ secrets.VM_SSH_KEY }}" | wc -c
 
         uses: appleboy/ssh-action@v1
         with:
