@@ -49,8 +49,21 @@ export default function TechniciansPage() {
 
   const fetchTechnicians = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/technicians`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/technicians`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
+      })
+      
+      if (!response.ok) {
+        console.error('Fetch technicians failed with status:', response.status)
+        setTechnicians([])
+        return
+      }
+      
       const data = await response.json()
+      console.log('Fetched technicians:', data)
       setTechnicians(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Failed to fetch technicians:', error)
@@ -86,6 +99,13 @@ export default function TechniciansPage() {
     const emailValue = formData.get("email") as string
     const phoneValue = formData.get("phone") as string
 
+    // Check if email already exists
+    const emailExists = technicians.some(tech => tech.email.toLowerCase() === emailValue.toLowerCase())
+    if (emailExists) {
+      alert('A technician with this email already exists. Please use a different email address.')
+      return
+    }
+
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/technicians`, {
         method: 'POST',
@@ -101,11 +121,34 @@ export default function TechniciansPage() {
       })
 
       if (response.ok) {
-        fetchTechnicians()
-        setIsCreateDialogOpen(false)
+        const newTechnician = await response.json()
+        console.log('Created technician:', newTechnician)
+        
+        // Wait a bit for database to update
+        setTimeout(async () => {
+          await fetchTechnicians()
+          e.currentTarget.reset()
+          setIsCreateDialogOpen(false)
+          alert('Technician invited successfully!')
+        }, 300)
+      } else {
+        const errorData = await response.json()
+        let errorMessage = 'Unknown error'
+        
+        if (errorData.error) {
+          // Parse Prisma unique constraint errors
+          if (errorData.error.includes('Unique constraint') && errorData.error.includes('email')) {
+            errorMessage = 'This email address is already in use. Please use a different email.'
+          } else {
+            errorMessage = errorData.error
+          }
+        }
+        
+        alert(`Failed to invite technician: ${errorMessage}`)
       }
     } catch (error) {
       console.error('Failed to create technician:', error)
+      alert('Failed to invite technician. Please check your connection and try again.')
     }
   }
 
