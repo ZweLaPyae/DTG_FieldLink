@@ -51,9 +51,6 @@ jobs:
       # Deploy on VM
       # -----------------------------
       - name: Deploy to Droplet
-        run: |
-          echo "Key length:"
-          echo "${{ secrets.VM_SSH_KEY }}" | wc -c
 
         uses: appleboy/ssh-action@v1
         with:
@@ -61,6 +58,7 @@ jobs:
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
+            cd ~/dtg_fieldlink
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/dtg_fieldlink-backend:latest
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/dtg_fieldlink-web:latest
             docker compose up -d
