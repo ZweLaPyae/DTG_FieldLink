@@ -51,10 +51,7 @@ jobs:
       # Deploy on VM
       # -----------------------------
       - name: Deploy to Droplet
-        run: |
-          echo "Key length:"
-          echo "${{ secrets.VM_SSH_KEY }}" | wc -c
-
+      
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VM_HOST }}

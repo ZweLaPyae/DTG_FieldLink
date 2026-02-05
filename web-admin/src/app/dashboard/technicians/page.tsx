@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { UserCog, Plus, Search } from "lucide-react"
+import { UserCog, Plus, Search, Edit, Trash2 } from "lucide-react"
 import { FaUser, FaUserTie } from "react-icons/fa"
 
 interface Technician {
@@ -27,7 +27,7 @@ interface Technician {
 }
 
 interface Team {
-  id: string
+  id: number
   name: string
   leaderId: number
   memberIds: number[]
@@ -41,6 +41,8 @@ export default function TechniciansPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [selectedTechnician, setSelectedTechnician] = useState<Technician | null>(null)
 
   useEffect(() => {
     fetchTechnicians()
@@ -90,6 +92,12 @@ export default function TechniciansPage() {
 
   const getLeaderTeamNames = (technicianId: number) => {
     return teams.filter(team => team.leaderId === technicianId).map(team => team.name)
+  }
+
+  const getTechnicianTeams = (technicianId: number) => {
+    return teams.filter(team => 
+      Array.isArray(team.memberIds) && team.memberIds.includes(technicianId)
+    ).map(team => team.name)
   }
 
   const handleCreateTechnician = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -155,6 +163,44 @@ export default function TechniciansPage() {
   const handleDeleteTechnician = (id: number) => {
     setTechnicianToDelete(id)
     setDeleteDialogOpen(true)
+  }
+
+  const handleEditTechnician = (tech: Technician) => {
+    setSelectedTechnician(tech)
+    setIsEditDialogOpen(true)
+  }
+
+  const handleUpdateTechnician = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!selectedTechnician) return
+
+    const formData = new FormData(e.currentTarget)
+    const nameValue = formData.get("name") as string
+    const emailValue = formData.get("email") as string
+    const phoneValue = formData.get("phone") as string
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/technicians/${selectedTechnician.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: nameValue,
+          email: emailValue,
+          phone: phoneValue || '',
+          picture: selectedTechnician.picture || '',
+        }),
+      })
+
+      if (response.ok) {
+        fetchTechnicians()
+        setIsEditDialogOpen(false)
+        setSelectedTechnician(null)
+      }
+    } catch (error) {
+      console.error('Failed to update technician:', error)
+    }
   }
 
   const confirmDeleteTechnician = async () => {
@@ -252,7 +298,7 @@ export default function TechniciansPage() {
                       <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Phone</TableHead>
-                      <TableHead>Team Leader</TableHead>
+                      <TableHead>Team</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -266,16 +312,44 @@ export default function TechniciansPage() {
                 <TableCell>{tech.email}</TableCell>
                 <TableCell>{tech.phone || "-"}</TableCell>
                 <TableCell>
-                  {isTeamLeader(tech.id) ? (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {getLeaderTeamNames(tech.id).join(", ")}
-                    </span>
-                  ) : (
-                    <span className="text-muted-foreground">-</span>
-                  )}
+                  {(() => {
+                    const techTeams = getTechnicianTeams(tech.id)
+                    if (techTeams.length === 0) {
+                      return <span className="text-muted-foreground">-</span>
+                    }
+                    return (
+                      <div className="flex flex-wrap gap-1">
+                        {techTeams.map((teamName, idx) => (
+                          <span 
+                            key={idx}
+                            className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                          >
+                            {teamName}
+                          </span>
+                        ))}
+                      </div>
+                    )
+                  })()}
                 </TableCell>
                 <TableCell>
-                  <Button size="sm" variant="destructive" onClick={() => handleDeleteTechnician(tech.id)}>Delete</Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleEditTechnician(tech)}
+                      className="hover:bg-blue-50 dark:hover:bg-blue-950/30 text-blue-600 hover:text-blue-700"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleDeleteTechnician(tech.id)}
+                      className="hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -325,6 +399,49 @@ export default function TechniciansPage() {
               <div className="flex justify-end space-x-2 pt-4">
                 <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
                 <Button type="submit">Invite</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Technician Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Technician</DialogTitle>
+              <DialogDescription>Update the technician details.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleUpdateTechnician} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Name</Label>
+                <Input 
+                  id="edit-name" 
+                  name="name" 
+                  defaultValue={selectedTechnician?.name || ''} 
+                  required 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-email">Email</Label>
+                <Input 
+                  id="edit-email" 
+                  name="email" 
+                  type="email" 
+                  defaultValue={selectedTechnician?.email || ''} 
+                  required 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-phone">Phone</Label>
+                <Input 
+                  id="edit-phone" 
+                  name="phone" 
+                  defaultValue={selectedTechnician?.phone || ''} 
+                />
+              </div>
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                <Button type="submit">Update</Button>
               </div>
             </form>
           </DialogContent>

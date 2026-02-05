@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models.dart';
 import '../data_service.dart';
 import '../config/design_tokens.dart';
+import '../widgets/primary_button.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -294,7 +295,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Unit Cost: \$${selectedMaterial!['unitCost']} per piece',
+                        'Unit Cost: MMK${selectedMaterial!['unitCost']} per piece',
                         style: const TextStyle(color: Colors.grey, fontSize: 12),
                       ),
                     ] else if (selectedMaterial!['unit'] == 'METER') ...[
@@ -323,7 +324,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Unit Cost: \$${selectedMaterial!['unitCost']} per ${selectedMaterial!['referenceLength']}m',
+                        'Unit Cost: MMK${selectedMaterial!['unitCost']} per ${selectedMaterial!['referenceLength']}m',
                         style: const TextStyle(color: Colors.grey, fontSize: 12),
                       ),
                     ],
@@ -336,7 +337,9 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                 onPressed: () => Navigator.pop(dialogContext),
                 child: const Text('Cancel'),
               ),
-              ElevatedButton(
+              PrimaryButton(
+                text: 'Add Material',
+                variant: ButtonVariant.primary,
                 onPressed: () {
                   if (selectedMaterial == null) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -370,7 +373,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                     final referenceLength = (selectedMaterial!['referenceLength'] as num?)?.toDouble() ?? 1;
                     final unitCost = (selectedMaterial!['unitCost'] as num).toDouble();
                     cost = (distance / referenceLength) * unitCost;
-                    quantity = distance.toInt(); // Store distance as quantity for METER type
+                    quantity = distance.round(); // Store distance rounded to nearest meter
                   }
                   
                   setState(() {
@@ -384,7 +387,6 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                   
                   Navigator.pop(dialogContext);
                 },
-                child: const Text('Add'),
               ),
             ],
           );
@@ -510,22 +512,40 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                     children: [
                       const Text(
                         'Customer',
-                        style: TextStyle(color: Colors.grey),
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        ticket.customerNameDisplay,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey[300]!),
+                        ),
+                        child: Text(
+                          ticket.customerNameDisplay,
+                          style: const TextStyle(fontSize: 14),
+                        ),
                       ),
                       const SizedBox(height: 12),
                       const Text(
                         'Phone Number',
-                        style: TextStyle(color: Colors.grey),
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        ticket.phone ?? 'N/A',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey[300]!),
+                        ),
+                        child: Text(
+                          ticket.phone ?? 'N/A',
+                          style: const TextStyle(fontSize: 14),
+                        ),
                       ),
                     ],
                   ),
@@ -569,39 +589,6 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                                 mapToolbarEnabled: false,
                               ),
                       ),
-
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () {},
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF2563EB),
-                                side: const BorderSide(
-                                  color: Color(0xFF2563EB),
-                                ),
-                              ),
-                              icon: const Icon(Icons.navigation_outlined),
-                              label: const Text('Directions'),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () {},
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF2563EB),
-                                side: const BorderSide(
-                                  color: Color(0xFF2563EB),
-                                ),
-                              ),
-                              icon: const Icon(Icons.call),
-                              label: const Text('Call'),
-                            ),
-                          ),
-                        ],
-                      ),
                     ],
                   ),
                 ),
@@ -610,21 +597,42 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Issue', style: TextStyle(color: Colors.grey)),
+                      const Text('Issue', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                       const SizedBox(height: 6),
-                      Text(
-                        ticket.complaint,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey[300]!),
+                        ),
+                        child: Text(
+                          ticket.complaint,
+                          style: const TextStyle(fontSize: 14),
+                        ),
                       ),
                       const SizedBox(height: 12),
                       const Text(
                         'Assigned Technician',
-                        style: TextStyle(color: Colors.grey),
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        ticket.technicianDisplay,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey[300]!),
+                        ),
+                        child: Text(
+                          ticket.technicianDisplay.isEmpty ? 'Not Assigned Yet' : ticket.technicianDisplay,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: ticket.technicianDisplay.isEmpty ? Colors.grey[600] : Colors.black,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -641,7 +649,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                             'Diagnosis & Solution',
                             style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
                           ),
-                          if (_isEditable)
+                          if (_isEditable && ticket.status.toUpperCase() != 'COMPLETED')
                             IconButton(
                               icon: Icon(
                                 _isEditingRootCause ? Icons.close : Icons.edit,
@@ -678,7 +686,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                       const SizedBox(height: 12),
                       const Text(
                         'Root Cause',
-                        style: TextStyle(color: Colors.grey),
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                       ),
                       const SizedBox(height: 6),
                       if (_isEditingRootCause)
@@ -714,14 +722,23 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                                 },
                               )
                       else
-                        Text(
-                          ticket.rootCauseDisplay ?? 'N/A',
-                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey[300]!),
+                          ),
+                          child: Text(
+                            ticket.rootCauseDisplay ?? 'N/A',
+                            style: const TextStyle(fontSize: 14),
+                          ),
                         ),
                       const SizedBox(height: 12),
                       const Text(
                         'Root Cause Details',
-                        style: TextStyle(color: Colors.grey),
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                       ),
                       const SizedBox(height: 6),
                       if (_isEditingRootCause)
@@ -744,14 +761,23 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                           },
                         )
                       else
-                        Text(
-                          ticket.rootCause ?? 'N/A',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey[300]!),
+                          ),
+                          child: Text(
+                            ticket.rootCause ?? 'N/A',
+                            style: const TextStyle(fontSize: 14),
+                          ),
                         ),
                       const SizedBox(height: 12),
                       const Text(
                         'Way to Fix',
-                        style: TextStyle(color: Colors.grey),
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                       ),
                       const SizedBox(height: 6),
                       if (_isEditingRootCause)
@@ -774,9 +800,18 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                           },
                         )
                       else
-                        Text(
-                          ticket.wayToFix ?? 'N/A',
-                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey[300]!),
+                          ),
+                          child: Text(
+                            ticket.wayToFix ?? 'N/A',
+                            style: const TextStyle(fontSize: 14),
+                          ),
                         ),
                       const SizedBox(height: 12),
                       Row(
@@ -784,7 +819,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                         children: [
                           const Text(
                             'Materials Used',
-                            style: TextStyle(color: Colors.grey),
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                           ),
                           if (_isEditingRootCause)
                             TextButton.icon(
@@ -848,7 +883,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                                     children: [
                                       Expanded(flex: 3, child: Text('${material['name']}', style: const TextStyle(fontSize: 13))),
                                       Expanded(flex: 2, child: Text('${m['quantity']} ${material['unit']?.toString().toLowerCase() ?? 'unit'}', style: const TextStyle(fontSize: 13))),
-                                      Expanded(flex: 2, child: Text('\$${m['cost']?.toStringAsFixed(2) ?? '0.00'}', style: const TextStyle(fontSize: 13, color: Color(0xFF10B981)))),
+                                      Expanded(flex: 2, child: Text('MMK${m['cost']?.toStringAsFixed(2) ?? '0.00'}', style: const TextStyle(fontSize: 13, color: Color(0xFF10B981)))),
                                       IconButton(
                                         icon: const Icon(Icons.delete, color: Colors.red, size: 18),
                                         onPressed: () {
@@ -908,7 +943,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                                     children: [
                                       Expanded(flex: 3, child: Text('${material['name']}', style: const TextStyle(fontSize: 13))),
                                       Expanded(flex: 2, child: Text('${m['quantity']} ${material['unit']?.toString().toLowerCase() ?? 'unit'}', style: const TextStyle(fontSize: 13))),
-                                      Expanded(flex: 2, child: Text('\$${m['cost']?.toStringAsFixed(2) ?? '0.00'}', style: const TextStyle(fontSize: 13, color: Color(0xFF10B981)))),
+                                      Expanded(flex: 2, child: Text('MMK${m['cost']?.toStringAsFixed(2) ?? '0.00'}', style: const TextStyle(fontSize: 13, color: Color(0xFF10B981)))),
                                     ],
                                   ),
                                 );
@@ -928,53 +963,73 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        '\$${_isEditingRootCause ? _calculateTotalCost().toStringAsFixed(2) : (ticket.totalCost ?? 0).toStringAsFixed(2)}',
+                        'MMK${_isEditingRootCause ? _calculateTotalCost().toStringAsFixed(2) : (ticket.totalCost ?? 0).toStringAsFixed(2)}',
                         style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18, color: Color(0xFF10B981)),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 12),
-                _sectionCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: const [
-                          Text(
-                            'Fault Media',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          Text('3 files', style: TextStyle(color: Colors.grey)),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 90,
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
-                          children: [
-                            _mediaThumb('damage_photo_1.jpg'),
-                            const SizedBox(width: 8),
-                            _mediaThumb('repair_video.mp4', isVideo: true),
-                            const SizedBox(width: 8),
-                            _mediaThumb('photo3.jpg'),
-                            if (_isEditable) ...[
-                            const SizedBox(width: 8),
-                            _addMediaButton(Icons.photo, 'Add Photo'),
-                            const SizedBox(width: 8),
-                            _addMediaButton(Icons.videocam, 'Add Video'),
-                            const SizedBox(width: 8),
-                            _addMediaButton(Icons.camera_alt, 'Capture'),
-                            ],
+                // Fault Media section - only show for assigned tickets (from tasks tab)
+                if (_isEditable) ...[
+                  _sectionCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: const [
+                            Text(
+                              'Fault Media',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
                           ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 12),
+                        // Upload buttons for photos and videos
+                        Row(
+                          children: [
+                            Expanded(
+                              child: PrimaryButton(
+                                text: 'Add Photos',
+                                icon: Icons.add_photo_alternate,
+                                variant: ButtonVariant.outline,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                onPressed: () {
+                                  // TODO: Implement photo upload with DO Spaces
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Photo upload feature coming soon')),
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: PrimaryButton(
+                                text: 'Add Videos',
+                                icon: Icons.videocam,
+                                variant: ButtonVariant.outline,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                onPressed: () {
+                                  // TODO: Implement video upload with DO Spaces
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Video upload feature coming soon')),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'No media uploaded yet',
+                          style: TextStyle(color: Colors.grey, fontSize: 14),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
+                ],
                 _sectionCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1020,7 +1075,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                               color: (_isEditable && _isEditingNotes) ? const Color(0xFF3B82F6) : Colors.grey.shade300,
                             ),
                           ),
-                          hintText: _isEditable ? 'Add your notes here...' : 'No notes available',
+                          hintText: _isEditable ? 'Add your notes here...' : 'No notes yet',
                         ),
                         onChanged: (value) {
                           setState(() {
@@ -1034,10 +1089,12 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                 const SizedBox(height: 12),
                 // Save Update button - only visible when editable and has changes
                 if (_isEditable && _hasChanges)
-                  SizedBox(
+                  PrimaryButton(
+                    text: 'Save Update',
+                    variant: ButtonVariant.secondary,
                     width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () async {
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    onPressed: () async {
                         // Save ticket updates
                         final updates = <String, dynamic>{};
                         
@@ -1111,29 +1168,18 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                           }
                         }
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF3B82F6),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 2,
-                      ),
-                      child: const Text(
-                        'Save Update',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                      ),
-                    ),
                   ),
                 if (_isEditable && _hasChanges)
                   const SizedBox(height: 12),
                 // Complete button - only visible when editable and status is not completed
                 if (_isEditable && !ticket.status.toUpperCase().contains('COMPLETED'))
-                  SizedBox(
+                  PrimaryButton(
+                    text: 'Complete Ticket',
+                    icon: Icons.check_circle_outline,
+                    variant: ButtonVariant.primary,
                     width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () async {
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    onPressed: () async {
                         // Show confirmation dialog
                         final confirm = await showDialog<bool>(
                           context: context,
@@ -1145,12 +1191,10 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                                 onPressed: () => Navigator.pop(context, false),
                                 child: const Text('Cancel'),
                               ),
-                              ElevatedButton(
+                              PrimaryButton(
+                                text: 'Complete',
+                                variant: ButtonVariant.primary,
                                 onPressed: () => Navigator.pop(context, true),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF10B981),
-                                ),
-                                child: const Text('Complete'),
                               ),
                             ],
                           ),
@@ -1182,27 +1226,6 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                           }
                         }
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF10B981),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 2,
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.check_circle_outline),
-                          SizedBox(width: 8),
-                          Text(
-                            'Complete Ticket',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
                 if (_isEditable && !ticket.status.toUpperCase().contains('COMPLETED'))
                   const SizedBox(height: 12),
@@ -1217,7 +1240,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                             'Activity',
                             style: TextStyle(fontWeight: FontWeight.w700),
                           ),
-                          if (_isEditable)
+                          if (_isEditable && ticket.status.toUpperCase() != 'COMPLETED')
                             Row(
                               children: [
                                 Icon(

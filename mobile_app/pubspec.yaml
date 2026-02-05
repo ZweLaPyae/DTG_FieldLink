@@ -54,6 +54,16 @@ dependencies:
   url_launcher: ^6.3.1
   permission_handler: ^11.3.1
   geolocator: ^13.0.2
+  
+  # Firebase Authentication
+  firebase_core: ^3.8.1           # Firebase core SDK
+  firebase_auth: ^5.3.3           # Firebase Authentication
+  
+  # File Upload Utilities
+  # Note: Using http package (built-in) for uploads via backend signed URLs
+  # No need for S3 client since backend handles the S3 interaction
+  mime: ^1.0.6                    # File type detection
+  path: ^1.9.0                    # File path utilities
 
 dev_dependencies:
   flutter_test:
