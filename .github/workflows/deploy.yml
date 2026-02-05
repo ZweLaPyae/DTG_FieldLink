@@ -47,6 +47,11 @@ jobs:
 
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/dtg_fieldlink-web:latest
 
+      - name: Debug SHH Key
+        run: |
+          echo "SSH key character count:"
+          echo "${{ secrets.VM_SSH_KEY }}" | wc -c
+
       # -----------------------------
       # Deploy on VM
       # -----------------------------
