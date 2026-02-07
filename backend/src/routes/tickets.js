@@ -1,5 +1,6 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
+import { normalizePhone } from '../lib/phoneUtils.js';
 
 const prisma = new PrismaClient();
 
@@ -35,16 +36,19 @@ router.post('/', async (req, res) => {
 
         const existingPhones = customer?.phone ?? [];
 
-        // 2️⃣ Append phone only if it does NOT exist
+        // Normalize the phone number
+        const normalizedPhone = normalizePhone(phone);
+
+        // 2️⃣ Append phone only if it does NOT exist (check normalized version)
         const updatedPhones =
-          phone && !existingPhones.includes(phone)
-            ? [...existingPhones, phone]
+          normalizedPhone && !existingPhones.includes(normalizedPhone)
+            ? [...existingPhones, normalizedPhone]
             : existingPhones;
 
         await tx.customer.update({
           where: { id: customerId },
           data: {
-            ...(phone && { phone: updatedPhones }),
+            ...(normalizedPhone && { phone: updatedPhones }),
             ...(serviceTypeId && { serviceTypeId }),
             ...(splitter && { splitter }),
           },

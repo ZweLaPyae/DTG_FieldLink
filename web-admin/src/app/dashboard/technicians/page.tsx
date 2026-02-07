@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { UserCog, Plus, Search, Edit, Trash2 } from "lucide-react"
+import { UserCog, Plus, Search, Edit, Trash2, CheckCircle, AlertCircle, Mail, Copy, Loader2 } from "lucide-react"
 import { FaUser, FaUserTie } from "react-icons/fa"
 
 interface Technician {
@@ -43,6 +43,14 @@ export default function TechniciansPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [selectedTechnician, setSelectedTechnician] = useState<Technician | null>(null)
+  const [isCreating, setIsCreating] = useState(false)
+  const [creationResult, setCreationResult] = useState<{
+    success: boolean
+    name: string
+    email: string
+    password: string
+    emailSent: boolean
+  } | null>(null)
 
   useEffect(() => {
     fetchTechnicians()
@@ -115,6 +123,8 @@ export default function TechniciansPage() {
       return
     }
 
+    setIsCreating(true)
+
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/technicians`, {
         method: 'POST',
@@ -134,12 +144,18 @@ export default function TechniciansPage() {
         console.log('Created technician:', newTechnician)
         
         // Wait a bit for database to update
-        setTimeout(async () => {
-          await fetchTechnicians()
-          form.reset()
-          setIsCreateDialogOpen(false)
-          alert('Technician invited successfully!')
-        }, 300)
+        await fetchTechnicians()
+        form.reset()
+        setIsCreateDialogOpen(false)
+        
+        // Show result dialog
+        setCreationResult({
+          success: true,
+          name: nameValue,
+          email: emailValue,
+          password: newTechnician.defaultPassword || '',
+          emailSent: newTechnician.emailSent || false,
+        })
       } else {
         const errorData = await response.json()
         let errorMessage = 'Unknown error'
@@ -158,7 +174,18 @@ export default function TechniciansPage() {
     } catch (error) {
       console.error('Failed to create technician:', error)
       alert('Failed to invite technician. Please check your connection and try again.')
+    } finally {
+      setIsCreating(false)
     }
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        // Could add a toast notification here
+        console.log('Copied to clipboard')
+      })
+      .catch(err => console.error('Failed to copy:', err))
   }
 
   const handleDeleteTechnician = (id: number) => {
@@ -398,10 +425,109 @@ export default function TechniciansPage() {
                 <Input id="phone" name="phone" />
               </div>
               <div className="flex justify-end space-x-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
-                <Button type="submit">Invite</Button>
+                <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)} disabled={isCreating}>Cancel</Button>
+                <Button type="submit" disabled={isCreating}>
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Inviting...
+                    </>
+                  ) : (
+                    'Invite'
+                  )}
+                </Button>
               </div>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Success Result Dialog */}
+        <Dialog open={creationResult !== null} onOpenChange={(open) => !open && setCreationResult(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <div className="flex items-center space-x-2">
+                <CheckCircle className="w-6 h-6 text-green-500" />
+                <DialogTitle>Technician Invited Successfully!</DialogTitle>
+              </div>
+            </DialogHeader>
+            <div className="space-y-4">
+              {creationResult?.emailSent ? (
+                <div className="rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4">
+                  <div className="flex items-start space-x-3">
+                    <Mail className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-green-900 dark:text-green-100">Welcome email sent</p>
+                      <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                        Login credentials have been sent to <span className="font-medium">{creationResult.email}</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-4">
+                  <div className="flex items-start space-x-3">
+                    <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-yellow-900 dark:text-yellow-100">Email not configured</p>
+                      <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                        Please share the credentials below manually with the technician.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-sm text-muted-foreground">Technician Name</Label>
+                  <p className="font-medium">{creationResult?.name}</p>
+                </div>
+
+                <div>
+                  <Label className="text-sm text-muted-foreground">Email / Username</Label>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <code className="flex-1 bg-muted px-3 py-2 rounded text-sm font-mono">
+                      {creationResult?.email}
+                    </code>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => copyToClipboard(creationResult?.email || '')}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-sm text-muted-foreground">Generated Password</Label>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <code className="flex-1 bg-muted px-3 py-2 rounded text-sm font-mono font-bold">
+                      {creationResult?.password}
+                    </code>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => copyToClipboard(creationResult?.password || '')}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-3">
+                <p className="text-sm text-blue-900 dark:text-blue-100">
+                  <strong>Security Note:</strong> The technician should change their password after the first login.
+                </p>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <Button onClick={() => setCreationResult(null)}>
+                  Close
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
 

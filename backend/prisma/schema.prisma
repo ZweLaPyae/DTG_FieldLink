@@ -86,7 +86,7 @@ model Ticket {
   customer         Customer     @relation(fields: [customerId], references: [id])
   priority         Priority     @relation(fields: [priorityId], references: [id])
   rootCause        RootCause?   @relation(fields: [rootCauseId], references: [id])
-  Team             Team?        @relation(fields: [teamId], references: [id])
+  team             Team?        @relation(fields: [teamId], references: [id])
 }
 
 model Team {

@@ -1,6 +1,9 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 import { createFirebaseUser, deleteFirebaseUser } from '../lib/firebase-admin.js';
+import { normalizePhone } from '../lib/phoneUtils.js';
+import { sendTechnicianWelcomeEmail } from '../lib/emailService.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -59,23 +62,29 @@ router.post('/', async (req, res) => {
   try {
     const { name, email, phone, picture } = req.body;
 
+    // Normalize phone number (remove dashes, spaces, etc.)
+    const normalizedPhone = normalizePhone(phone);
+
     // Generate default password: "DTG" + last 4 digits of phone
     // If no phone, use random 4 digits
     let defaultPassword;
-    if (phone && phone.length >= 4) {
-      defaultPassword = `DTG${phone.slice(-4)}`;
+    if (normalizedPhone && normalizedPhone.length >= 4) {
+      defaultPassword = `DTG${normalizedPhone.slice(-4)}`;
     } else {
       defaultPassword = `DTG${Math.floor(1000 + Math.random() * 9000)}`;
     }
+
+    // Hash the password before storing
+    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
 
     // Create technician in database
     const technician = await prisma.technician.create({
       data: {
         name,
         email,
-        phone: phone || '',
+        phone: normalizedPhone,
         picture: picture || '',
-        password: defaultPassword, // Store plain text for now (will hash when auth is implemented)
+        password: hashedPassword, // Store hashed password
       },
     });
 
@@ -88,13 +97,31 @@ router.post('/', async (req, res) => {
       // Continue anyway - they can run sync script later
     }
 
+    // Send welcome email with credentials
+    let emailSent = false;
+    try {
+      const emailResult = await sendTechnicianWelcomeEmail({
+        to: email,
+        name,
+        password: defaultPassword,
+        email,
+      });
+      emailSent = emailResult.success;
+    } catch (emailError) {
+      console.error(`⚠️  Failed to send welcome email to ${email}:`, emailError.message);
+      // Continue anyway - admin can share password manually
+    }
+
     // Return technician without password, but include default password in response for admin to share
     const { password, ...technicianData } = technician;
 
     res.status(201).json({
       ...technicianData,
       defaultPassword, // Only sent once on creation
-      message: 'Technician created. Share this password with them: ' + defaultPassword,
+      emailSent,
+      message: emailSent 
+        ? `Technician created. Welcome email sent to ${email}`
+        : 'Technician created. Share this password with them: ' + defaultPassword,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -106,12 +133,15 @@ router.put('/:id', async (req, res) => {
   try {
     const { name, email, phone, picture } = req.body;
 
+    // Normalize phone number
+    const normalizedPhone = normalizePhone(phone);
+
     const technician = await prisma.technician.update({
       where: { id: parseInt(req.params.id) },
       data: {
         name,
         email,
-        phone,
+        phone: normalizedPhone,
         picture,
       },
     });

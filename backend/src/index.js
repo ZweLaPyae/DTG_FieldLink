@@ -17,8 +17,8 @@ dotenv.config();
 const app = express();
 
 app.use(express.json());
-app.use(cors({
-  origin: "https://dtg-fieldlink.site",
+app.use(cors({  
+  origin: ["https://dtg-fieldlink.site", "http://localhost:3001", "http://localhost:3000"],
   credentials: true
 }
 ));
