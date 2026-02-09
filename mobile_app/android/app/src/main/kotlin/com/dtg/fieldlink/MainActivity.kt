@@ -1,4 +1,4 @@
-package com.example.mobile_app
+package com.dtg.fieldlink
 
 import io.flutter.embedding.android.FlutterActivity
 

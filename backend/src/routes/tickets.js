@@ -1,5 +1,6 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
+import { normalizePhone } from '../lib/phoneUtils.js';
 
 const prisma = new PrismaClient();
 
@@ -35,16 +36,19 @@ router.post('/', async (req, res) => {
 
         const existingPhones = customer?.phone ?? [];
 
-        // 2️⃣ Append phone only if it does NOT exist
+        // Normalize the phone number
+        const normalizedPhone = normalizePhone(phone);
+
+        // 2️⃣ Append phone only if it does NOT exist (check normalized version)
         const updatedPhones =
-          phone && !existingPhones.includes(phone)
-            ? [...existingPhones, phone]
+          normalizedPhone && !existingPhones.includes(normalizedPhone)
+            ? [...existingPhones, normalizedPhone]
             : existingPhones;
 
         await tx.customer.update({
           where: { id: customerId },
           data: {
-            ...(phone && { phone: updatedPhones }),
+            ...(normalizedPhone && { phone: updatedPhones }),
             ...(serviceTypeId && { serviceTypeId }),
             ...(splitter && { splitter }),
           },
@@ -88,9 +92,16 @@ router.get('/', async (req, res) => {
             splitter: true,
           },
         },
-        technician: {
+        team: {
           select: {
+            id: true,
             name: true,
+            leaderId: true,
+            leader: {
+              select: {
+                name: true,
+              },
+            },
           },
         },
         priority: {
@@ -116,8 +127,11 @@ router.get('/', async (req, res) => {
       phone: t.customer?.phone ?? null,
       splitter: t.customer?.splitter ?? null,
 
-      technicianId: t.technicianId,
-      technician_display: t.technician?.name ?? null,
+      teamId: t.teamId,
+      team_display: t.team?.name ?? null,
+      // Keep technicianId for backward compatibility (maps to team leader)
+      technicianId: t.team?.leaderId ?? null,
+      technician_display: t.team?.leader?.name ?? null,
     }))
     res.status(200).json(formattedTickets);
   } catch (error) {
@@ -136,7 +150,11 @@ router.get('/:id', async (req, res) => {
             serviceType: true,
           },
         },
-        technician: true,
+        team: {
+          include: {
+            leader: true,
+          },
+        },
         priority: true,
         rootCause: true,
       },
@@ -183,6 +201,12 @@ router.get('/:id', async (req, res) => {
         });
         ticket.totalCost = calculatedTotalCost;
       }
+    }
+
+    // Add backward compatibility fields for mobile app
+    if (ticket.team) {
+      ticket.technicianId = ticket.team.leaderId;
+      ticket.technician = ticket.team.leader;
     }
 
     res.status(200).json(ticket);

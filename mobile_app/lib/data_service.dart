@@ -17,13 +17,14 @@ class DataService {
         // Log first ticket for debugging
         if (ticketsJson.isNotEmpty) {
           print('Sample ticket data: ${ticketsJson.first}');
+          print('Sample ticket teamId from API: ${ticketsJson.first['teamId']}');
         }
         
         final tickets = ticketsJson.map<Ticket>((t) => Ticket.fromApiJson(t)).toList();
         
         // Log parsed tickets
         for (var ticket in tickets) {
-          print('Parsed ticket ${ticket.id}: status=${ticket.status}, technicianId=${ticket.technicianId}');
+          print('Parsed ticket ${ticket.id}: status=${ticket.status}, technicianId=${ticket.technicianId}, teamId=${ticket.teamId}');
         }
         
         return tickets;
@@ -167,6 +168,34 @@ class DataService {
     }
   }
 
+  // Fetch all technicians from the API
+  Future<List<Technician>> loadTechnicians() async {
+    try {
+      final response = await http.get(Uri.parse(ApiConfig.techniciansUrl));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> techniciansJson = json.decode(response.body);
+        print('Loaded ${techniciansJson.length} technicians from API');
+
+        final technicians = techniciansJson
+            .map<Technician>((t) => Technician.fromJson(t as Map<String, dynamic>))
+            .toList();
+
+        // Log parsed technicians for debugging
+        for (var tech in technicians) {
+          print('Technician ${tech.id}: ${tech.name} <${tech.email}>');
+        }
+
+        return technicians;
+      } else {
+        throw Exception('Failed to load technicians: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error loading technicians: $e');
+      rethrow;
+    }
+  }
+
   // Get technician by ID
   Future<Technician?> getTechnicianById(String id) async {
     try {
@@ -219,4 +248,55 @@ class DataService {
       rethrow;
     }
   }
+
+  // Load all teams
+  Future<List<Map<String, dynamic>>> loadTeams() async {
+    try {
+      final response = await http.get(Uri.parse('${ApiConfig.baseUrl}/teams'));
+      
+      if (response.statusCode == 200) {
+        final List<dynamic> teamsJson = json.decode(response.body);
+        return teamsJson.map<Map<String, dynamic>>((t) => t as Map<String, dynamic>).toList();
+      } else {
+        throw Exception('Failed to load teams: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error loading teams: $e');
+      rethrow;
+    }
+  }
+
+  // Get team by technician ID
+  Future<Map<String, dynamic>?> getTeamForTechnician(int technicianId) async {
+    try {
+      final teams = await loadTeams();
+      
+      // Check if technician is a team leader
+      for (var team in teams) {
+        if (team['leaderId'] == technicianId) {
+          return {
+            ...team,
+            'role': 'Leader',
+          };
+        }
+      }
+      
+      // Check if technician is a team member
+      for (var team in teams) {
+        final memberIds = team['memberIds'];
+        if (memberIds is List && memberIds.contains(technicianId)) {
+          return {
+            ...team,
+            'role': 'Member',
+          };
+        }
+      }
+      
+      return null; // Not in any team
+    } catch (e) {
+      print('Error getting team for technician: $e');
+      return null;
+    }
+  }
 }
+

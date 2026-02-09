@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data_service.dart';
 import '../providers/auth_provider.dart';
+import '../services/firebase_auth_service.dart';
 import 'home.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -16,7 +17,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final DataService _dataService = DataService();
+  final FirebaseAuthService _authService = FirebaseAuthService();
   
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -40,8 +41,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     });
 
     try {
-      // Check if technician exists by email
-      final technician = await _dataService.checkTechnicianByEmail(_emailController.text.trim());
+      // Authenticate with Firebase Auth
+      final technician = await _authService.signInWithEmailPassword(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+      );
       
       if (technician != null) {
         // Save technician to auth provider
@@ -55,12 +59,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         }
       } else {
         setState(() {
-          _errorMessage = 'Email not found. Please check your email address.';
+          _errorMessage = 'Login failed. Please check your credentials.';
         });
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'An error occurred. Please try again.';
+        _errorMessage = e.toString();
       });
       print('Login error: $e');
     } finally {

@@ -55,7 +55,7 @@ jobs:
       # -----------------------------
       # Deploy on VM
       # -----------------------------
-      - name: Deploy to Droplet
+      - name: Deploy to Droplet      
 
         uses: appleboy/ssh-action@v1
         with:

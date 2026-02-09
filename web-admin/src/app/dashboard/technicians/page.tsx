@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { UserCog, Plus, Search } from "lucide-react"
+import { UserCog, Plus, Search, Edit, Trash2, CheckCircle, AlertCircle, Mail, Copy, Loader2 } from "lucide-react"
 import { FaUser, FaUserTie } from "react-icons/fa"
 
 interface Technician {
@@ -27,7 +27,7 @@ interface Technician {
 }
 
 interface Team {
-  id: string
+  id: number
   name: string
   leaderId: number
   memberIds: number[]
@@ -41,6 +41,16 @@ export default function TechniciansPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [selectedTechnician, setSelectedTechnician] = useState<Technician | null>(null)
+  const [isCreating, setIsCreating] = useState(false)
+  const [creationResult, setCreationResult] = useState<{
+    success: boolean
+    name: string
+    email: string
+    password: string
+    emailSent: boolean
+  } | null>(null)
 
   useEffect(() => {
     fetchTechnicians()
@@ -92,9 +102,16 @@ export default function TechniciansPage() {
     return teams.filter(team => team.leaderId === technicianId).map(team => team.name)
   }
 
+  const getTechnicianTeams = (technicianId: number) => {
+    return teams.filter(team => 
+      Array.isArray(team.memberIds) && team.memberIds.includes(technicianId)
+    ).map(team => team.name)
+  }
+
   const handleCreateTechnician = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const formData = new FormData(e.currentTarget)
+    const form = e.currentTarget
+    const formData = new FormData(form)
     const nameValue = formData.get("name") as string
     const emailValue = formData.get("email") as string
     const phoneValue = formData.get("phone") as string
@@ -105,6 +122,8 @@ export default function TechniciansPage() {
       alert('A technician with this email already exists. Please use a different email address.')
       return
     }
+
+    setIsCreating(true)
 
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/technicians`, {
@@ -125,12 +144,18 @@ export default function TechniciansPage() {
         console.log('Created technician:', newTechnician)
         
         // Wait a bit for database to update
-        setTimeout(async () => {
-          await fetchTechnicians()
-          e.currentTarget.reset()
-          setIsCreateDialogOpen(false)
-          alert('Technician invited successfully!')
-        }, 300)
+        await fetchTechnicians()
+        form.reset()
+        setIsCreateDialogOpen(false)
+        
+        // Show result dialog
+        setCreationResult({
+          success: true,
+          name: nameValue,
+          email: emailValue,
+          password: newTechnician.defaultPassword || '',
+          emailSent: newTechnician.emailSent || false,
+        })
       } else {
         const errorData = await response.json()
         let errorMessage = 'Unknown error'
@@ -149,12 +174,61 @@ export default function TechniciansPage() {
     } catch (error) {
       console.error('Failed to create technician:', error)
       alert('Failed to invite technician. Please check your connection and try again.')
+    } finally {
+      setIsCreating(false)
     }
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        // Could add a toast notification here
+        console.log('Copied to clipboard')
+      })
+      .catch(err => console.error('Failed to copy:', err))
   }
 
   const handleDeleteTechnician = (id: number) => {
     setTechnicianToDelete(id)
     setDeleteDialogOpen(true)
+  }
+
+  const handleEditTechnician = (tech: Technician) => {
+    setSelectedTechnician(tech)
+    setIsEditDialogOpen(true)
+  }
+
+  const handleUpdateTechnician = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!selectedTechnician) return
+
+    const formData = new FormData(e.currentTarget)
+    const nameValue = formData.get("name") as string
+    const emailValue = formData.get("email") as string
+    const phoneValue = formData.get("phone") as string
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/technicians/${selectedTechnician.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: nameValue,
+          email: emailValue,
+          phone: phoneValue || '',
+          picture: selectedTechnician.picture || '',
+        }),
+      })
+
+      if (response.ok) {
+        fetchTechnicians()
+        setIsEditDialogOpen(false)
+        setSelectedTechnician(null)
+      }
+    } catch (error) {
+      console.error('Failed to update technician:', error)
+    }
   }
 
   const confirmDeleteTechnician = async () => {
@@ -252,7 +326,7 @@ export default function TechniciansPage() {
                       <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Phone</TableHead>
-                      <TableHead>Team Leader</TableHead>
+                      <TableHead>Team</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -266,16 +340,44 @@ export default function TechniciansPage() {
                 <TableCell>{tech.email}</TableCell>
                 <TableCell>{tech.phone || "-"}</TableCell>
                 <TableCell>
-                  {isTeamLeader(tech.id) ? (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {getLeaderTeamNames(tech.id).join(", ")}
-                    </span>
-                  ) : (
-                    <span className="text-muted-foreground">-</span>
-                  )}
+                  {(() => {
+                    const techTeams = getTechnicianTeams(tech.id)
+                    if (techTeams.length === 0) {
+                      return <span className="text-muted-foreground">-</span>
+                    }
+                    return (
+                      <div className="flex flex-wrap gap-1">
+                        {techTeams.map((teamName, idx) => (
+                          <span 
+                            key={idx}
+                            className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                          >
+                            {teamName}
+                          </span>
+                        ))}
+                      </div>
+                    )
+                  })()}
                 </TableCell>
                 <TableCell>
-                  <Button size="sm" variant="destructive" onClick={() => handleDeleteTechnician(tech.id)}>Delete</Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleEditTechnician(tech)}
+                      className="hover:bg-blue-50 dark:hover:bg-blue-950/30 text-blue-600 hover:text-blue-700"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleDeleteTechnician(tech.id)}
+                      className="hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -323,8 +425,150 @@ export default function TechniciansPage() {
                 <Input id="phone" name="phone" />
               </div>
               <div className="flex justify-end space-x-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
-                <Button type="submit">Invite</Button>
+                <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)} disabled={isCreating}>Cancel</Button>
+                <Button type="submit" disabled={isCreating}>
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Inviting...
+                    </>
+                  ) : (
+                    'Invite'
+                  )}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Success Result Dialog */}
+        <Dialog open={creationResult !== null} onOpenChange={(open) => !open && setCreationResult(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <div className="flex items-center space-x-2">
+                <CheckCircle className="w-6 h-6 text-green-500" />
+                <DialogTitle>Technician Invited Successfully!</DialogTitle>
+              </div>
+            </DialogHeader>
+            <div className="space-y-4">
+              {creationResult?.emailSent ? (
+                <div className="rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4">
+                  <div className="flex items-start space-x-3">
+                    <Mail className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-green-900 dark:text-green-100">Welcome email sent</p>
+                      <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                        Login credentials have been sent to <span className="font-medium">{creationResult.email}</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-4">
+                  <div className="flex items-start space-x-3">
+                    <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-yellow-900 dark:text-yellow-100">Email not configured</p>
+                      <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                        Please share the credentials below manually with the technician.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-sm text-muted-foreground">Technician Name</Label>
+                  <p className="font-medium">{creationResult?.name}</p>
+                </div>
+
+                <div>
+                  <Label className="text-sm text-muted-foreground">Email / Username</Label>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <code className="flex-1 bg-muted px-3 py-2 rounded text-sm font-mono">
+                      {creationResult?.email}
+                    </code>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => copyToClipboard(creationResult?.email || '')}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-sm text-muted-foreground">Generated Password</Label>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <code className="flex-1 bg-muted px-3 py-2 rounded text-sm font-mono font-bold">
+                      {creationResult?.password}
+                    </code>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => copyToClipboard(creationResult?.password || '')}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-3">
+                <p className="text-sm text-blue-900 dark:text-blue-100">
+                  <strong>Security Note:</strong> The technician should change their password after the first login.
+                </p>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <Button onClick={() => setCreationResult(null)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Technician Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Technician</DialogTitle>
+              <DialogDescription>Update the technician details.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleUpdateTechnician} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Name</Label>
+                <Input 
+                  id="edit-name" 
+                  name="name" 
+                  defaultValue={selectedTechnician?.name || ''} 
+                  required 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-email">Email</Label>
+                <Input 
+                  id="edit-email" 
+                  name="email" 
+                  type="email" 
+                  defaultValue={selectedTechnician?.email || ''} 
+                  required 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-phone">Phone</Label>
+                <Input 
+                  id="edit-phone" 
+                  name="phone" 
+                  defaultValue={selectedTechnician?.phone || ''} 
+                />
+              </div>
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                <Button type="submit">Update</Button>
               </div>
             </form>
           </DialogContent>

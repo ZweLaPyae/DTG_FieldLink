@@ -31,6 +31,12 @@ router.get('/:id', async (req, res) => {
       where: { id: parseInt(req.params.id) },
       include: {
         leader: true,
+        tickets: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
       },
     });
 
@@ -106,7 +112,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     await prisma.team.delete({
-      where: { id: req.params.id },
+      where: { id: parseInt(req.params.id) },
     });
     res.status(200).json({ message: 'Team deleted successfully' });
   } catch (error) {
