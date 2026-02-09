@@ -29,10 +29,10 @@ jobs:
         run: |
           docker build \
             --platform linux/amd64 \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/dtg-backend:latest \
+            -t ${{ secrets.DOCKERHUB_USERNAME }}/dtg_fieldlink-backend:latest \
             ./backend
 
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/dtg-backend:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/dtg_fieldlink-backend:latest
 
       # -----------------------------
       # Build & Push Frontend (Next.js)
@@ -42,22 +42,28 @@ jobs:
           docker build \
             --platform linux/amd64 \
             --build-arg NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }} \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/dtg-web:latest \
+            -t ${{ secrets.DOCKERHUB_USERNAME }}/dtg_fieldlink-web:latest \
             ./web-admin
 
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/dtg-web:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/dtg_fieldlink-web:latest
+
+      - name: Debug SHH Key
+        run: |
+          echo "SSH key character count:"
+          echo "${{ secrets.VM_SSH_KEY }}" | wc -c
 
       # -----------------------------
       # Deploy on VM
       # -----------------------------
-      - name: Deploy to Droplet
-      
+      - name: Deploy to Droplet      
+
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/dtg-backend:latest
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/dtg-web:latest
+            cd ~/dtg_fieldlink
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/dtg_fieldlink-backend:latest
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/dtg_fieldlink-web:latest
             docker compose up -d
