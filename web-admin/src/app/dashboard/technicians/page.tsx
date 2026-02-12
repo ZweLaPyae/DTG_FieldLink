@@ -22,7 +22,7 @@ interface Technician {
   id: number
   name: string
   email: string
-  phone: string
+  phone: string[]
   picture: string
 }
 
@@ -94,6 +94,9 @@ export default function TechniciansPage() {
     const emailValue = formData.get("email") as string
     const phoneValue = formData.get("phone") as string
 
+    // Convert comma-separated phone numbers to array
+    const phoneArray = phoneValue ? phoneValue.split(',').map(p => p.trim()).filter(p => p) : []
+
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/technicians`, {
         method: 'POST',
@@ -103,7 +106,7 @@ export default function TechniciansPage() {
         body: JSON.stringify({
           name: nameValue,
           email: emailValue,
-          phone: phoneValue || '',
+          phone: phoneArray,
           picture: '',
         }),
       })
@@ -136,6 +139,9 @@ export default function TechniciansPage() {
     const emailValue = formData.get("email") as string
     const phoneValue = formData.get("phone") as string
 
+    // Convert comma-separated phone numbers to array
+    const phoneArray = phoneValue ? phoneValue.split(',').map(p => p.trim()).filter(p => p) : []
+
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/technicians/${selectedTechnician.id}`, {
         method: 'PUT',
@@ -145,7 +151,7 @@ export default function TechniciansPage() {
         body: JSON.stringify({
           name: nameValue,
           email: emailValue,
-          phone: phoneValue || '',
+          phone: phoneArray,
           picture: selectedTechnician.picture || '',
         }),
       })
@@ -181,10 +187,11 @@ export default function TechniciansPage() {
   // Filter technicians by search
   const filteredTechnicians = technicians.filter(tech => {
     const searchLower = search.toLowerCase()
+    const phoneString = Array.isArray(tech.phone) ? tech.phone.join(', ') : ''
     return (
       tech.name.toLowerCase().includes(searchLower) ||
       tech.email.toLowerCase().includes(searchLower) ||
-      tech.phone.toLowerCase().includes(searchLower)
+      phoneString.toLowerCase().includes(searchLower)
     )
   })
 
@@ -267,7 +274,11 @@ export default function TechniciansPage() {
                 </TableCell>
                 <TableCell className="font-semibold">{tech.name}</TableCell>
                 <TableCell>{tech.email}</TableCell>
-                <TableCell>{tech.phone || "-"}</TableCell>
+                <TableCell>
+                  {Array.isArray(tech.phone) && tech.phone.length > 0 
+                    ? tech.phone.join(', ') 
+                    : '-'}
+                </TableCell>
                 <TableCell>
                   {(() => {
                     const techTeams = getTechnicianTeams(tech.id)
@@ -350,8 +361,13 @@ export default function TechniciansPage() {
                 <Input id="email" name="email" type="email" required />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone (optional)</Label>
-                <Input id="phone" name="phone" />
+                <Label htmlFor="phone">Phone Numbers (comma-separated)</Label>
+                <Input 
+                  id="phone" 
+                  name="phone" 
+                  placeholder="e.g., 09-123456789, 09-987654321"
+                />
+                <p className="text-xs text-muted-foreground">Add multiple phone numbers separated by commas</p>
               </div>
               <div className="flex justify-end space-x-2 pt-4">
                 <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
@@ -389,12 +405,16 @@ export default function TechniciansPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-phone">Phone</Label>
+                <Label htmlFor="edit-phone">Phone Numbers (comma-separated)</Label>
                 <Input 
                   id="edit-phone" 
                   name="phone" 
-                  defaultValue={selectedTechnician?.phone || ''} 
+                  defaultValue={Array.isArray(selectedTechnician?.phone) 
+                    ? selectedTechnician.phone.join(', ') 
+                    : ''} 
+                  placeholder="e.g., 09-123456789, 09-987654321"
                 />
+                <p className="text-xs text-muted-foreground">Add multiple phone numbers separated by commas</p>
               </div>
               <div className="flex justify-end space-x-2 pt-4">
                 <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>

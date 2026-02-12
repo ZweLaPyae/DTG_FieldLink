@@ -1,7 +1,6 @@
 // lib/pages/login_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../data_service.dart';
 import '../providers/auth_provider.dart';
 import '../services/firebase_auth_service.dart';
 import 'home.dart';
@@ -18,7 +17,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final FirebaseAuthService _authService = FirebaseAuthService();
-  
+
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
@@ -46,11 +45,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
-      
+
       if (technician != null) {
         // Save technician to auth provider
         ref.read(authProvider.notifier).login(technician);
-        
+
         // Navigate to home page
         if (mounted) {
           Navigator.of(context).pushReplacement(
@@ -84,10 +83,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              const Color(0xFF2563EB),
-              const Color(0xFF1E40AF),
-            ],
+            colors: [const Color(0xFF2563EB), const Color(0xFF1E40AF)],
           ),
         ),
         child: SafeArea(
@@ -120,7 +116,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                     ),
                     const SizedBox(height: 32),
-                    
+
                     // Title
                     const Text(
                       'DTG FieldLink',
@@ -134,13 +130,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     const SizedBox(height: 8),
                     const Text(
                       'Technician Portal',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.white70,
-                      ),
+                      style: TextStyle(fontSize: 16, color: Colors.white70),
                     ),
                     const SizedBox(height: 48),
-                    
+
                     // Login Card
                     Container(
                       padding: const EdgeInsets.all(24),
@@ -171,11 +164,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.grey.shade300),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.shade300,
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: Color(0xFF2563EB), width: 2),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFF2563EB),
+                                  width: 2,
+                                ),
                               ),
                             ),
                             validator: (value) {
@@ -189,7 +187,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             },
                           ),
                           const SizedBox(height: 16),
-                          
+
                           // Password Field
                           TextFormField(
                             controller: _passwordController,
@@ -200,7 +198,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               prefixIcon: const Icon(Icons.lock_outlined),
                               suffixIcon: IconButton(
                                 icon: Icon(
-                                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                  _obscurePassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
                                 ),
                                 onPressed: () {
                                   setState(() {
@@ -213,11 +213,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.grey.shade300),
+                                borderSide: BorderSide(
+                                  color: Colors.grey.shade300,
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: Color(0xFF2563EB), width: 2),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFF2563EB),
+                                  width: 2,
+                                ),
                               ),
                             ),
                             validator: (value) {
@@ -228,7 +233,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             },
                           ),
                           const SizedBox(height: 8),
-                          
+
                           // Forgot Password
                           Align(
                             alignment: Alignment.centerRight,
@@ -237,7 +242,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                 // TODO: Implement forgot password functionality
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Forgot password feature coming soon'),
+                                    content: Text(
+                                      'Forgot password feature coming soon',
+                                    ),
                                     duration: Duration(seconds: 2),
                                   ),
                                 );
@@ -252,7 +259,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          
+
                           // Error Message
                           if (_errorMessage != null) ...[
                             Container(
@@ -264,12 +271,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               ),
                               child: Row(
                                 children: [
-                                  Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+                                  Icon(
+                                    Icons.error_outline,
+                                    color: Colors.red.shade700,
+                                    size: 20,
+                                  ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
                                       _errorMessage!,
-                                      style: TextStyle(color: Colors.red.shade700, fontSize: 14),
+                                      style: TextStyle(
+                                        color: Colors.red.shade700,
+                                        fontSize: 14,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -277,7 +291,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             ),
                             const SizedBox(height: 16),
                           ],
-                          
+
                           // Login Button
                           ElevatedButton(
                             onPressed: _isLoading ? null : _handleLogin,
@@ -296,7 +310,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                     width: 20,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
                                     ),
                                   )
                                 : const Text(
@@ -311,27 +327,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    
-                    // Development Note
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.white.withOpacity(0.3)),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.info_outline, color: Colors.white70, size: 16),
-                          SizedBox(width: 8),
-                          Text(
-                            'Development Mode: Email verification only',
-                            style: TextStyle(color: Colors.white70, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
               ),

@@ -44,7 +44,6 @@ router.post('/get-signed-url', async (req, res) => {
     if (!process.env.DO_SPACES_ATTACHMENTS_ACCESS_KEY || !process.env.DO_SPACES_ATTACHMENTS_SECRET_KEY) {
       console.error('❌ DigitalOcean Spaces not configured!');
       console.error('⚠️  Add DO_SPACES_ATTACHMENTS_ACCESS_KEY and DO_SPACES_ATTACHMENTS_SECRET_KEY to .env');
-      console.error('⚠️  See DO_SPACES_SETUP.md for instructions');
       return res.status(500).json({ 
         error: 'File upload not configured. Contact administrator.' 
       });

@@ -196,8 +196,8 @@ class DataService {
     }
   }
 
-  // Get technician by ID
-  Future<Technician?> getTechnicianById(String id) async {
+  // Get technician by ID (accepts both String and int)
+  Future<Technician?> getTechnicianById(dynamic id) async {
     try {
       final response = await http.get(Uri.parse('${ApiConfig.techniciansUrl}/$id'));
       
@@ -296,6 +296,52 @@ class DataService {
     } catch (e) {
       print('Error getting team for technician: $e');
       return null;
+    }
+  }
+
+  // Update technician profile
+  Future<bool> updateTechnician(int technicianId, Map<String, dynamic> updates) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('${ApiConfig.baseUrl}/technicians/$technicianId'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(updates),
+      );
+      
+      if (response.statusCode == 200) {
+        print('Technician updated successfully');
+        return true;
+      } else {
+        throw Exception('Failed to update technician: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error updating technician: $e');
+      rethrow;
+    }
+  }
+
+  // Update technician password
+  Future<bool> updateTechnicianPassword(int technicianId, String currentPassword, String newPassword) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/technicians/$technicianId/change-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        print('Password updated successfully');
+        return true;
+      } else {
+        final error = json.decode(response.body);
+        throw Exception(error['error'] ?? 'Failed to update password');
+      }
+    } catch (e) {
+      print('Error updating password: $e');
+      rethrow;
     }
   }
 }

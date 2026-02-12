@@ -32,7 +32,7 @@ app.use('/auth', authRoutes);
 
 // Upload routes for DigitalOcean Spaces
 // ⚠️ TODO: Configure DO Spaces in .env before using
-// See DO_SPACES_SETUP.md for configuration instructions
+// Add DO_SPACES environment variables to backend/.env for file upload functionality
 app.use('/api/upload', uploadRoutes);
 
 const PORT = process.env.PORT || 3000;

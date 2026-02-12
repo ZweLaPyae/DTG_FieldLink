@@ -1,6 +1,7 @@
 // lib/providers/auth_provider.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models.dart';
+import '../data_service.dart';
 
 // Auth state class
 class AuthState {
@@ -25,6 +26,8 @@ class AuthState {
 
 // Auth notifier
 class AuthNotifier extends StateNotifier<AuthState> {
+  final DataService _dataService = DataService();
+
   AuthNotifier() : super(AuthState());
 
   void login(Technician technician) {
@@ -43,6 +46,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   void updateTechnician(Technician technician) {
     state = state.copyWith(technician: technician);
+  }
+
+  // Refresh technician data from backend
+  Future<void> refreshTechnician() async {
+    if (state.technician == null) return;
+    
+    try {
+      final technicianId = int.parse(state.technician!.id);
+      final updatedTechnician = await _dataService.getTechnicianById(technicianId);
+      
+      if (updatedTechnician != null) {
+        updateTechnician(updatedTechnician);
+      }
+    } catch (e) {
+      print('Error refreshing technician: $e');
+    }
   }
 }
 
