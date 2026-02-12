@@ -8,34 +8,62 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: production
+    environment: GITHUB_SECRET
 
     steps:
       - uses: actions/checkout@v4
 
+      # -----------------------------
+      # Docker login
+      # -----------------------------
       - name: DockerHub Login
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # -----------------------------
+      # Build & Push Backend
+      # -----------------------------
       - name: Build & Push Backend
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/dtg-backend ./backend
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/dtg-backend
+          docker build \
+            --platform linux/amd64 \
+            -t ${{ secrets.DOCKERHUB_USERNAME }}/dtg_fieldlink-backend:latest \
+            ./backend
 
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/dtg_fieldlink-backend:latest
+
+      # -----------------------------
+      # Build & Push Frontend (Next.js)
+      # -----------------------------
       - name: Build & Push Web
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/dtg-web ./web-admin
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/dtg-web
+          docker build \
+            --platform linux/amd64 \
+            --build-arg NEXT_PUBLIC_BACKEND_URL=${{ secrets.NEXT_PUBLIC_BACKEND_URL }} \
+            -t ${{ secrets.DOCKERHUB_USERNAME }}/dtg_fieldlink-web:latest \
+            ./web-admin
 
-      - name: Deploy to Droplet
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/dtg_fieldlink-web:latest
+
+      - name: Debug SHH Key
+        run: |
+          echo "SSH key character count:"
+          echo "${{ secrets.VM_SSH_KEY }}" | wc -c
+
+      # -----------------------------
+      # Deploy on VM
+      # -----------------------------
+      - name: Deploy to Droplet      
+
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/dtg-backend
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/dtg-web
+            cd ~/dtg_fieldlink
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/dtg_fieldlink-backend:latest
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/dtg_fieldlink-web:latest
             docker compose up -d

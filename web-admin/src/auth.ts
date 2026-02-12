@@ -50,7 +50,7 @@ export const {
         }
 
         return {
-          id: user.id,
+          id: String(user.id),
           email: user.email,
           name: user.name,
           role: user.role,
@@ -80,7 +80,7 @@ export const {
         ...session,
         user: {
           ...session.user,
-          id: token.id as string | number | undefined,
+          id: token.id as string | undefined,
           role: token.role as string | undefined,
           name: token.name as string | undefined,
           email: token.email as string | undefined,

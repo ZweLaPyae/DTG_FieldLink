@@ -46,6 +46,7 @@ router.get('/:id', async (req, res) => {
 
     res.status(200).json(team);
   } catch (error) {
+    console.error('Error fetching team by ID:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -102,6 +103,7 @@ router.put('/:id', async (req, res) => {
 
     res.status(200).json(team);
   } catch (error) {
+    console.error('Error updating team:', error);
     res.status(500).json({ error: error.message });
   }
 });

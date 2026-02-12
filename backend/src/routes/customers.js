@@ -2,9 +2,10 @@ import express from 'express';
 const router = express.Router();
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
-import { uploadKmz } from '../middleware/uploadKmz.js';
+import { uploadKmz } from '../middleware/KMZupload.js';
 import { kmzToGeoJson } from '../lib/kmzToGeojson.js';
 import { uploadGeoJson } from '../lib/uploadGeojson.js';
+import { normalizePhone } from '../lib/phoneUtils.js';
 
 
 // Create a new customer
@@ -19,9 +20,9 @@ router.post('/', async (req, res) => {
       splitter,
     };
     
-    // Only add phone if it's a non-empty array
+    // Normalize and add phone if it's a non-empty array
     if (Array.isArray(phone) && phone.length > 0) {
-      data.phone = phone;
+      data.phone = phone.map(p => normalizePhone(p)).filter(p => p);
     }
     
     // Use connect for serviceType relation
@@ -91,9 +92,9 @@ router.put('/:id', async (req, res) => {
       splitter,
     };
     
-    // Only add phone if it's a non-empty array
+    // Normalize and add phone if it's a non-empty array
     if (Array.isArray(phone) && phone.length > 0) {
-      data.phone = phone;
+      data.phone = phone.map(p => normalizePhone(p)).filter(p => p);
     }
     
     // Use connect/disconnect for serviceType relation

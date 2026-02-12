@@ -1,7 +1,10 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import bcrypt from 'bcryptjs';
 import { createFirebaseUser, deleteFirebaseUser } from '../lib/firebase-admin.js';
+import { normalizePhone } from '../lib/phoneUtils.js';
+import { sendTechnicianWelcomeEmail } from '../lib/emailService.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -26,6 +29,7 @@ router.get('/', async (req, res) => {
     });
     res.status(200).json(technicians);
   } catch (error) {
+    console.error('Error fetching technicians:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -49,6 +53,7 @@ router.get('/:id', async (req, res) => {
 
     res.status(200).json(technicianWithoutPassword);
   } catch (error) {
+    console.error('Error fetching technician:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -104,7 +109,10 @@ router.post('/', async (req, res) => {
     res.status(201).json({
       ...technicianData,
       defaultPassword, // Only sent once on creation
-      message: 'Technician created. Share this password with them: ' + defaultPassword,
+      emailSent,
+      message: emailSent 
+        ? `Technician created. Welcome email sent to ${email}`
+        : 'Technician created. Share this password with them: ' + defaultPassword,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

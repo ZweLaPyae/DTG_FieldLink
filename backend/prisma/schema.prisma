@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -89,7 +90,6 @@ model Ticket {
 }
 
 model Team {
-  id               Int        @id @default(autoincrement())
   name             String
   leaderId         Int
   memberIds        Json
@@ -98,8 +98,9 @@ model Team {
   completedTickets Int        @default(0)
   location         String
   status           String     @default("active")
+  id               Int        @id @default(autoincrement())
   leader           Technician @relation(fields: [leaderId], references: [id])
-  tickets          Ticket[]
+  Ticket           Ticket[]
 }
 
 model MaterialCatalog {
