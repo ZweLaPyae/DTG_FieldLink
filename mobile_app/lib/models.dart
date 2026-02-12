@@ -41,7 +41,7 @@ class Technician {
   final String id;
   final String name;
   final String email;
-  final String phone;
+  final List<String> phone;
   final String picture;
   final int? ticketCount;
 
@@ -54,14 +54,26 @@ class Technician {
     this.ticketCount,
   });
 
-  factory Technician.fromJson(Map<String, dynamic> json) => Technician(
-        id: json['id']?.toString() ?? '',
-        name: json['name'] ?? '',
-        email: json['email'] ?? '',
-        phone: json['phone'] ?? '',
-        picture: json['picture'] ?? '',
-        ticketCount: json['_count']?['tickets'],
-      );
+  factory Technician.fromJson(Map<String, dynamic> json) {
+    // Handle phone field - API returns array
+    List<String> phoneList = [];
+    if (json['phone'] != null) {
+      if (json['phone'] is List) {
+        phoneList = (json['phone'] as List).map((e) => e.toString()).toList();
+      } else {
+        phoneList = [json['phone'].toString()];
+      }
+    }
+    
+    return Technician(
+      id: json['id']?.toString() ?? '',
+      name: json['name'] ?? '',
+      email: json['email'] ?? '',
+      phone: phoneList,
+      picture: json['picture'] ?? '',
+      ticketCount: json['_count']?['tickets'],
+    );
+  }
 }
 
 class UpdateEntry {
@@ -222,6 +234,14 @@ class Ticket {
 
   // Factory for API detail response (GET /tickets/:id)
   factory Ticket.fromApiDetailJson(Map<String, dynamic> json) {
+    // Parse attachments from JSON
+    List<Attachment> attachmentsList = [];
+    if (json['attachments'] != null && json['attachments'] is List) {
+      attachmentsList = (json['attachments'] as List)
+          .map((a) => Attachment.fromJson(Map<String, dynamic>.from(a)))
+          .toList();
+    }
+    
     return Ticket(
       id: json['id'] ?? '',
       customerId: json['customerId'] ?? '',
@@ -252,7 +272,7 @@ class Ticket {
           ? List<Map<String, dynamic>>.from(json['materialsUsed'])
           : [],
       totalCost: json['totalCost']?.toDouble(),
-      attachments: [],
+      attachments: attachmentsList,
       updates: [],
       wayToFix: json['wayToFix'],
       breakTimes: json['breakTimes'] != null ? List<Map<String, dynamic>>.from(json['breakTimes']) : [],

@@ -31,7 +31,7 @@ class FirebaseConfig {
   // - Login will not work
   
   // NEXT STEPS:
-  // 1. Follow FIREBASE_SETUP.md guide
+  // 1. Set up Firebase project in Firebase Console
   // 2. Download google-services.json
   // 3. Place in android/app/ directory
   // 4. Update values above

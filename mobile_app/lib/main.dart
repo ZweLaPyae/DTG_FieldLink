@@ -8,34 +8,30 @@ import 'config/firebase_config.dart'; // Firebase config
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize Firebase
   // ⚠️ TODO: Download google-services.json from Firebase Console
   // ⚠️ Place it at: android/app/google-services.json
   // ⚠️ Without this file, app will crash with: "Default FirebaseApp is not initialized"
-  // See FIREBASE_SETUP.md for detailed instructions
+  // Firebase must be initialized before app starts
   try {
     await Firebase.initializeApp();
     print('✅ Firebase initialized successfully');
-    
+
     // Check if Firebase is properly configured
     if (!FirebaseConfig.isConfigured) {
       print('⚠️ WARNING: Firebase not configured!');
       print('⚠️ Update values in lib/config/firebase_config.dart');
-      print('⚠️ See FIREBASE_SETUP.md for instructions');
+      print('⚠️ Firebase configuration error - contact administrator');
     }
   } catch (e) {
     print('❌ Firebase initialization failed: $e');
     print('⚠️ Make sure google-services.json is in android/app/');
-    print('⚠️ See FIREBASE_SETUP.md for setup instructions');
+    print('⚠️ Firebase setup required - contact administrator');
     // Continue running app even if Firebase fails (for testing)
   }
-  
-  runApp(
-    const ProviderScope(
-      child: FieldLinkApp(),
-    ),
-  );
+
+  runApp(const ProviderScope(child: FieldLinkApp()));
 }
 
 class FieldLinkApp extends StatelessWidget {
@@ -48,6 +44,8 @@ class FieldLinkApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       home: const LoginPage(),
       debugShowCheckedModeBanner: false,
+      // Define named routes
+      routes: {'/login': (context) => const LoginPage()},
     );
   }
 }

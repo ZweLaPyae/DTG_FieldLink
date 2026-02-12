@@ -1,5 +1,6 @@
 // lib/services/spaces_upload_service.dart
 import 'dart:io';
+import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as path;
@@ -9,7 +10,6 @@ import '../config/api_config.dart';
 /// DigitalOcean Spaces Upload Service
 /// Handles file uploads to DO Spaces via backend pre-signed URLs
 class SpacesUploadService {
-  
   /// Upload a photo to DigitalOcean Spaces
   /// Returns the CDN URL of the uploaded file
   Future<String> uploadPhoto(File file, String ticketId) async {
@@ -22,15 +22,84 @@ class SpacesUploadService {
     return await _uploadFile(file, ticketId, 'videos');
   }
 
+  /// Upload a technician profile picture to DigitalOcean Spaces
+  /// Returns the CDN URL of the uploaded file
+  Future<String> uploadTechnicianProfile(File file, String technicianId) async {
+    return await _uploadTechnicianFile(file, technicianId);
+  }
+
+  /// Internal method to upload technician profile picture
+  Future<String> _uploadTechnicianFile(File file, String technicianId) async {
+    try {
+      // Step 1: Validate file (use photo validation)
+      await _validateFile(file, 'photos');
+
+      // Step 2: Get file info
+      final filename = path.basename(file.path);
+      final fileExtension = path
+          .extension(filename)
+          .toLowerCase()
+          .replaceFirst('.', '');
+      final filePath = SpacesConfig.getTechnicianProfilePath(
+        technicianId,
+        filename,
+      );
+
+      print('Uploading technician profile picture: $filename to $filePath');
+
+      // Step 3: Get pre-signed URL from backend
+      final signedUrlResponse = await _getSignedUrl(filePath, fileExtension);
+
+      if (signedUrlResponse == null) {
+        throw 'Failed to get upload URL from server';
+      }
+
+      final uploadUrl = signedUrlResponse['uploadUrl'] as String;
+      final cdnUrl = signedUrlResponse['cdnUrl'] as String;
+
+      // Step 4: Upload file to Spaces using signed URL
+      final bytes = await file.readAsBytes();
+      final mimeType = lookupMimeType(filename) ?? 'application/octet-stream';
+
+      final uploadResponse = await http.put(
+        Uri.parse(uploadUrl),
+        headers: {
+          'Content-Type': mimeType,
+          'Content-Length': bytes.length.toString(),
+          'x-amz-acl': 'public-read',
+        },
+        body: bytes,
+      );
+
+      if (uploadResponse.statusCode != 200 &&
+          uploadResponse.statusCode != 201) {
+        throw 'Upload failed with status: ${uploadResponse.statusCode}';
+      }
+
+      print('Upload successful! CDN URL: $cdnUrl');
+      return cdnUrl;
+    } catch (e) {
+      print('Error uploading technician profile picture: $e');
+      rethrow;
+    }
+  }
+
   /// Internal method to upload file
-  Future<String> _uploadFile(File file, String ticketId, String fileType) async {
+  Future<String> _uploadFile(
+    File file,
+    String ticketId,
+    String fileType,
+  ) async {
     try {
       // Step 1: Validate file
       await _validateFile(file, fileType);
 
       // Step 2: Get file info
       final filename = path.basename(file.path);
-      final fileExtension = path.extension(filename).toLowerCase().replaceFirst('.', '');
+      final fileExtension = path
+          .extension(filename)
+          .toLowerCase()
+          .replaceFirst('.', '');
       final filePath = SpacesConfig.getFilePath(ticketId, fileType, filename);
 
       print('Uploading $fileType: $filename to $filePath');
@@ -38,7 +107,7 @@ class SpacesUploadService {
       // Step 3: Get pre-signed URL from backend
       // TODO: Backend must implement this endpoint: POST /api/upload/get-signed-url
       final signedUrlResponse = await _getSignedUrl(filePath, fileExtension);
-      
+
       if (signedUrlResponse == null) {
         throw 'Failed to get upload URL from server'; // Backend not configured
       }
@@ -55,17 +124,18 @@ class SpacesUploadService {
         headers: {
           'Content-Type': mimeType,
           'Content-Length': bytes.length.toString(),
+          'x-amz-acl': 'public-read', // Make the file publicly accessible
         },
         body: bytes,
       );
 
-      if (uploadResponse.statusCode != 200 && uploadResponse.statusCode != 201) {
+      if (uploadResponse.statusCode != 200 &&
+          uploadResponse.statusCode != 201) {
         throw 'Upload failed with status: ${uploadResponse.statusCode}';
       }
 
       print('Upload successful! CDN URL: $cdnUrl');
       return cdnUrl;
-
     } catch (e) {
       print('Error uploading $fileType: $e');
       rethrow;
@@ -73,32 +143,31 @@ class SpacesUploadService {
   }
 
   /// Get pre-signed URL from backend
-  Future<Map<String, dynamic>?> _getSignedUrl(String filePath, String fileExtension) async {
+  Future<Map<String, dynamic>?> _getSignedUrl(
+    String filePath,
+    String fileExtension,
+  ) async {
     try {
-      // TODO: Implement this backend endpoint
-      // Backend should:
-      // 1. Generate pre-signed URL for DO Spaces
-      // 2. Return both uploadUrl and cdnUrl
-      // 3. Set expiration time (e.g., 15 minutes)
-      
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/upload/get-signed-url'), // TODO: Create this endpoint
+        Uri.parse('${ApiConfig.baseUrl}/api/upload/get-signed-url'),
         headers: {'Content-Type': 'application/json'},
-        body: '{"filePath": "$filePath", "fileExtension": "$fileExtension"}',
+        body: json.encode({
+          'filePath': filePath,
+          'fileExtension': fileExtension,
+        }),
       );
 
       if (response.statusCode == 200) {
-        final data = response.body;
-        // Parse JSON response
+        final data = json.decode(response.body);
         // Expected: {"uploadUrl": "...", "cdnUrl": "..."}
-        return {}; // TODO: Parse actual response
+        return data as Map<String, dynamic>;
       }
 
       return null;
     } catch (e) {
       print('Error getting signed URL: $e');
       // ⚠️ This will fail if backend endpoint doesn't exist
-      throw 'Backend not configured for file uploads. See DO_SPACES_SETUP.md';
+      throw 'Backend not configured for file uploads';
     }
   }
 
@@ -111,8 +180,8 @@ class SpacesUploadService {
 
     // Check file size
     final fileSize = await file.length();
-    final maxSize = fileType == 'photos' 
-        ? SpacesConfig.maxPhotoSize 
+    final maxSize = fileType == 'photos'
+        ? SpacesConfig.maxPhotoSize
         : SpacesConfig.maxVideoSize;
 
     if (fileSize > maxSize) {
@@ -122,8 +191,11 @@ class SpacesUploadService {
 
     // Check file extension
     final filename = path.basename(file.path);
-    final extension = path.extension(filename).toLowerCase().replaceFirst('.', '');
-    
+    final extension = path
+        .extension(filename)
+        .toLowerCase()
+        .replaceFirst('.', '');
+
     final allowedExtensions = fileType == 'photos'
         ? SpacesConfig.allowedPhotoExtensions
         : SpacesConfig.allowedVideoExtensions;
@@ -132,7 +204,9 @@ class SpacesUploadService {
       throw 'Invalid file type. Allowed: ${allowedExtensions.join(", ")}';
     }
 
-    print('File validation passed: $filename (${(fileSize / 1024).toStringAsFixed(1)} KB)');
+    print(
+      'File validation passed: $filename (${(fileSize / 1024).toStringAsFixed(1)} KB)',
+    );
   }
 
   /// Delete a file from Spaces (requires backend endpoint)

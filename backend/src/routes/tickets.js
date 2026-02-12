@@ -164,6 +164,10 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Ticket not found' });
     }
 
+    console.log(`[GET Ticket] ${req.params.id} - Attachments in DB:`, ticket.attachments);
+    console.log(`[GET Ticket] Attachments type:`, typeof ticket.attachments);
+    console.log(`[GET Ticket] Is array?`, Array.isArray(ticket.attachments));
+
     // If ticket has materials used, fetch material details from catalog
     if (ticket.materialsUsed && Array.isArray(ticket.materialsUsed)) {
       const materialIds = ticket.materialsUsed.map(m => m.materialId);

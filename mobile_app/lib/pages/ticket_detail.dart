@@ -7,10 +7,13 @@ import '../config/design_tokens.dart';
 import '../widgets/primary_button.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
+import 'dart:io';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'dart:math';
+import 'package:image_picker/image_picker.dart';
 import '../providers/tickets_provider.dart';
+import '../services/spaces_upload_service.dart';
 
 LatLngBounds boundsFromPoints(List<LatLng> points) {
   final lats = points.map((p) => p.latitude);
@@ -25,7 +28,11 @@ LatLngBounds boundsFromPoints(List<LatLng> points) {
 class TicketDetailPage extends ConsumerStatefulWidget {
   final String ticketId;
   final bool isFromTasksTab;
-  const TicketDetailPage({super.key, required this.ticketId, this.isFromTasksTab = false});
+  const TicketDetailPage({
+    super.key,
+    required this.ticketId,
+    this.isFromTasksTab = false,
+  });
 
   @override
   ConsumerState<TicketDetailPage> createState() => _TicketDetailPageState();
@@ -36,11 +43,12 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
   late Future<Ticket?> _ticketFuture;
   final TextEditingController _notesController = TextEditingController();
   final TextEditingController _wayToFixController = TextEditingController();
-  final TextEditingController _rootCauseDetailsController = TextEditingController();
+  final TextEditingController _rootCauseDetailsController =
+      TextEditingController();
   Set<Polyline> _polylines = {};
   LatLng _initialCenter = const LatLng(13.7563, 100.5018); // fallback
   bool _mapReady = false;
-  Set<Marker> _markers = {};
+  final Set<Marker> _markers = {};
   bool _isOnBreak = false; // Track break time status
   DateTime? _currentBreakStartTime; // Track when current break started
   int _rebuildKey = 0; // Force FutureBuilder rebuild
@@ -48,13 +56,12 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
   bool _isEditingNotes = false;
   bool _hasChanges = false;
   String? _selectedRootCauseId;
-  String? _selectedRootCauseName;
   List<Map<String, dynamic>> _materialsUsed = [];
   List<Map<String, dynamic>> _rootCauseOptions = [];
   List<Map<String, dynamic>> _materialCatalog = [];
   bool _isLoadingRootCauses = true;
   bool _isLoadingMaterials = true;
-  
+
   // Check if ticket is editable (from tasks tab or assigned)
   bool get _isEditable => widget.isFromTasksTab;
 
@@ -62,25 +69,36 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
   Future<Ticket?> _reloadTicket() async {
     print('_reloadTicket: Starting ticket reload for ${widget.ticketId}');
     final ticket = await dataService.loadTicketById(widget.ticketId);
-    print('_reloadTicket: Loaded ticket with ${ticket?.breakTimes.length ?? 0} break times');
-    
+    print(
+      '_reloadTicket: Loaded ticket with ${ticket?.breakTimes.length ?? 0} break times',
+    );
+    print('📎 Attachments count: ${ticket?.attachments.length ?? 0}');
+    if (ticket != null && ticket.attachments.isNotEmpty) {
+      print('📎 Attachments:');
+      for (var att in ticket.attachments) {
+        print('  - ${att.type}: ${att.name}');
+      }
+    }
+
     if (ticket != null) {
       final customer = await dataService.loadCustomerById(ticket.customerId);
       print('_reloadTicket: Loaded customer ${customer?.name}');
-      
+
       if (ticket.materialsUsed.isNotEmpty) {
         _materialsUsed = List<Map<String, dynamic>>.from(ticket.materialsUsed);
       }
       _notesController.text = ticket.technicianNote ?? '';
       _wayToFixController.text = ticket.wayToFix ?? '';
       _rootCauseDetailsController.text = ticket.rootCause ?? '';
-      
+
       final finalTicket = ticket.copyWith(
         customerNameDisplay: customer?.name ?? ticket.customerNameDisplay,
         phone: customer?.phone,
       );
-      
-      print('_reloadTicket: Returning ticket with ${finalTicket.breakTimes.length} break times');
+
+      print(
+        '_reloadTicket: Returning ticket with ${finalTicket.breakTimes.length} break times',
+      );
       return finalTicket;
     }
     print('_reloadTicket: Ticket was null');
@@ -197,20 +215,14 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
 
   Color _priorityColor(String p) {
     final lower = p.toLowerCase();
-    if (lower.contains('critical')) return const Color(0xFFDC2626);
-    if (lower.contains('high')) return const Color(0xFFF59E0B);
-    if (lower.contains('medium')) return const Color(0xFF3B82F6);
-    if (lower.contains('low')) return const Color(0xFF6B7280);
+    if (lower.contains('urgent')) return const Color(0xFFDC2626);
     return const Color(0xFF6B7280);
   }
 
   IconData _priorityIcon(String p) {
     final lower = p.toLowerCase();
-    if (lower.contains('critical')) return Icons.warning_amber_rounded;
-    if (lower.contains('high')) return Icons.trending_up;
-    if (lower.contains('medium')) return Icons.trending_flat;
-    if (lower.contains('low')) return Icons.trending_down;
-    return Icons.remove;
+    if (lower.contains('urgent')) return Icons.warning_amber_rounded;
+    return Icons.info_outline;
   }
 
   Color _getStatusColor(String status) {
@@ -241,7 +253,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
     final quantityController = TextEditingController();
     final startPointController = TextEditingController();
     final endPointController = TextEditingController();
-    
+
     showDialog(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -254,7 +266,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   DropdownButtonFormField<int>(
-                    value: selectedMaterialId,
+                    initialValue: selectedMaterialId,
                     decoration: InputDecoration(
                       labelText: 'Select Material',
                       border: OutlineInputBorder(
@@ -296,7 +308,10 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                       const SizedBox(height: 8),
                       Text(
                         'Unit Cost: MMK${selectedMaterial!['unitCost']} per piece',
-                        style: const TextStyle(color: Colors.grey, fontSize: 12),
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
                       ),
                     ] else if (selectedMaterial!['unit'] == 'METER') ...[
                       TextField(
@@ -325,7 +340,10 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                       const SizedBox(height: 8),
                       Text(
                         'Unit Cost: MMK${selectedMaterial!['unitCost']} per ${selectedMaterial!['referenceLength']}m',
-                        style: const TextStyle(color: Colors.grey, fontSize: 12),
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ],
@@ -347,10 +365,10 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                     );
                     return;
                   }
-                  
+
                   double cost = 0;
                   int quantity = 0;
-                  
+
                   if (selectedMaterial!['unit'] == 'PIECE') {
                     if (quantityController.text.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -359,23 +377,35 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                       return;
                     }
                     quantity = int.tryParse(quantityController.text) ?? 0;
-                    cost = quantity * (selectedMaterial!['unitCost'] as num).toDouble();
+                    cost =
+                        quantity *
+                        (selectedMaterial!['unitCost'] as num).toDouble();
                   } else if (selectedMaterial!['unit'] == 'METER') {
-                    if (startPointController.text.isEmpty || endPointController.text.isEmpty) {
+                    if (startPointController.text.isEmpty ||
+                        endPointController.text.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please enter start and end points')),
+                        const SnackBar(
+                          content: Text('Please enter start and end points'),
+                        ),
                       );
                       return;
                     }
-                    final startPoint = double.tryParse(startPointController.text) ?? 0;
-                    final endPoint = double.tryParse(endPointController.text) ?? 0;
+                    final startPoint =
+                        double.tryParse(startPointController.text) ?? 0;
+                    final endPoint =
+                        double.tryParse(endPointController.text) ?? 0;
                     final distance = (endPoint - startPoint).abs();
-                    final referenceLength = (selectedMaterial!['referenceLength'] as num?)?.toDouble() ?? 1;
-                    final unitCost = (selectedMaterial!['unitCost'] as num).toDouble();
+                    final referenceLength =
+                        (selectedMaterial!['referenceLength'] as num?)
+                            ?.toDouble() ??
+                        1;
+                    final unitCost = (selectedMaterial!['unitCost'] as num)
+                        .toDouble();
                     cost = (distance / referenceLength) * unitCost;
-                    quantity = distance.round(); // Store distance rounded to nearest meter
+                    quantity = distance
+                        .round(); // Store distance rounded to nearest meter
                   }
-                  
+
                   setState(() {
                     _materialsUsed.add({
                       'materialId': selectedMaterialId,
@@ -384,7 +414,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                     });
                     _hasChanges = true;
                   });
-                  
+
                   Navigator.pop(dialogContext);
                 },
               ),
@@ -402,11 +432,15 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
       key: ValueKey(_rebuildKey), // Force rebuild when key changes
       future: _ticketFuture,
       builder: (context, snapshot) {
-        print('FutureBuilder: connectionState = ${snapshot.connectionState}, hasData = ${snapshot.hasData}');
+        print(
+          'FutureBuilder: connectionState = ${snapshot.connectionState}, hasData = ${snapshot.hasData}',
+        );
         if (snapshot.hasData) {
-          print('FutureBuilder: Ticket has ${snapshot.data?.breakTimes.length ?? 0} break times');
+          print(
+            'FutureBuilder: Ticket has ${snapshot.data?.breakTimes.length ?? 0} break times',
+          );
         }
-        
+
         if (snapshot.connectionState != ConnectionState.done) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
@@ -420,7 +454,9 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
           );
         }
 
-        print('FutureBuilder: Rendering ticket with ${ticket.breakTimes.length} break times');
+        print(
+          'FutureBuilder: Rendering ticket with ${ticket.breakTimes.length} break times',
+        );
 
         return Scaffold(
           backgroundColor: DesignTokens.backgroundColor,
@@ -430,9 +466,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             flexibleSpace: Container(
-              decoration: BoxDecoration(
-                gradient: DesignTokens.primaryGradient,
-              ),
+              decoration: BoxDecoration(gradient: DesignTokens.primaryGradient),
             ),
             backgroundColor: Colors.transparent,
             leading: BackButton(onPressed: () => Navigator.pop(context)),
@@ -476,7 +510,10 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                 ),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [_priorityColor(ticket.priority), _priorityColor(ticket.priority).withOpacity(0.8)],
+                    colors: [
+                      _priorityColor(ticket.priority),
+                      _priorityColor(ticket.priority).withOpacity(0.8),
+                    ],
                   ),
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
@@ -490,11 +527,19 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(_priorityIcon(ticket.priority), color: Colors.white, size: 14),
+                    Icon(
+                      _priorityIcon(ticket.priority),
+                      color: Colors.white,
+                      size: 14,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       ticket.priorityDisplay,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
@@ -512,12 +557,18 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                     children: [
                       const Text(
                         'Customer',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.grey[100],
                           borderRadius: BorderRadius.circular(8),
@@ -531,12 +582,18 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                       const SizedBox(height: 12),
                       const Text(
                         'Phone Number',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.grey[100],
                           borderRadius: BorderRadius.circular(8),
@@ -597,11 +654,20 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Issue', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                      const Text(
+                        'Issue',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
                       const SizedBox(height: 6),
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.grey[100],
                           borderRadius: BorderRadius.circular(8),
@@ -615,22 +681,32 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                       const SizedBox(height: 12),
                       const Text(
                         'Assigned Technician',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.grey[100],
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: Colors.grey[300]!),
                         ),
                         child: Text(
-                          ticket.technicianDisplay.isEmpty ? 'Not Assigned Yet' : ticket.technicianDisplay,
+                          ticket.technicianDisplay.isEmpty
+                              ? 'Not Assigned Yet'
+                              : ticket.technicianDisplay,
                           style: TextStyle(
                             fontSize: 14,
-                            color: ticket.technicianDisplay.isEmpty ? Colors.grey[600] : Colors.black,
+                            color: ticket.technicianDisplay.isEmpty
+                                ? Colors.grey[600]
+                                : Colors.black,
                           ),
                         ),
                       ),
@@ -647,35 +723,47 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                         children: [
                           const Text(
                             'Diagnosis & Solution',
-                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                            ),
                           ),
-                          if (_isEditable && ticket.status.toUpperCase() != 'COMPLETED')
+                          if (_isEditable &&
+                              ticket.status.toUpperCase() != 'COMPLETED')
                             IconButton(
                               icon: Icon(
                                 _isEditingRootCause ? Icons.close : Icons.edit,
-                                color: _isEditingRootCause ? Colors.red : const Color(0xFF3B82F6),
+                                color: _isEditingRootCause
+                                    ? Colors.red
+                                    : const Color(0xFF3B82F6),
                               ),
                               onPressed: () {
                                 setState(() {
                                   _isEditingRootCause = !_isEditingRootCause;
                                   if (!_isEditingRootCause) {
                                     // Reset to original values if canceling
-                                    _wayToFixController.text = ticket.wayToFix ?? '';
+                                    _wayToFixController.text =
+                                        ticket.wayToFix ?? '';
                                     _rootCauseDetailsController.text = '';
                                     _selectedRootCauseId = null;
-                                    _selectedRootCauseName = null;
                                   } else {
                                     // Initialize with current values
-                                    _wayToFixController.text = ticket.wayToFix ?? '';
-                                    _rootCauseDetailsController.text = ticket.rootCause ?? '';
-                                    _selectedRootCauseName = ticket.rootCauseDisplay;
+                                    _wayToFixController.text =
+                                        ticket.wayToFix ?? '';
+                                    _rootCauseDetailsController.text =
+                                        ticket.rootCause ?? '';
                                     // Find the ID from the name
-                                    if (ticket.rootCauseDisplay != null && _rootCauseOptions.isNotEmpty) {
-                                      final match = _rootCauseOptions.firstWhere(
-                                        (rc) => rc['name'] == ticket.rootCauseDisplay,
-                                        orElse: () => {},
-                                      );
-                                      _selectedRootCauseId = match['id']?.toString();
+                                    if (ticket.rootCauseDisplay != null &&
+                                        _rootCauseOptions.isNotEmpty) {
+                                      final match = _rootCauseOptions
+                                          .firstWhere(
+                                            (rc) =>
+                                                rc['name'] ==
+                                                ticket.rootCauseDisplay,
+                                            orElse: () => {},
+                                          );
+                                      _selectedRootCauseId = match['id']
+                                          ?.toString();
                                     }
                                   }
                                 });
@@ -686,20 +774,25 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                       const SizedBox(height: 12),
                       const Text(
                         'Root Cause',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       if (_isEditingRootCause)
                         _isLoadingRootCauses
                             ? const Center(child: CircularProgressIndicator())
                             : DropdownButtonFormField<String>(
-                                value: _selectedRootCauseId,
+                                initialValue: _selectedRootCauseId,
                                 decoration: InputDecoration(
                                   filled: true,
                                   fillColor: Colors.white,
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(color: Color(0xFF3B82F6)),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFF3B82F6),
+                                    ),
                                   ),
                                 ),
                                 hint: const Text('Select root cause'),
@@ -712,11 +805,6 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                                 onChanged: (value) {
                                   setState(() {
                                     _selectedRootCauseId = value;
-                                    final selected = _rootCauseOptions.firstWhere(
-                                      (opt) => opt['id'].toString() == value,
-                                      orElse: () => {},
-                                    );
-                                    _selectedRootCauseName = selected['name']?.toString();
                                     _hasChanges = true;
                                   });
                                 },
@@ -724,7 +812,10 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                       else
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.grey[100],
                             borderRadius: BorderRadius.circular(8),
@@ -738,7 +829,10 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                       const SizedBox(height: 12),
                       const Text(
                         'Root Cause Details',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       if (_isEditingRootCause)
@@ -750,7 +844,9 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                             fillColor: Colors.white,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Color(0xFF3B82F6)),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF3B82F6),
+                              ),
                             ),
                             hintText: 'Enter detailed root cause information',
                           ),
@@ -763,7 +859,10 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                       else
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.grey[100],
                             borderRadius: BorderRadius.circular(8),
@@ -777,7 +876,10 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                       const SizedBox(height: 12),
                       const Text(
                         'Way to Fix',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       if (_isEditingRootCause)
@@ -789,7 +891,9 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                             fillColor: Colors.white,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(color: Color(0xFF3B82F6)),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF3B82F6),
+                              ),
                             ),
                             hintText: 'Describe the solution or fix applied',
                           ),
@@ -802,7 +906,10 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                       else
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.grey[100],
                             borderRadius: BorderRadius.circular(8),
@@ -819,7 +926,10 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                         children: [
                           const Text(
                             'Materials Used',
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
                           ),
                           if (_isEditingRootCause)
                             TextButton.icon(
@@ -847,7 +957,10 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                             children: [
                               // Table header
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.grey.shade100,
                                   borderRadius: const BorderRadius.only(
@@ -857,9 +970,36 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                                 ),
                                 child: Row(
                                   children: const [
-                                    Expanded(flex: 3, child: Text('Material', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-                                    Expanded(flex: 2, child: Text('Unit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-                                    Expanded(flex: 2, child: Text('Cost', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+                                    Expanded(
+                                      flex: 3,
+                                      child: Text(
+                                        'Material',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        'Unit',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        'Cost',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
                                     SizedBox(width: 40),
                                   ],
                                 ),
@@ -870,22 +1010,55 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                                 final m = entry.value;
                                 final material = _materialCatalog.firstWhere(
                                   (mat) => mat['id'] == m['materialId'],
-                                  orElse: () => {'name': 'Unknown', 'unit': 'PIECE'},
+                                  orElse: () => {
+                                    'name': 'Unknown',
+                                    'unit': 'PIECE',
+                                  },
                                 );
                                 return Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
                                   decoration: BoxDecoration(
                                     border: Border(
-                                      bottom: BorderSide(color: Colors.grey.shade200),
+                                      bottom: BorderSide(
+                                        color: Colors.grey.shade200,
+                                      ),
                                     ),
                                   ),
                                   child: Row(
                                     children: [
-                                      Expanded(flex: 3, child: Text('${material['name']}', style: const TextStyle(fontSize: 13))),
-                                      Expanded(flex: 2, child: Text('${m['quantity']} ${material['unit']?.toString().toLowerCase() ?? 'unit'}', style: const TextStyle(fontSize: 13))),
-                                      Expanded(flex: 2, child: Text('MMK${m['cost']?.toStringAsFixed(2) ?? '0.00'}', style: const TextStyle(fontSize: 13, color: Color(0xFF10B981)))),
+                                      Expanded(
+                                        flex: 3,
+                                        child: Text(
+                                          '${material['name']}',
+                                          style: const TextStyle(fontSize: 13),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          '${m['quantity']} ${material['unit']?.toString().toLowerCase() ?? 'unit'}',
+                                          style: const TextStyle(fontSize: 13),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          'MMK${m['cost']?.toStringAsFixed(2) ?? '0.00'}',
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: Color(0xFF10B981),
+                                          ),
+                                        ),
+                                      ),
                                       IconButton(
-                                        icon: const Icon(Icons.delete, color: Colors.red, size: 18),
+                                        icon: const Icon(
+                                          Icons.delete,
+                                          color: Colors.red,
+                                          size: 18,
+                                        ),
                                         onPressed: () {
                                           setState(() {
                                             _materialsUsed.removeAt(index);
@@ -900,7 +1073,8 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                             ],
                           ),
                         )
-                      else if (!_isEditingRootCause && ticket.materialsUsed.isNotEmpty)
+                      else if (!_isEditingRootCause &&
+                          ticket.materialsUsed.isNotEmpty)
                         Container(
                           decoration: BoxDecoration(
                             border: Border.all(color: Colors.grey.shade300),
@@ -910,7 +1084,10 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                             children: [
                               // Table header
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.grey.shade100,
                                   borderRadius: const BorderRadius.only(
@@ -920,9 +1097,36 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                                 ),
                                 child: Row(
                                   children: const [
-                                    Expanded(flex: 3, child: Text('Material', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-                                    Expanded(flex: 2, child: Text('Unit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-                                    Expanded(flex: 2, child: Text('Cost', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+                                    Expanded(
+                                      flex: 3,
+                                      child: Text(
+                                        'Material',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        'Unit',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        'Cost',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -930,20 +1134,49 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                               ...ticket.materialsUsed.map((m) {
                                 final material = _materialCatalog.firstWhere(
                                   (mat) => mat['id'] == m['materialId'],
-                                  orElse: () => {'name': 'Material #${m['materialId']}', 'unit': 'PIECE'},
+                                  orElse: () => {
+                                    'name': 'Material #${m['materialId']}',
+                                    'unit': 'PIECE',
+                                  },
                                 );
                                 return Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
                                   decoration: BoxDecoration(
                                     border: Border(
-                                      bottom: BorderSide(color: Colors.grey.shade200),
+                                      bottom: BorderSide(
+                                        color: Colors.grey.shade200,
+                                      ),
                                     ),
                                   ),
                                   child: Row(
                                     children: [
-                                      Expanded(flex: 3, child: Text('${material['name']}', style: const TextStyle(fontSize: 13))),
-                                      Expanded(flex: 2, child: Text('${m['quantity']} ${material['unit']?.toString().toLowerCase() ?? 'unit'}', style: const TextStyle(fontSize: 13))),
-                                      Expanded(flex: 2, child: Text('MMK${m['cost']?.toStringAsFixed(2) ?? '0.00'}', style: const TextStyle(fontSize: 13, color: Color(0xFF10B981)))),
+                                      Expanded(
+                                        flex: 3,
+                                        child: Text(
+                                          '${material['name']}',
+                                          style: const TextStyle(fontSize: 13),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          '${m['quantity']} ${material['unit']?.toString().toLowerCase() ?? 'unit'}',
+                                          style: const TextStyle(fontSize: 13),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          'MMK${m['cost']?.toStringAsFixed(2) ?? '0.00'}',
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: Color(0xFF10B981),
+                                          ),
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 );
@@ -964,7 +1197,11 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                       const SizedBox(height: 6),
                       Text(
                         'MMK${_isEditingRootCause ? _calculateTotalCost().toStringAsFixed(2) : (ticket.totalCost ?? 0).toStringAsFixed(2)}',
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18, color: Color(0xFF10B981)),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 18,
+                          color: Color(0xFF10B981),
+                        ),
                       ),
                     ],
                   ),
@@ -993,13 +1230,102 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                               child: PrimaryButton(
                                 text: 'Add Photos',
                                 icon: Icons.add_photo_alternate,
-                                variant: ButtonVariant.outline,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                onPressed: () {
-                                  // TODO: Implement photo upload with DO Spaces
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Photo upload feature coming soon')),
-                                  );
+                                variant: ButtonVariant.secondary,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                onPressed: () async {
+                                  try {
+                                    final picker = ImagePicker();
+                                    final pickedFiles = await picker
+                                        .pickMultiImage();
+
+                                    if (pickedFiles.isEmpty) return;
+
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Uploading ${pickedFiles.length} photo(s)...',
+                                          ),
+                                        ),
+                                      );
+                                    }
+
+                                    final spacesService = SpacesUploadService();
+                                    final uploadedUrls = <String>[];
+
+                                    for (var pickedFile in pickedFiles) {
+                                      final file = File(pickedFile.path);
+                                      final cdnUrl = await spacesService
+                                          .uploadPhoto(file, ticket.id);
+                                      uploadedUrls.add(cdnUrl);
+                                    }
+
+                                    // Update ticket attachments
+                                    // attachments in DB is JSON: {"photos": [urls], "videos": [urls]}
+                                    // But ticket.attachments is List<Attachment> from parsing
+                                    // We need to send raw JSON to backend
+                                    final List<Map<String, String>>
+                                    currentAttachments = uploadedUrls
+                                        .map(
+                                          (url) => {
+                                            'name': url,
+                                            'type': 'image',
+                                          },
+                                        )
+                                        .toList();
+
+                                    // Merge with existing attachments
+                                    final allAttachments = [
+                                      ...ticket.attachments.map(
+                                        (a) => {'name': a.name, 'type': a.type},
+                                      ),
+                                      ...currentAttachments,
+                                    ];
+
+                                    print(
+                                      '📤 Updating ticket with ${allAttachments.length} total attachments',
+                                    );
+                                    print(
+                                      '📤 New photos: ${uploadedUrls.length}',
+                                    );
+
+                                    await dataService.updateTicket(ticket.id, {
+                                      'attachments': allAttachments,
+                                    });
+
+                                    print('✅ Ticket updated, reloading...');
+
+                                    if (mounted) {
+                                      setState(() {
+                                        _ticketFuture = _reloadTicket();
+                                      });
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            '${uploadedUrls.length} photo(s) uploaded successfully',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Error uploading photos: $e',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  }
                                 },
                               ),
                             ),
@@ -1008,23 +1334,206 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                               child: PrimaryButton(
                                 text: 'Add Videos',
                                 icon: Icons.videocam,
-                                variant: ButtonVariant.outline,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                onPressed: () {
-                                  // TODO: Implement video upload with DO Spaces
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Video upload feature coming soon')),
-                                  );
+                                variant: ButtonVariant.secondary,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                onPressed: () async {
+                                  try {
+                                    final picker = ImagePicker();
+                                    final pickedFile = await picker.pickVideo(
+                                      source: ImageSource.gallery,
+                                    );
+
+                                    if (pickedFile == null) return;
+
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Uploading video...'),
+                                        ),
+                                      );
+                                    }
+
+                                    final spacesService = SpacesUploadService();
+                                    final file = File(pickedFile.path);
+                                    final cdnUrl = await spacesService
+                                        .uploadVideo(file, ticket.id);
+
+                                    // Update ticket attachments
+                                    final newAttachment = {
+                                      'name': cdnUrl,
+                                      'type': 'video',
+                                    };
+
+                                    // Merge with existing attachments
+                                    final allAttachments = [
+                                      ...ticket.attachments.map(
+                                        (a) => {'name': a.name, 'type': a.type},
+                                      ),
+                                      newAttachment,
+                                    ];
+
+                                    print(
+                                      '📹 Updating ticket with video attachment',
+                                    );
+                                    print(
+                                      '📹 Total attachments: ${allAttachments.length}',
+                                    );
+
+                                    await dataService.updateTicket(ticket.id, {
+                                      'attachments': allAttachments,
+                                    });
+
+                                    print(
+                                      '✅ Ticket updated with video, reloading...',
+                                    );
+
+                                    if (mounted) {
+                                      setState(() {
+                                        _ticketFuture = _reloadTicket();
+                                      });
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Video uploaded successfully',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Error uploading video: $e',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  }
                                 },
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 12),
-                        const Text(
-                          'No media uploaded yet',
-                          style: TextStyle(color: Colors.grey, fontSize: 14),
-                        ),
+                        // Display uploaded attachments
+                        if (ticket.attachments.isEmpty)
+                          const Text(
+                            'No media uploaded yet',
+                            style: TextStyle(color: Colors.grey, fontSize: 14),
+                          )
+                        else
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: ticket.attachments.map((attachment) {
+                              final isImage = attachment.type == 'image';
+                              return Container(
+                                width: 100,
+                                height: 100,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  color: Colors.grey.shade200,
+                                ),
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: isImage
+                                          ? Image.network(
+                                              attachment.name,
+                                              fit: BoxFit.cover,
+                                              errorBuilder:
+                                                  (context, error, stackTrace) {
+                                                    return Column(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .center,
+                                                      children: const [
+                                                        Icon(
+                                                          Icons.broken_image,
+                                                          color: Colors.grey,
+                                                        ),
+                                                        SizedBox(height: 4),
+                                                        Text(
+                                                          'Failed',
+                                                          style: TextStyle(
+                                                            fontSize: 10,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    );
+                                                  },
+                                              loadingBuilder:
+                                                  (
+                                                    context,
+                                                    child,
+                                                    loadingProgress,
+                                                  ) {
+                                                    if (loadingProgress ==
+                                                        null) {
+                                                      return child;
+                                                    }
+                                                    return const Center(
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            strokeWidth: 2,
+                                                          ),
+                                                    );
+                                                  },
+                                            )
+                                          : Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: const [
+                                                Icon(
+                                                  Icons.videocam,
+                                                  size: 32,
+                                                  color: Colors.grey,
+                                                ),
+                                                SizedBox(height: 4),
+                                                Text(
+                                                  'Video',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                    ),
+                                    // Tap to view full size
+                                    Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(8),
+                                        onTap: () {
+                                          // TODO: Open full screen viewer
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'View: ${attachment.name}',
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
                       ],
                     ),
                   ),
@@ -1039,13 +1548,18 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                         children: [
                           const Text(
                             'Technician Notes',
-                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                            ),
                           ),
                           if (_isEditable)
                             IconButton(
                               icon: Icon(
                                 _isEditingNotes ? Icons.close : Icons.edit,
-                                color: _isEditingNotes ? Colors.red : const Color(0xFF3B82F6),
+                                color: _isEditingNotes
+                                    ? Colors.red
+                                    : const Color(0xFF3B82F6),
                               ),
                               onPressed: () {
                                 setState(() {
@@ -1062,20 +1576,28 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                         enabled: _isEditable && _isEditingNotes,
                         decoration: InputDecoration(
                           filled: true,
-                          fillColor: (_isEditable && _isEditingNotes) ? Colors.white : Colors.grey.shade100,
+                          fillColor: (_isEditable && _isEditingNotes)
+                              ? Colors.white
+                              : Colors.grey.shade100,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(
-                              color: (_isEditable && _isEditingNotes) ? const Color(0xFF3B82F6) : Colors.grey.shade300,
+                              color: (_isEditable && _isEditingNotes)
+                                  ? const Color(0xFF3B82F6)
+                                  : Colors.grey.shade300,
                             ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(
-                              color: (_isEditable && _isEditingNotes) ? const Color(0xFF3B82F6) : Colors.grey.shade300,
+                              color: (_isEditable && _isEditingNotes)
+                                  ? const Color(0xFF3B82F6)
+                                  : Colors.grey.shade300,
                             ),
                           ),
-                          hintText: _isEditable ? 'Add your notes here...' : 'No notes yet',
+                          hintText: _isEditable
+                              ? 'Add your notes here...'
+                              : 'No notes yet',
                         ),
                         onChanged: (value) {
                           setState(() {
@@ -1095,140 +1617,97 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     onPressed: () async {
-                        // Save ticket updates
-                        final updates = <String, dynamic>{};
-                        
-                        if (_isEditingRootCause) {
-                          if (_selectedRootCauseId != null) {
-                            updates['rootCauseId'] = _selectedRootCauseId;
-                          }
-                          if (_rootCauseDetailsController.text.isNotEmpty) {
-                            updates['rootCauseDetails'] = _rootCauseDetailsController.text;
-                          }
-                          if (_wayToFixController.text.isNotEmpty) {
-                            updates['wayToFix'] = _wayToFixController.text;
-                          }
-                          if (_materialsUsed.isNotEmpty) {
-                            updates['materialsUsed'] = _materialsUsed;
-                            // Calculate total cost
-                            double totalCost = 0;
-                            for (var material in _materialsUsed) {
-                              totalCost += (material['cost'] ?? 0).toDouble();
-                            }
-                            updates['totalCost'] = totalCost;
-                          }
+                      // Save ticket updates
+                      final updates = <String, dynamic>{};
+
+                      if (_isEditingRootCause) {
+                        if (_selectedRootCauseId != null) {
+                          updates['rootCauseId'] = _selectedRootCauseId;
                         }
-                        
-                        if (_notesController.text.isNotEmpty) {
-                          updates['technicianNote'] = _notesController.text;
+                        if (_rootCauseDetailsController.text.isNotEmpty) {
+                          updates['rootCauseDetails'] =
+                              _rootCauseDetailsController.text;
                         }
-                        
-                        try {
-                          await dataService.updateTicket(ticket.id, updates);
-                          // Refresh tickets provider
-                          ref.read(ticketsProvider.notifier).loadTickets(forceRefresh: true);
+                        if (_wayToFixController.text.isNotEmpty) {
+                          updates['wayToFix'] = _wayToFixController.text;
+                        }
+                        if (_materialsUsed.isNotEmpty) {
+                          updates['materialsUsed'] = _materialsUsed;
+                          // Calculate total cost
+                          double totalCost = 0;
+                          for (var material in _materialsUsed) {
+                            totalCost += (material['cost'] ?? 0).toDouble();
+                          }
+                          updates['totalCost'] = totalCost;
+                        }
+                      }
+
+                      if (_notesController.text.isNotEmpty) {
+                        updates['technicianNote'] = _notesController.text;
+                      }
+
+                      try {
+                        await dataService.updateTicket(ticket.id, updates);
+                        // Refresh tickets provider
+                        ref
+                            .read(ticketsProvider.notifier)
+                            .loadTickets(forceRefresh: true);
+                        setState(() {
+                          _hasChanges = false;
+                          _isEditingRootCause = false;
+                          _isEditingNotes = false;
+                        });
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Ticket updated successfully'),
+                            ),
+                          );
+                          // Reload ticket data with controller reinitialization
                           setState(() {
-                            _hasChanges = false;
-                            _isEditingRootCause = false;
-                            _isEditingNotes = false;
-                          });
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Ticket updated successfully')),
-                            );
-                            // Reload ticket data with controller reinitialization
-                            setState(() {
-                              _ticketFuture = dataService.loadTicketById(widget.ticketId).then((
-                                ticket,
-                              ) async {
-                                if (ticket != null) {
-                                  final customer = await dataService.loadCustomerById(ticket.customerId);
-                                  if (ticket.materialsUsed.isNotEmpty) {
-                                    _materialsUsed = List<Map<String, dynamic>>.from(ticket.materialsUsed);
+                            _ticketFuture = dataService
+                                .loadTicketById(widget.ticketId)
+                                .then((ticket) async {
+                                  if (ticket != null) {
+                                    final customer = await dataService
+                                        .loadCustomerById(ticket.customerId);
+                                    if (ticket.materialsUsed.isNotEmpty) {
+                                      _materialsUsed =
+                                          List<Map<String, dynamic>>.from(
+                                            ticket.materialsUsed,
+                                          );
+                                    }
+                                    // Reinitialize controllers with fresh data
+                                    _notesController.text =
+                                        ticket.technicianNote ?? '';
+                                    _wayToFixController.text =
+                                        ticket.wayToFix ?? '';
+                                    _rootCauseDetailsController.text =
+                                        ticket.rootCause ?? '';
+
+                                    return ticket.copyWith(
+                                      customerNameDisplay:
+                                          customer?.name ??
+                                          ticket.customerNameDisplay,
+                                      phone: customer?.phone,
+                                    );
                                   }
-                                  // Reinitialize controllers with fresh data
-                                  _notesController.text = ticket.technicianNote ?? '';
-                                  _wayToFixController.text = ticket.wayToFix ?? '';
-                                  _rootCauseDetailsController.text = ticket.rootCause ?? '';
-                                  
-                                  return ticket.copyWith(
-                                    customerNameDisplay: customer?.name ?? ticket.customerNameDisplay,
-                                    phone: customer?.phone,
-                                  );
-                                }
-                                return ticket;
-                              });
-                            });
-                          }
-                        } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Error updating ticket: $e')),
-                            );
-                          }
+                                  return ticket;
+                                });
+                          });
                         }
-                      },
-                  ),
-                if (_isEditable && _hasChanges)
-                  const SizedBox(height: 12),
-                // Complete button - only visible when editable and status is not completed
-                if (_isEditable && !ticket.status.toUpperCase().contains('COMPLETED'))
-                  PrimaryButton(
-                    text: 'Complete Ticket',
-                    icon: Icons.check_circle_outline,
-                    variant: ButtonVariant.primary,
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    onPressed: () async {
-                        // Show confirmation dialog
-                        final confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('Complete Ticket'),
-                            content: const Text('Are you sure you want to mark this ticket as completed?'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, false),
-                                child: const Text('Cancel'),
-                              ),
-                              PrimaryButton(
-                                text: 'Complete',
-                                variant: ButtonVariant.primary,
-                                onPressed: () => Navigator.pop(context, true),
-                              ),
-                            ],
-                          ),
-                        );
-                        
-                        if (confirm == true) {
-                          try {
-                            await dataService.updateTicket(ticket.id, {
-                              'status': 'COMPLETED',
-                              'completionTime': DateTime.now().toIso8601String(),
-                            });
-                            
-                            // Refresh tickets provider to update tasks and profile tabs
-                            ref.read(ticketsProvider.notifier).loadTickets(forceRefresh: true);
-                            
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Ticket marked as completed!')),
-                              );
-                              // Go back to tasks tab
-                              Navigator.pop(context);
-                            }
-                          } catch (e) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Error completing ticket: $e')),
-                              );
-                            }
-                          }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error updating ticket: $e'),
+                            ),
+                          );
                         }
-                      },
+                      }
+                    },
                   ),
-                if (_isEditable && !ticket.status.toUpperCase().contains('COMPLETED'))
-                  const SizedBox(height: 12),
+                if (_isEditable && _hasChanges) const SizedBox(height: 12),
                 _sectionCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1240,7 +1719,8 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                             'Activity',
                             style: TextStyle(fontWeight: FontWeight.w700),
                           ),
-                          if (_isEditable && ticket.status.toUpperCase() != 'COMPLETED')
+                          if (_isEditable &&
+                              ticket.status.toUpperCase() != 'COMPLETED')
                             Row(
                               children: [
                                 Icon(
@@ -1251,8 +1731,8 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                                 const SizedBox(width: 4),
                                 Text(
                                   _isOnBreak
-                                      ? "Press 'Continue' to end break"
-                                      : "Press 'Stop' to start break",
+                                      ? "Press to END Break"
+                                      : "Press to START Break",
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: Colors.grey[600],
@@ -1260,46 +1740,70 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                                 ),
                                 const SizedBox(width: 8),
                                 Material(
-                                  color: _isOnBreak ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                                  color: _isOnBreak
+                                      ? const Color(0xFF10B981)
+                                      : const Color(0xFFF59E0B),
                                   borderRadius: BorderRadius.circular(8),
                                   child: InkWell(
                                     onTap: () async {
                                       final now = DateTime.now();
-                                      
+
                                       if (_isOnBreak) {
                                         // End break - save to database
                                         if (_currentBreakStartTime != null) {
                                           // Get the latest ticket data first
-                                          final latestTicket = await dataService.loadTicketById(widget.ticketId);
+                                          final latestTicket = await dataService
+                                              .loadTicketById(widget.ticketId);
                                           if (latestTicket == null) {
                                             if (mounted) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                const SnackBar(content: Text('Error: Could not load ticket data')),
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    'Error: Could not load ticket data',
+                                                  ),
+                                                ),
                                               );
                                             }
                                             return;
                                           }
-                                          
+
                                           print('=== ENDING BREAK ===');
-                                          print('Latest ticket breakTimes count: ${latestTicket.breakTimes.length}');
-                                          print('Latest ticket breakTimes: ${latestTicket.breakTimes}');
-                                          
-                                          final updatedBreakTimes = List<Map<String, dynamic>>.from(latestTicket.breakTimes);
+                                          print(
+                                            'Latest ticket breakTimes count: ${latestTicket.breakTimes.length}',
+                                          );
+                                          print(
+                                            'Latest ticket breakTimes: ${latestTicket.breakTimes}',
+                                          );
+
+                                          final updatedBreakTimes =
+                                              List<Map<String, dynamic>>.from(
+                                                latestTicket.breakTimes,
+                                              );
                                           updatedBreakTimes.add({
-                                            'start': _currentBreakStartTime!.toIso8601String(),
+                                            'start': _currentBreakStartTime!
+                                                .toIso8601String(),
                                             'end': now.toIso8601String(),
                                           });
-                                          
-                                          print('Updated break times count: ${updatedBreakTimes.length}');
-                                          print('Updated break times array: $updatedBreakTimes');
-                                          
+
+                                          print(
+                                            'Updated break times count: ${updatedBreakTimes.length}',
+                                          );
+                                          print(
+                                            'Updated break times array: $updatedBreakTimes',
+                                          );
+
                                           try {
-                                            await dataService.updateTicket(ticket.id, {
-                                              'breakTimes': updatedBreakTimes,
-                                            });
-                                            
-                                            print('Break times saved successfully to database');
-                                            
+                                            await dataService.updateTicket(
+                                              ticket.id,
+                                              {'breakTimes': updatedBreakTimes},
+                                            );
+
+                                            print(
+                                              'Break times saved successfully to database',
+                                            );
+
                                             if (mounted) {
                                               setState(() {
                                                 _isOnBreak = false;
@@ -1307,18 +1811,30 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                                                 _rebuildKey++; // Force rebuild
                                                 _ticketFuture = _reloadTicket();
                                               });
-                                              
-                                              ScaffoldMessenger.of(context).showSnackBar(
+
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
                                                 const SnackBar(
-                                                  content: Text('Break time ended'),
-                                                  duration: Duration(seconds: 2),
+                                                  content: Text(
+                                                    'Break time ended',
+                                                  ),
+                                                  duration: Duration(
+                                                    seconds: 2,
+                                                  ),
                                                 ),
                                               );
                                             }
                                           } catch (e) {
                                             if (mounted) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                SnackBar(content: Text('Error saving break time: $e')),
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    'Error saving break time: $e',
+                                                  ),
+                                                ),
                                               );
                                             }
                                           }
@@ -1329,7 +1845,9 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                                           _isOnBreak = true;
                                           _currentBreakStartTime = now;
                                         });
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
                                           const SnackBar(
                                             content: Text('Break time started'),
                                             duration: Duration(seconds: 2),
@@ -1341,7 +1859,9 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                                     child: Padding(
                                       padding: const EdgeInsets.all(8.0),
                                       child: Icon(
-                                        _isOnBreak ? Icons.play_arrow : Icons.stop,
+                                        _isOnBreak
+                                            ? Icons.play_arrow
+                                            : Icons.stop,
                                         color: Colors.white,
                                         size: 20,
                                       ),
@@ -1379,17 +1899,27 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                         ),
                         const SizedBox(height: 8),
                         // Debug: Print break times count
-                        Builder(builder: (context) {
-                          print('Displaying break times count: ${ticket.breakTimes.length}');
-                          print('Break times data: ${ticket.breakTimes}');
-                          return const SizedBox.shrink();
-                        }),
+                        Builder(
+                          builder: (context) {
+                            print(
+                              'Displaying break times count: ${ticket.breakTimes.length}',
+                            );
+                            print('Break times data: ${ticket.breakTimes}');
+                            return const SizedBox.shrink();
+                          },
+                        ),
                         // Show completed break times
                         ...ticket.breakTimes.map((breakTime) {
                           try {
-                            final start = DateTime.parse(breakTime['start'].toString());
-                            final end = DateTime.parse(breakTime['end'].toString());
-                            print('Rendering break time: ${DateFormat('MMM dd, yyyy HH:mm').format(start.toLocal())} - ${DateFormat('MMM dd, yyyy HH:mm').format(end.toLocal())}');
+                            final start = DateTime.parse(
+                              breakTime['start'].toString(),
+                            );
+                            final end = DateTime.parse(
+                              breakTime['end'].toString(),
+                            );
+                            print(
+                              'Rendering break time: ${DateFormat('MMM dd, yyyy HH:mm').format(start.toLocal())} - ${DateFormat('MMM dd, yyyy HH:mm').format(end.toLocal())}',
+                            );
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 4),
                               child: Text(
@@ -1453,6 +1983,70 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 12),
+                // Request for Review button - moved to bottom of page
+                if (_isEditable && ticket.status.toUpperCase() == 'IN_PROGRESS')
+                  PrimaryButton(
+                    text: 'Request for Review',
+                    icon: Icons.rate_review_outlined,
+                    variant: ButtonVariant.primary,
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    onPressed: () async {
+                      // Show confirmation dialog
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Request for Review'),
+                          content: const Text(
+                            'Are you sure you want to submit this ticket for review?',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text('Cancel'),
+                            ),
+                            PrimaryButton(
+                              text: 'Submit',
+                              variant: ButtonVariant.primary,
+                              onPressed: () => Navigator.pop(context, true),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (confirm == true) {
+                        try {
+                          await dataService.updateTicket(ticket.id, {
+                            'status': 'IN_REVIEW',
+                          });
+
+                          // Refresh tickets provider to update tasks and profile tabs
+                          ref
+                              .read(ticketsProvider.notifier)
+                              .loadTickets(forceRefresh: true);
+
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Ticket submitted for review!'),
+                              ),
+                            );
+                            // Go back to tasks tab
+                            Navigator.pop(context);
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error completing ticket: $e'),
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    },
+                  ),
               ],
             ),
           ),
@@ -1461,7 +2055,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
     );
   }
 
-  Widget _sectionCard({required Widget child, Color? accentColor}) {
+  Widget _sectionCard({required Widget child}) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -1472,86 +2066,6 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
         ],
       ),
       child: child,
-    );
-  }
-
-  Widget _mediaThumb(String filename, {bool isVideo = false}) {
-    return Stack(
-      children: [
-        Container(
-          width: 100,
-          height: 80,
-          decoration: BoxDecoration(
-            color: Colors.grey.shade200,
-            borderRadius: BorderRadius.circular(8),
-            image: const DecorationImage(
-              image: AssetImage('assets/placeholder.png'),
-              fit: BoxFit.cover,
-            ),
-          ),
-          child: Center(
-            child: isVideo
-                ? const Icon(Icons.videocam)
-                : const SizedBox.shrink(),
-          ),
-        ),
-        if (_isEditable)
-          Positioned(
-            right: 4,
-            top: 4,
-            child: GestureDetector(
-              onTap: () {
-                // remove action stub
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.close, size: 18),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _addMediaButton(IconData icon, String label) {
-    return GestureDetector(
-      onTap: () {},
-      child: Container(
-        width: 100,
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon),
-            const SizedBox(height: 6),
-            Text(label, style: const TextStyle(fontSize: 12)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _statusToggle(String label, bool active) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: active ? Colors.blue.shade50 : Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: active ? Colors.blue : Colors.grey.shade600,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
     );
   }
 }

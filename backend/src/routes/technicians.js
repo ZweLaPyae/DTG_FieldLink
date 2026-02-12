@@ -1,6 +1,7 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import bcrypt from 'bcryptjs';
 import { createFirebaseUser, deleteFirebaseUser } from '../lib/firebase-admin.js';
 import { normalizePhone } from '../lib/phoneUtils.js';
 import { sendTechnicianWelcomeEmail } from '../lib/emailService.js';
@@ -47,8 +48,8 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Technician not found' });
     }
 
-    // Don't send password to client
-    const { password, ...technicianWithoutPassword } = technician;
+    // Don't send passwordHash to client
+    const { passwordHash, ...technicianWithoutPassword } = technician;
 
     res.status(200).json(technicianWithoutPassword);
   } catch (error) {
@@ -62,29 +63,34 @@ router.post('/', async (req, res) => {
   try {
     const { name, email, phone, picture } = req.body;
 
-    // Normalize phone number (remove dashes, spaces, etc.)
-    const normalizedPhone = normalizePhone(phone);
+    // Ensure phone is an array
+    let phoneArray = [];
+    if (Array.isArray(phone)) {
+      phoneArray = phone;
+    } else if (phone) {
+      phoneArray = [phone];
+    }
 
-    // Generate default password: "DTG" + last 4 digits of phone
+    // Generate default password: "DTG" + last 4 digits of first phone
     // If no phone, use random 4 digits
     let defaultPassword;
-    if (normalizedPhone && normalizedPhone.length >= 4) {
-      defaultPassword = `DTG${normalizedPhone.slice(-4)}`;
+    if (phoneArray.length > 0 && phoneArray[0].length >= 4) {
+      defaultPassword = `DTG${phoneArray[0].slice(-4)}`;
     } else {
       defaultPassword = `DTG${Math.floor(1000 + Math.random() * 9000)}`;
     }
 
-    // Hash the password before storing
-    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+    // Hash the password
+    const passwordHash = await bcrypt.hash(defaultPassword, 10);
 
     // Create technician in database
     const technician = await prisma.technician.create({
       data: {
         name,
         email,
-        phone: normalizedPhone,
+        phone: phoneArray,
         picture: picture || '',
-        password: hashedPassword, // Store hashed password
+        passwordHash,
       },
     });
 
@@ -97,23 +103,8 @@ router.post('/', async (req, res) => {
       // Continue anyway - they can run sync script later
     }
 
-    // Send welcome email with credentials
-    let emailSent = false;
-    try {
-      const emailResult = await sendTechnicianWelcomeEmail({
-        to: email,
-        name,
-        password: defaultPassword,
-        email,
-      });
-      emailSent = emailResult.success;
-    } catch (emailError) {
-      console.error(`⚠️  Failed to send welcome email to ${email}:`, emailError.message);
-      // Continue anyway - admin can share password manually
-    }
-
-    // Return technician without password, but include default password in response for admin to share
-    const { password, ...technicianData } = technician;
+    // Return technician without passwordHash, but include default password in response for admin to share
+    const { passwordHash: _, ...technicianData } = technician;
 
     res.status(201).json({
       ...technicianData,
@@ -133,15 +124,20 @@ router.put('/:id', async (req, res) => {
   try {
     const { name, email, phone, picture } = req.body;
 
-    // Normalize phone number
-    const normalizedPhone = normalizePhone(phone);
+    // Ensure phone is an array
+    let phoneArray = [];
+    if (Array.isArray(phone)) {
+      phoneArray = phone;
+    } else if (phone) {
+      phoneArray = [phone];
+    }
 
     const technician = await prisma.technician.update({
       where: { id: parseInt(req.params.id) },
       data: {
         name,
         email,
-        phone: normalizedPhone,
+        phone: phoneArray,
         picture,
       },
     });
@@ -180,6 +176,110 @@ router.delete('/:id', async (req, res) => {
 
     res.status(200).json({ message: 'Technician deleted successfully' });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PATCH - Partially update technician profile (for mobile app)
+router.patch('/:id', async (req, res) => {
+  try {
+    const updates = {};
+    const allowedFields = ['name', 'phone', 'picture'];
+    
+    // Only include allowed fields that are present in request
+    allowedFields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        // Ensure phone is an array
+        if (field === 'phone') {
+          if (Array.isArray(req.body[field])) {
+            updates[field] = req.body[field];
+          } else if (req.body[field]) {
+            updates[field] = [req.body[field]];
+          } else {
+            updates[field] = [];
+          }
+        } else {
+          updates[field] = req.body[field];
+        }
+      }
+    });
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
+
+    const technician = await prisma.technician.update({
+      where: { id: parseInt(req.params.id) },
+      data: updates,
+    });
+
+    // Don't send passwordHash to client
+    const { passwordHash, ...technicianWithoutPassword } = technician;
+
+    res.status(200).json(technicianWithoutPassword);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST - Change technician password
+router.post('/:id/change-password', async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    console.log(`[Password Change] Request for technician ID: ${req.params.id}`);
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current and new passwords are required' });
+    }
+
+    // Get technician with password
+    const technician = await prisma.technician.findUnique({
+      where: { id: parseInt(req.params.id) },
+    });
+
+    if (!technician) {
+      console.log(`[Password Change] Technician not found: ${req.params.id}`);
+      return res.status(404).json({ error: 'Technician not found' });
+    }
+
+    console.log(`[Password Change] Found technician: ${technician.email}`);
+    console.log(`[Password Change] Current password length: ${currentPassword.length}`);
+    console.log(`[Password Change] New password length: ${newPassword.length}`);
+    console.log(`[Password Change] Stored hash: ${technician.passwordHash.substring(0, 20)}...`);
+
+    // Verify current password
+    const isPasswordValid = await bcrypt.compare(currentPassword, technician.passwordHash);
+    
+    console.log(`[Password Change] Password verification result: ${isPasswordValid}`);
+    
+    if (!isPasswordValid) {
+      console.log(`[Password Change] FAILED - Current password is incorrect`);
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    // Hash new password
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    // Update password in database
+    await prisma.technician.update({
+      where: { id: parseInt(req.params.id) },
+      data: { passwordHash },
+    });
+
+    console.log(`[Password Change] SUCCESS - Password updated for ${technician.email}`);
+
+    // Update Firebase Auth password (optional - if Firebase sync is used)
+    try {
+      // TODO: Update Firebase password if needed
+      // await updateFirebaseUserPassword(technician.email, newPassword);
+    } catch (firebaseError) {
+      console.error('Failed to update Firebase password:', firebaseError.message);
+    }
+
+    res.status(200).json({ message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('[Password Change] ERROR:', error);
     res.status(500).json({ error: error.message });
   }
 });
