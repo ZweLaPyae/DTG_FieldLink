@@ -1,7 +1,6 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import bcrypt from 'bcryptjs';
 import { createFirebaseUser, deleteFirebaseUser } from '../lib/firebase-admin.js';
 import { normalizePhone } from '../lib/phoneUtils.js';
 import { sendTechnicianWelcomeEmail } from '../lib/emailService.js';
@@ -83,6 +82,15 @@ router.post('/', async (req, res) => {
     // Hash the password
     const passwordHash = await bcrypt.hash(defaultPassword, 10);
 
+    // Check if Firebase user already exists and delete it
+    try {
+      await deleteFirebaseUser(email);
+      console.log(`🗑️  Cleaned up existing Firebase user: ${email}`);
+    } catch (cleanupError) {
+      // User doesn't exist or cleanup failed - that's okay, continue
+      console.log(`ℹ️  No existing Firebase user to clean up: ${email}`);
+    }
+
     // Create technician in database
     const technician = await prisma.technician.create({
       data: {
@@ -101,6 +109,24 @@ router.post('/', async (req, res) => {
     } catch (firebaseError) {
       console.error(`⚠️  Failed to create Firebase user for ${email}:`, firebaseError.message);
       // Continue anyway - they can run sync script later
+    }
+
+      // Try to send welcome email
+    let emailSent = false;
+    try {
+      const emailResult = await sendTechnicianWelcomeEmail({
+        to: email,
+        name,
+        password: defaultPassword,
+        email,
+      });
+      emailSent = emailResult.success;
+      if (emailSent) {
+        console.log(`✅ Welcome email sent to: ${email}`);
+      }
+    } catch (emailError) {
+      console.error(`⚠️  Failed to send email to ${email}:`, emailError.message);
+      // Continue anyway - admin can share password manually
     }
 
     // Return technician without passwordHash, but include default password in response for admin to share

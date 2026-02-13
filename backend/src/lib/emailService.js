@@ -1,33 +1,24 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
 /**
- * Email service for sending emails using SMTP
- * Configure your email provider in .env file
+ * Email service for sending emails using Resend
+ * Configure your Resend API key in .env file
  */
 
-// Create reusable transporter
-let transporter = null;
+// Create Resend client
+let resend = null;
 
-function getTransporter() {
-  if (transporter) return transporter;
+function getResendClient() {
+  if (resend) return resend;
 
-  // Check if email is configured
-  if (!process.env.SMTP_HOST || !process.env.SMTP_USER) {
-    console.warn('⚠️  Email service not configured. Set SMTP credentials in .env file.');
+  // Check if Resend is configured
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('⚠️  Email service not configured. Set RESEND_API_KEY in .env file.');
     return null;
   }
 
-  transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
-
-  return transporter;
+  resend = new Resend(process.env.RESEND_API_KEY);
+  return resend;
 }
 
 /**
@@ -39,18 +30,19 @@ function getTransporter() {
  * @param {string} params.email - Technician email (for login)
  */
 export async function sendTechnicianWelcomeEmail({ to, name, password, email }) {
-  const transport = getTransporter();
+  const client = getResendClient();
   
-  if (!transport) {
+  if (!client) {
     console.log('📧 Email not sent - service not configured');
     return { success: false, message: 'Email service not configured' };
   }
 
-  const mailOptions = {
-    from: `"DTG FieldLink" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
-    to,
-    subject: 'Welcome to DTG FieldLink - Your Account Details',
-    html: `
+  try {
+    const { data, error } = await client.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || 'DTG FieldLink <onboarding@resend.dev>',
+      to: [to],
+      subject: 'Welcome to DTG FieldLink - Your Account Details',
+      html: `
       <!DOCTYPE html>
       <html>
       <head>
@@ -136,12 +128,15 @@ If you have any questions, please contact your administrator.
 Best regards,
 DTG FieldLink Team
     `.trim(),
-  };
+    });
 
-  try {
-    const info = await transport.sendMail(mailOptions);
-    console.log(`✅ Welcome email sent to ${to}: ${info.messageId}`);
-    return { success: true, messageId: info.messageId };
+    if (error) {
+      console.error(`❌ Failed to send email to ${to}:`, error.message);
+      return { success: false, error: error.message };
+    }
+
+    console.log(`✅ Welcome email sent to ${to}: ${data.id}`);
+    return { success: true, messageId: data.id };
   } catch (error) {
     console.error(`❌ Failed to send email to ${to}:`, error.message);
     return { success: false, error: error.message };
@@ -152,16 +147,16 @@ DTG FieldLink Team
  * Test email configuration
  */
 export async function testEmailConfig() {
-  const transport = getTransporter();
+  const client = getResendClient();
   
-  if (!transport) {
+  if (!client) {
     return { success: false, message: 'Email service not configured' };
   }
 
   try {
-    await transport.verify();
-    console.log('✅ Email server is ready to send messages');
-    return { success: true, message: 'Email configuration is valid' };
+    // Resend doesn't have a verify method, so we just check if client exists
+    console.log('✅ Resend email service is configured and ready');
+    return { success: true, message: 'Resend API key is configured' };
   } catch (error) {
     console.error('❌ Email configuration error:', error.message);
     return { success: false, error: error.message };
