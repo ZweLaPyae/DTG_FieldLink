@@ -168,6 +168,26 @@ class DataService {
     }
   }
 
+  // Fetch splitterMap for a ticket by ID
+  Future<String?> fetchSplitterMap(String ticketId) async {
+    try {
+      final response = await http.get(Uri.parse('${ApiConfig.ticketsUrl}/$ticketId/splitter-map'));
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        return data['splitterMap'] as String?;
+      } else if (response.statusCode == 404) {
+        print('Splitter map not found for ticket $ticketId');
+        return null;
+      } else {
+        throw Exception('Failed to fetch splitter map: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error fetching splitter map: $e');
+      return null;
+    }
+  }
+
   // Fetch all technicians from the API
   Future<List<Technician>> loadTechnicians() async {
     try {
@@ -341,6 +361,22 @@ class DataService {
       }
     } catch (e) {
       print('Error updating password: $e');
+      rethrow;
+    }
+  }
+
+  // Fetch GeoJSON content from a given URL
+  Future<String> fetchGeoJsonContent(String url) async {
+    try {
+      final response = await http.get(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        return response.body;
+      } else {
+        throw Exception('Failed to fetch GeoJSON content: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error fetching GeoJSON content: $e');
       rethrow;
     }
   }

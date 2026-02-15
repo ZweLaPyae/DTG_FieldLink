@@ -12,6 +12,7 @@ import rootCauseRoutes from './routes/rootcauses.js';
 import materialRoutes from './routes/materials.js';
 import slaOptionsRoutes from './routes/sla-options.js';
 import uploadRoutes from './routes/upload.js'; // File upload routes for DO Spaces
+import priorityRoutes from './routes/priority.js';
 
 dotenv.config();
 const app = express();
@@ -41,6 +42,9 @@ app.use('/auth', authRoutes);
 // ⚠️ TODO: Configure DO Spaces in .env before using
 // Add DO_SPACES environment variables to backend/.env for file upload functionality
 app.use('/api/upload', uploadRoutes);
+
+// Use the priority routes
+app.use('/priority', priorityRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

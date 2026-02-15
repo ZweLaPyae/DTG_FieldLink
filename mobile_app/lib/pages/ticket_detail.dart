@@ -119,51 +119,60 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
   }
 
   Future<void> _loadGeoJson() async {
-    final String data = await rootBundle.loadString(
-      'assets/MockLocation.geojson',
-    );
-    final Map<String, dynamic> geojson = json.decode(data);
+    try {
+      // Fetch the splitterMap link from the backend
+      final response = await dataService.fetchSplitterMap(widget.ticketId);
+      if (response == null || response.isEmpty) {
+        throw Exception('Splitter map link not found');
+      }
 
-    final Set<Polyline> polylines = {};
+      // Fetch the GeoJSON file content
+      final geoJsonData = await dataService.fetchGeoJsonContent(response);
+      final Map<String, dynamic> geojson = json.decode(geoJsonData);
 
-    for (final feature in geojson['features']) {
-      final geometry = feature['geometry'];
-      final type = geometry['type'];
-      final coords = geometry['coordinates'];
-      final props = feature['properties'] ?? {};
+      final Set<Polyline> polylines = {};
 
-      // ───────── LINESTRING (route) ─────────
-      if (type == 'LineString') {
-        final points = coords.map<LatLng>((c) {
-          return LatLng(c[1], c[0]); // [lng, lat]
-        }).toList();
+      for (final feature in geojson['features']) {
+        final geometry = feature['geometry'];
+        final type = geometry['type'];
+        final coords = geometry['coordinates'];
+        final props = feature['properties'] ?? {};
 
-        polylines.add(
-          Polyline(
-            polylineId: PolylineId(
-              feature['id']?.toString() ?? UniqueKey().toString(),
+        // ───────── LINESTRING (route) ─────────
+        if (type == 'LineString') {
+          final points = coords.map<LatLng>((c) {
+            return LatLng(c[1], c[0]); // [lng, lat]
+          }).toList();
+
+          polylines.add(
+            Polyline(
+              polylineId: PolylineId(
+                feature['id']?.toString() ?? UniqueKey().toString(),
+              ),
+              points: points,
+              width: 4,
+              color: Colors.red,
             ),
-            points: points,
-            width: 4,
-            color: Colors.red,
-          ),
-        );
+          );
 
-        if (points.isNotEmpty) {
-          _initialCenter = points.first;
+          if (points.isNotEmpty) {
+            _initialCenter = points.first;
+          }
+        }
+
+        // ───────── POINT (marker) ─────────
+        if (type == 'Point') {
+          _addMarkerFromGeoJson(coords, props['name'] ?? 'Destination');
         }
       }
 
-      // ───────── POINT (marker) ─────────
-      if (type == 'Point') {
-        _addMarkerFromGeoJson(coords, props['Name'] ?? 'Destination');
-      }
+      setState(() {
+        _polylines = polylines;
+        _mapReady = true;
+      });
+    } catch (e) {
+      print('Error loading GeoJSON: $e');
     }
-
-    setState(() {
-      _polylines = polylines;
-      _mapReady = true;
-    });
   }
 
   @override
@@ -619,14 +628,10 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                             'Splitter Map',
                             style: TextStyle(fontWeight: FontWeight.w700),
                           ),
-                          Text(
-                            ticket.coordinates != null ? '2.4 km' : '',
-                            style: const TextStyle(color: Colors.grey),
-                          ),
+                
                         ],
                       ),
                       const SizedBox(height: 8),
-                      // Map placeholder
                       Container(
                         height: 180,
                         decoration: BoxDecoration(
@@ -638,12 +643,12 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                             : GoogleMap(
                                 initialCameraPosition: CameraPosition(
                                   target: _initialCenter,
-                                  zoom: 14,
+                                  zoom: 15,
                                 ),
                                 polylines: _polylines,
                                 markers: _markers,
                                 zoomControlsEnabled: true,
-                                mapToolbarEnabled: false,
+                                mapToolbarEnabled: true,
                               ),
                       ),
                     ],
