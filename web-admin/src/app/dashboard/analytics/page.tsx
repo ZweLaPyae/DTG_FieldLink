@@ -1,9 +1,12 @@
 "use client"
 
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   BarChart,
   Bar,
@@ -16,145 +19,314 @@ import {
   Cell,
   AreaChart,
   Area,
+  LineChart,
+  Line,
   Tooltip,
   Legend,
 } from "recharts"
-import { TrendingUp, TrendingDown, Clock, CheckCircle, AlertTriangle, Download } from "lucide-react"
+import { TrendingUp, TrendingDown, Clock, CheckCircle, AlertTriangle, Download, Loader2, Search } from "lucide-react"
 
-import mockDb from "../../../../mock_database.json"
-
-// Helper function to calculate date differences in hours
-const getHoursBetween = (start: string, end: string) => {
-  const startDate = new Date(start)
-  const endDate = new Date(end)
-  return (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60)
+interface AnalyticsData {
+  summary: {
+    totalTickets: number
+    completedTickets: number
+    activeTickets: number
+    avgResolutionTime: number
+    completionRate: number
+  }
+  trends: {
+    ticketChange: number
+    completionChange: number
+    activeTicketsChange: number
+    avgTimeChange: number
+    costChange: number
+    previousPeriod: {
+      totalTickets: number
+      completedTickets: number
+      activeTickets: number
+      avgResolutionTime: number
+    }
+  }
+  performanceData: Array<{
+    month: string
+    tickets: number
+    resolved: number
+    unresolved: number
+    avgTime: number
+  }>
+  rootCauseData: Array<{
+    name: string
+    value: number
+    color: string
+    count: number
+  }>
+  technicianPerformance: Array<{
+    name: string
+    tickets: number
+    avgTime: number
+    satisfaction: number
+  }>
+  costAnalysis: Array<{
+    month: string
+    materials: number
+    labor: number
+    total: number
+  }>
+  serviceAreaData: Array<{
+    area: string
+    tickets: number
+  }>
+  topCustomers: Array<{
+    rank: number
+    id: string
+    name: string
+    ticketCount: number
+    completedCount: number
+    completionRate: number
+  }>
+  topMaterials: Array<{
+    id: number
+    name: string
+    totalQuantity: number
+    usageCount: number
+    unit: string
+    referenceLength: number | null
+  }>
 }
 
-// Get completed tickets
-const completedTickets = mockDb.tickets.filter(ticket => ticket.status === 'completed')
-
-// Calculate average resolution time
-const avgResolutionTime = completedTickets.reduce((acc, ticket) => {
-  if (ticket.issueTime && ticket.completionTime) {
-    return acc + getHoursBetween(ticket.issueTime, ticket.completionTime)
-  }
-  return acc
-}, 0) / completedTickets.length
-
-// Group tickets by day for performance data
-const today = new Date()
-const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-const performanceData = days.map(day => {
-  const dayTickets = mockDb.tickets.filter(ticket => {
-    const ticketDate = new Date(ticket.issueTime)
-    return days[ticketDate.getDay()] === day
-  })
-  const resolvedTickets = dayTickets.filter(ticket => ticket.status === 'completed')
-  return {
-    month: day,
-    tickets: dayTickets.length,
-    resolved: resolvedTickets.length,
-    avgTime: avgResolutionTime
-  }
-})
-
-// Calculate root cause distribution
-const rootCauseCounts = mockDb.tickets.reduce((acc: { [key: string]: number }, ticket) => {
-  if (ticket.rootCause) {
-    acc[ticket.rootCause] = (acc[ticket.rootCause] || 0) + 1
-  }
-  return acc
-}, {})
-
-const rootCauseData = mockDb.root_causes.map(cause => {
-  const count = rootCauseCounts[cause.id] || 0
-  const total = mockDb.tickets.length
-  return {
-    name: cause.name,
-    value: Math.round((count / total) * 100),
-    color: cause.color,
-    count: count
-  }
-})
-
-// Calculate technician performance
-const technicianPerformance = mockDb.technicians.map(tech => {
-  const techTickets = mockDb.tickets.filter(ticket => ticket.technicianId === String(tech.id))
-  const completedTechTickets = techTickets.filter(ticket => ticket.status === 'completed')
-  const avgTime = completedTechTickets.reduce((acc, ticket) => {
-    if (ticket.issueTime && ticket.completionTime) {
-      return acc + getHoursBetween(ticket.issueTime, ticket.completionTime)
-    }
-    return acc
-  }, 0) / (completedTechTickets.length || 1)
-  
-  return {
-    name: tech.name,
-    tickets: techTickets.length,
-    avgTime: Math.round(avgTime * 10) / 10,
-    satisfaction: 4.5 + (techTickets.length > 0 ? 0.5 * (completedTechTickets.length / techTickets.length) : 0)
-  }
-})
-
-// Calculate cost analysis
-const costAnalysis = days.map(day => {
-  const dayTickets = mockDb.tickets.filter(ticket => {
-    const ticketDate = new Date(ticket.issueTime)
-    return days[ticketDate.getDay()] === day
-  })
-  
-  const materialCosts = dayTickets.reduce((acc, ticket) => {
-    return acc + (ticket.materialsUsed?.reduce((sum, material) => sum + material.cost, 0) || 0)
-  }, 0)
-  
-  const laborCosts = dayTickets.reduce((acc, ticket) => {
-    if (ticket.issueTime && ticket.completionTime) {
-      const hours = getHoursBetween(ticket.issueTime, ticket.completionTime)
-      return acc + (hours * 100) // Assuming $100 per hour labor cost
-    }
-    return acc
-  }, 0)
-
-  return {
-    month: day,
-    materials: materialCosts,
-    labor: laborCosts,
-    total: materialCosts + laborCosts
-  }
-})
-
-// Calculate SLA performance
-const slaPerformance = mockDb.sla_options.map(sla => {
-  const slaTickets = mockDb.tickets.filter(ticket => ticket.sla === sla && ticket.status === 'completed')
-  const metSLA = slaTickets.filter(ticket => {
-    if (ticket.issueTime && ticket.completionTime) {
-      const hours = getHoursBetween(ticket.issueTime, ticket.completionTime)
-      const targetHours = parseInt(sla)
-      return hours <= targetHours
-    }
-    return false
-  })
-  
-  const metPercentage = slaTickets.length > 0 ? Math.round((metSLA.length / slaTickets.length) * 100) : 100
-  
-  return {
-    sla,
-    met: metPercentage,
-    missed: 100 - metPercentage
-  }
-})
-
 export default function AnalyticsPage() {
+  const router = useRouter()
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null)
+  const [selectedPeriod, setSelectedPeriod] = useState("6months")
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedCustomer, setSelectedCustomer] = useState<{id: string, name: string, x: number, y: number} | null>(null)
+
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/analytics?period=${selectedPeriod}`,
+          {
+            headers: {
+              'Cache-Control': 'no-store',
+            },
+          }
+        )
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch analytics data')
+        }
+        
+        const data = await response.json()
+        setAnalyticsData(data)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred')
+        console.error('Error fetching analytics:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchAnalytics()
+  }, [selectedPeriod])
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-full">
+          <Card className="border-destructive">
+            <CardHeader>
+              <CardTitle>Error Loading Analytics</CardTitle>
+              <CardDescription>{error || 'Failed to load analytics data'}</CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  if (!analyticsData) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-full">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  const { summary, trends, performanceData, rootCauseData, technicianPerformance, costAnalysis, serviceAreaData, topCustomers, topMaterials } = analyticsData
+
+  const safeTopMaterials = topMaterials || []
+
+  // Export analytics data as CSV
+  const exportAnalytics = () => {
+    if (!analyticsData) return
+
+    const periodLabel = {
+      '1month': 'Last Month',
+      '3months': 'Last 3 Months',
+      '6months': 'Last 6 Months',
+      '1year': 'Last Year',
+    }[selectedPeriod] || 'Last 6 Months'
+
+    let csvContent = `DTG FieldLink Analytics Report\n`
+    csvContent += `Period: ${periodLabel}\n`
+    csvContent += `Generated: ${new Date().toLocaleString()}\n\n`
+
+    // Summary Section
+    csvContent += `SUMMARY\n`
+    csvContent += `Total Tickets,${summary.totalTickets}\n`
+    csvContent += `Completed Tickets,${summary.completedTickets}\n`
+    csvContent += `Active Tickets,${summary.activeTickets}\n`
+    csvContent += `Average Resolution Time (hours),${summary.avgResolutionTime}\n`
+    csvContent += `Completion Rate (%),${summary.completionRate}\n\n`
+
+    // Trends Section
+    csvContent += `PERIOD-OVER-PERIOD TRENDS\n`
+    csvContent += `Metric,Current Period,Previous Period,Change (%)\n`
+    csvContent += `Total Tickets,${summary.totalTickets},${trends.previousPeriod.totalTickets},${trends.ticketChange > 0 ? '+' : ''}${trends.ticketChange}%\n`
+    csvContent += `Completed Tickets,${summary.completedTickets},${trends.previousPeriod.completedTickets},${trends.completionChange > 0 ? '+' : ''}${trends.completionChange}%\n`
+    csvContent += `Active Tickets,${summary.activeTickets},${trends.previousPeriod.activeTickets},${trends.activeTicketsChange > 0 ? '+' : ''}${trends.activeTicketsChange}%\n`
+    csvContent += `Avg Resolution Time,${summary.avgResolutionTime},${trends.previousPeriod.avgResolutionTime},${trends.avgTimeChange > 0 ? '+' : ''}${trends.avgTimeChange}%\n\n`
+
+    // Performance Data
+    csvContent += `TICKET VOLUME & RESOLUTION\n`
+    csvContent += `Period,Total Tickets,Resolved Tickets,Average Time (hours)\n`
+    performanceData.forEach(item => {
+      csvContent += `${item.month},${item.tickets},${item.resolved},${item.avgTime}\n`
+    })
+    csvContent += `\n`
+
+    // Root Cause Data
+    csvContent += `ROOT CAUSE DISTRIBUTION\n`
+    csvContent += `Root Cause,Count,Percentage (%)\n`
+    rootCauseData.forEach(item => {
+      csvContent += `${item.name},${item.count},${item.value}\n`
+    })
+    csvContent += `\n`
+
+    // Technician Performance
+    csvContent += `TECHNICIAN/TEAM PERFORMANCE\n`
+    csvContent += `Name,Total Tickets,Average Time (hours),Completion Rate (%)\n`
+    technicianPerformance.forEach(tech => {
+      csvContent += `${tech.name},${tech.tickets},${tech.avgTime},${tech.satisfaction}%\n`
+    })
+    csvContent += `\n`
+
+    // Cost Analysis
+    const totalMaterialCost = costAnalysis.reduce((sum, item) => sum + item.materials, 0)
+    const totalLaborCost = costAnalysis.reduce((sum, item) => sum + item.labor, 0)
+    const totalCost = costAnalysis.reduce((sum, item) => sum + item.total, 0)
+    
+    csvContent += `COST ANALYSIS\n`
+    csvContent += `Period,Materials Cost (MMK),Labor Cost (MMK),Total Cost (MMK)\n`
+    costAnalysis.forEach(item => {
+      csvContent += `${item.month},${item.materials},${item.labor},${item.total}\n`
+    })
+    csvContent += `Total,${totalMaterialCost},${totalLaborCost},${totalCost}\n\n`
+
+    // Service Area Data
+    csvContent += `SERVICE AREA DISTRIBUTION\n`
+    csvContent += `Area,Ticket Count\n`
+    serviceAreaData.forEach(item => {
+      csvContent += `${item.area},${item.tickets}\n`
+    })
+    csvContent += `\n`
+
+    // Top Customers
+    csvContent += `TOP CUSTOMERS\n`
+    csvContent += `Rank,Customer Name,Total Tickets,Completed,Completion Rate\n`
+    topCustomers.forEach(customer => {
+      csvContent += `${customer.rank},${customer.name},${customer.ticketCount},${customer.completedCount},${customer.completionRate}%\n`
+    })
+    csvContent += `\n`
+
+    // Top Materials
+    csvContent += `MOST USED MATERIALS\n`
+    csvContent += `Rank,Material Name,Total Quantity,Unit Type,Usage Count\n`
+    safeTopMaterials.forEach((material, index) => {
+      const unit = material.unit === 'METER' ? 'meters' : 'units';
+      csvContent += `${index + 1},${material.name},${material.totalQuantity},${unit},${material.usageCount}\n`
+    })
+
+    // Create and download CSV file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    
+    link.setAttribute('href', url)
+    link.setAttribute('download', `analytics_report_${selectedPeriod}_${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+    
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  // Custom tooltip for performance chart
+  const PerformanceTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const total = payload[0]?.value || 0
+      const resolved = payload[1]?.value || 0
+      const unresolved = total - resolved
+      const hasBacklog = unresolved > 0
+
+      return (
+        <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
+          <p className="font-semibold text-sm mb-2">{label}</p>
+          <div className="space-y-1 text-xs">
+            <div className="flex items-center justify-between gap-4">
+              <span className="flex items-center">
+                <div className="w-3 h-3 rounded-full bg-blue-500 mr-2" />
+                New Tickets
+              </span>
+              <span className="font-medium">{total}</span>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <span className="flex items-center">
+                <div className="w-3 h-3 rounded-full bg-green-500 mr-2" />
+                Resolved
+              </span>
+              <span className="font-medium">{resolved}</span>
+            </div>
+            {hasBacklog && (
+              <div className="flex items-center justify-between gap-4 pt-1 border-t border-border mt-1">
+                <span className="flex items-center text-orange-500">
+                  <AlertTriangle className="w-3 h-3 mr-1" />
+                  Unresolved
+                </span>
+                <span className="font-semibold text-orange-500">{unresolved}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )
+    }
+    return null
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Analytics</h1>
-            <p className="text-muted-foreground">Comprehensive insights and performance metrics</p>
+            <p className="text-muted-foreground">
+              Comprehensive insights and performance metrics
+              {loading && (
+                <span className="inline-flex items-center ml-2">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span className="ml-1 text-xs">Loading...</span>
+                </span>
+              )}
+            </p>
           </div>
           <div className="flex space-x-2">
-            <Select defaultValue="6months">
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod} disabled={loading}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Select period" />
               </SelectTrigger>
@@ -165,13 +337,14 @@ export default function AnalyticsPage() {
                 <SelectItem value="1year">Last Year</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline">
+            <Button variant="outline" onClick={exportAnalytics} disabled={loading}>
               <Download className="w-4 h-4 mr-2" />
               Export Report
             </Button>
           </div>
         </div>
 
+        <div className={`space-y-6 transition-opacity ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card className="border-border/50">
@@ -180,13 +353,13 @@ export default function AnalyticsPage() {
               <CheckCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{mockDb.tickets.length}</div>
+              <div className="text-2xl font-bold">{summary.totalTickets}</div>
               <p className="text-xs">
-                <span className="text-green-500 flex items-center">
-                  <TrendingUp className="w-3 h-3 mr-1" />
-                  +{((completedTickets.length / mockDb.tickets.length) * 100).toFixed(1)}%
+                <span className={`flex items-center ${trends.ticketChange >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {trends.ticketChange >= 0 ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
+                  {trends.ticketChange >= 0 ? '+' : ''}{trends.ticketChange}%
                 </span>
-                completion rate
+                from previous period
               </p>
             </CardContent>
           </Card>
@@ -197,36 +370,30 @@ export default function AnalyticsPage() {
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{avgResolutionTime.toFixed(1)}h</div>
+              <div className="text-2xl font-bold">{summary.avgResolutionTime.toFixed(1)}h</div>
               <p className="text-xs text-muted-foreground">
-                <span className="text-green-500 flex items-center">
-                  <TrendingDown className="w-3 h-3 mr-1" />
-                  {((completedTickets.length / mockDb.tickets.length) * 100).toFixed(1)}%
+                <span className={`flex items-center ${trends.avgTimeChange <= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {trends.avgTimeChange <= 0 ? <TrendingDown className="w-3 h-3 mr-1" /> : <TrendingUp className="w-3 h-3 mr-1" />}
+                  {Math.abs(trends.avgTimeChange)}% {trends.avgTimeChange <= 0 ? 'faster' : 'slower'}
                 </span>
-                resolution rate
+                than previous period
               </p>
             </CardContent>
           </Card>
 
           <Card className="border-border/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">SLA Compliance</CardTitle>
+              <CardTitle className="text-sm font-medium">Active Tickets</CardTitle>
               <AlertTriangle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {((mockDb.tickets.filter(t => 
-                    t.status === 'completed' && 
-                    t.completionTime && 
-                    new Date(t.completionTime).toDateString() === new Date().toDateString()
-                  ).length / mockDb.tickets.length) * 100).toFixed(1)}%
-              </div>
+              <div className="text-2xl font-bold">{summary.activeTickets}</div>
               <p className="text-xs text-muted-foreground">
-                <span className="text-green-500 flex items-center">
-                  <TrendingUp className="w-3 h-3 mr-1" />
-                  {completedTickets.length}
+                <span className={`flex items-center ${trends.activeTicketsChange >= 0 ? 'text-orange-500' : 'text-green-500'}`}>
+                  {trends.activeTicketsChange >= 0 ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
+                  {trends.activeTicketsChange >= 0 ? '+' : ''}{trends.activeTicketsChange}%
                 </span>
-                total completed
+                from previous period
               </p>
             </CardContent>
           </Card>
@@ -234,22 +401,18 @@ export default function AnalyticsPage() {
           <Card className="border-border/50">
             <CardHeader>
               <CardTitle>Total Cost</CardTitle>
-              <CardDescription>Cost breakdown by materials and labor</CardDescription>
+              <CardDescription>Total materials and labor costs</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ${(mockDb.tickets.reduce((sum, ticket) => 
-                  sum + (ticket.materialsUsed?.reduce((acc, material) => acc + material.cost, 0) || 0) +
-                  (ticket.completionTime && ticket.issueTime ? 
-                    getHoursBetween(ticket.issueTime, ticket.completionTime) * 100 : 0), // Labor cost
-                  0) / 1000).toFixed(1)}K
+                ${(costAnalysis.reduce((sum, item) => sum + item.total, 0) / 1000).toFixed(1)}K
               </div>
               <p className="text-xs text-muted-foreground">
-                <span className="text-red-500 flex items-center">
-                  <TrendingUp className="w-3 h-3 mr-1" />
-                  {completedTickets.length} tickets
+                <span className={`flex items-center ${trends.costChange >= 0 ? 'text-red-500' : 'text-green-500'}`}>
+                  {trends.costChange >= 0 ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
+                  {trends.costChange >= 0 ? '+' : ''}{trends.costChange}%
                 </span>
-                completed
+                from previous period
               </p>
             </CardContent>
           </Card>
@@ -257,49 +420,6 @@ export default function AnalyticsPage() {
 
         {/* Performance Trends */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="border-border/50">
-            <CardHeader>
-              <CardTitle>Ticket Volume & Resolution</CardTitle>
-              <CardDescription>Monthly ticket creation and resolution trends</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={performanceData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="month" stroke="#6b7280" fontSize={12} />
-                  <YAxis stroke="#6b7280" fontSize={12} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "8px",
-                      color: "hsl(var(--card-foreground))",
-                    }}
-                  />
-                  <Legend />
-                  <Area
-                    type="monotone"
-                    dataKey="tickets"
-                    stackId="1"
-                    stroke="#3b82f6"
-                    fill="#3b82f6"
-                    fillOpacity={0.3}
-                    name="Total Tickets"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="resolved"
-                    stackId="2"
-                    stroke="#22c55e"
-                    fill="#22c55e"
-                    fillOpacity={0.3}
-                    name="Resolved Tickets"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
           <Card className="border-border/50">
             <CardHeader>
               <CardTitle>Root Cause Distribution</CardTitle>
@@ -344,42 +464,56 @@ export default function AnalyticsPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
 
-        {/* Cost Analysis */}
-        <Card className="border-border/50">
-          <CardHeader>
-            <CardTitle>Cost Analysis</CardTitle>
-            <CardDescription>Monthly breakdown of materials and labor costs</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={400}>
-              <BarChart data={costAnalysis}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="month" stroke="#6b7280" fontSize={12} />
-                <YAxis stroke="#6b7280" fontSize={12} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px",
-                    color: "hsl(var(--card-foreground))",
-                  }}
-                />
-                <Legend />
-                <Bar dataKey="materials" stackId="a" fill="#f97316" radius={[0, 0, 0, 0]} name="Materials" />
-                <Bar dataKey="labor" stackId="a" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="Labor" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+          <Card className="border-border/50">
+            <CardHeader>
+              <CardTitle>Most Used Materials</CardTitle>
+              <CardDescription>Top 5 frequently used materials</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {safeTopMaterials.length === 0 ? (
+                <div className="flex items-center justify-center py-8 text-muted-foreground">
+                  <p className="text-sm">No material usage data available</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {safeTopMaterials.map((material, index) => {
+                    const quantityDisplay = material.unit === 'METER' 
+                      ? `${material.totalQuantity.toFixed(1)} m`
+                      : `${material.totalQuantity} units`;
+                    
+                    return (
+                      <div key={material.id} className="flex items-center justify-between p-3 border border-border/50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-orange-100 text-orange-600 font-semibold text-sm">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{material.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Used in {material.usageCount} ticket{material.usageCount > 1 ? 's' : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold">{quantityDisplay}</p>
+                          <p className="text-xs text-muted-foreground">Total</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Technician Performance & SLA */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="border-border/50">
             <CardHeader>
-              <CardTitle>Technician Performance</CardTitle>
-              <CardDescription>Individual technician metrics and ratings</CardDescription>
+              <CardTitle>Team Performance</CardTitle>
+              <CardDescription>Team metrics and ratings</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -393,10 +527,9 @@ export default function AnalyticsPage() {
                     </div>
                     <div className="text-right">
                       <div className="flex items-center space-x-1">
-                        <span className="text-sm font-medium">{tech.satisfaction}</span>
-                        <span className="text-xs text-muted-foreground">★</span>
+                        <span className="text-2xl font-bold">{tech.satisfaction}%</span>
                       </div>
-                      <p className="text-xs text-muted-foreground">satisfaction</p>
+                      <p className="text-xs text-muted-foreground">completion rate</p>
                     </div>
                   </div>
                 ))}
@@ -406,36 +539,147 @@ export default function AnalyticsPage() {
 
           <Card className="border-border/50">
             <CardHeader>
-              <CardTitle>SLA Performance</CardTitle>
-              <CardDescription>Service level agreement compliance by category</CardDescription>
+              <CardTitle>Service Area Distribution</CardTitle>
+              <CardDescription>Top service areas by ticket volume</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {slaPerformance.map((sla, index) => (
-                  <div key={index} className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">{sla.sla}</span>
-                      <span className="text-sm text-muted-foreground">{sla.met}% met</span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full transition-all duration-300 ${
-                          sla.met >= 95
-                            ? "bg-gradient-to-r from-green-500 to-green-400"
-                            : sla.met >= 90
-                              ? "bg-gradient-to-r from-blue-500 to-blue-400"
-                              : sla.met >= 80
-                                ? "bg-gradient-to-r from-yellow-500 to-yellow-400"
-                                : "bg-gradient-to-r from-red-500 to-red-400"
-                        }`}
-                        style={{ width: `${sla.met}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+              {serviceAreaData.length === 0 ? (
+                <div className="flex items-center justify-center py-8 text-muted-foreground">
+                  <p className="text-sm">No service area data available</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={serviceAreaData} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis type="number" stroke="#6b7280" fontSize={12} />
+                    <YAxis 
+                      type="category" 
+                      dataKey="area" 
+                      stroke="#6b7280" 
+                      fontSize={12}
+                      width={100}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "8px",
+                        color: "hsl(var(--card-foreground))",
+                      }}
+                      itemStyle={{
+                        color: "hsl(var(--card-foreground))",
+                      }}
+                      labelStyle={{
+                        color: "hsl(var(--card-foreground))",
+                        fontWeight: "600",
+                      }}
+                    />
+                    <Bar 
+                      dataKey="tickets" 
+                      fill="#3b82f6" 
+                      radius={[0, 8, 8, 0]}
+                      name="Tickets"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
+        </div>
+
+        {/* Top Customers */}
+        <Card className="border-border/50 relative">
+          <CardHeader>
+            <CardTitle>Top Customers</CardTitle>
+            <CardDescription>Customers with the most tickets in this period</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {topCustomers.length === 0 ? (
+              <div className="flex items-center justify-center py-8 text-muted-foreground">
+                <p className="text-sm">No customer data available</p>
+              </div>
+            ) : (
+              <div className="relative">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-16">Rank</TableHead>
+                      <TableHead>Customer Name</TableHead>
+                      <TableHead className="text-right">Total Tickets</TableHead>
+                      <TableHead className="text-right">Completed</TableHead>
+                      <TableHead className="text-right">Completion Rate</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {topCustomers.map((customer) => (
+                      <TableRow 
+                        key={customer.id}
+                        className="cursor-pointer hover:bg-muted/70"
+                        onClick={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect()
+                          setSelectedCustomer({
+                            id: customer.id,
+                            name: customer.name,
+                            x: e.clientX - rect.left,
+                            y: e.clientY - rect.top,
+                          })
+                        }}
+                      >
+                        <TableCell className="font-medium">
+                          {customer.rank <= 3 ? (
+                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold">
+                              {customer.rank}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">{customer.rank}</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-medium">{customer.name}</TableCell>
+                        <TableCell className="text-right">{customer.ticketCount}</TableCell>
+                        <TableCell className="text-right">{customer.completedCount}</TableCell>
+                        <TableCell className="text-right">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            customer.completionRate >= 80 ? 'bg-green-100 text-green-700' :
+                            customer.completionRate >= 50 ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-red-100 text-red-700'
+                          }`}>
+                            {customer.completionRate}%
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                
+                {/* Search Icon Popup */}
+                {selectedCustomer && (
+                  <>
+                    {/* Backdrop */}
+                    <div 
+                      className="fixed inset-0 z-40"
+                      onClick={() => setSelectedCustomer(null)}
+                    />
+                    {/* Search Icon */}
+                    <button
+                      className="absolute z-50 bg-primary text-primary-foreground p-3 rounded-full shadow-lg hover:bg-primary/90 transition-all hover:scale-110"
+                      style={{
+                        left: `${selectedCustomer.x}px`,
+                        top: `${selectedCustomer.y}px`,
+                        transform: 'translate(-50%, -50%)',
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        router.push(`/dashboard/tickets?customerName=${encodeURIComponent(selectedCustomer.name)}`)
+                      }}
+                    >
+                      <Search className="w-5 h-5" />
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
         </div>
       </div>
     </DashboardLayout>

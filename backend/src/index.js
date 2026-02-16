@@ -13,6 +13,7 @@ import materialRoutes from './routes/materials.js';
 import slaOptionsRoutes from './routes/sla-options.js';
 import uploadRoutes from './routes/upload.js'; // File upload routes for DO Spaces
 import priorityRoutes from './routes/priority.js';
+import analyticsRoutes from './routes/analytics.js';
 
 dotenv.config();
 const app = express();
@@ -34,6 +35,7 @@ app.use('/teams', teamRoutes);
 app.use('/rootcauses', rootCauseRoutes);
 app.use('/materials', materialRoutes);
 app.use('/sla-options', slaOptionsRoutes);
+app.use('/analytics', analyticsRoutes);
 
 // Auth routes
 app.use('/auth', authRoutes);

@@ -53,9 +53,9 @@ interface Ticket {
     name: string
   }
   breakTimes?: Array<{
-    reason: string
-    startTime: string
-    endTime: string
+    reason?: string
+    start: string
+    end: string
   }>
 }
 
@@ -296,13 +296,45 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
             <>
               <div className="space-y-3 col-span-2 shadow-sm p-4 rounded-md border border-border/50">
                 <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Attachments</h4>
-                <div className="space-y-2">
-                  {ticket.attachments.map((attachment: any, index: number) => (
-                    <div key={index} className="flex items-center space-x-2 text-sm">
-                      <Camera className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-primary cursor-pointer hover:underline">{attachment.name}</span>
-                    </div>
-                  ))}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {ticket.attachments.map((attachment: any, index: number) => {
+                    const url = typeof attachment === 'string' ? attachment : attachment.name;
+                    const isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(url);
+                    
+                    if (isImage) {
+                      return (
+                        <a 
+                          key={index} 
+                          href={url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="relative group overflow-hidden rounded-lg border border-border/50 hover:border-primary transition-colors"
+                        >
+                          <img 
+                            src={url} 
+                            alt={`Attachment ${index + 1}`}
+                            className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-200"
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                        </a>
+                      );
+                    }
+                    
+                    return (
+                      <a
+                        key={index}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center space-x-2 text-sm p-3 rounded-lg border border-border/50 hover:border-primary transition-colors"
+                      >
+                        <Camera className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        <span className="text-primary hover:underline truncate">
+                          {url.split('/').pop()}
+                        </span>
+                      </a>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -331,19 +363,87 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
             <>
               <div className="space-y-3 col-span-2 shadow-sm p-4 rounded-md border border-border/50">
                 <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Break Times</h4>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {ticket.breakTimes.map((breakTime: any, idx: number) => {
-                    const start = new Date(breakTime.startTime).toLocaleString(undefined, {
+                    const startDate = new Date(breakTime.start)
+                    const endDate = new Date(breakTime.end)
+                    const durationMs = endDate.getTime() - startDate.getTime()
+                    const durationMinutes = Math.round(durationMs / (1000 * 60))
+                    const durationHours = Math.floor(durationMinutes / 60)
+                    const remainingMinutes = durationMinutes % 60
+                    
+                    // Calculate gap from previous break
+                    let gapText = null
+                    if (idx > 0 && ticket.breakTimes) {
+                      const prevBreak = ticket.breakTimes[idx - 1]
+                      const prevEnd = new Date(prevBreak.end)
+                      const gapMs = startDate.getTime() - prevEnd.getTime()
+                      const gapMinutes = Math.round(gapMs / (1000 * 60))
+                      const gapHours = Math.floor(gapMinutes / 60)
+                      const gapRemainingMinutes = gapMinutes % 60
+                      
+                      if (gapHours > 0) {
+                        gapText = `${gapHours}h ${gapRemainingMinutes}m gap`
+                      } else {
+                        gapText = `${gapMinutes}m gap`
+                      }
+                    }
+                    
+                    const durationDisplay = durationHours > 0 
+                      ? `${durationHours}h ${remainingMinutes}m` 
+                      : `${durationMinutes}m`
+                    
+                    // Color code based on duration
+                    const durationColor = durationMinutes > 60 
+                      ? 'bg-red-100 text-red-700 border-red-300' 
+                      : durationMinutes > 30 
+                        ? 'bg-orange-100 text-orange-700 border-orange-300'
+                        : 'bg-blue-100 text-blue-700 border-blue-300'
+                    
+                    const start = startDate.toLocaleString(undefined, {
                       year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
                     })
-                    const end = new Date(breakTime.endTime).toLocaleString(undefined, {
+                    const end = endDate.toLocaleString(undefined, {
                       year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
                     })
+                    
                     return (
-                      <div key={idx} className="flex flex-col border rounded p-2 bg-muted/10">
-                        <span className="font-medium">Reason: {breakTime.reason}</span>
-                        <span className="text-sm text-muted-foreground">Start: {start}</span>
-                        <span className="text-sm text-muted-foreground">End: {end}</span>
+                      <div key={idx}>
+                        {/* Gap indicator */}
+                        {gapText && (
+                          <div className="flex items-center justify-center py-1 mb-2">
+                            <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+                              <div className="h-px w-8 bg-border"></div>
+                              <Clock className="w-3 h-3" />
+                              <span>{gapText} between breaks</span>
+                              <div className="h-px w-8 bg-border"></div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Break time card */}
+                        <div className="flex flex-col border rounded-lg p-3 bg-muted/10 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-sm">Reason: {breakTime.reason || 'Not specified'}</span>
+                            <Badge className={cn("text-xs font-semibold", durationColor)}>
+                              {durationDisplay}
+                            </Badge>
+                          </div>
+                          <div className="flex flex-col text-xs text-muted-foreground space-y-1">
+                            <span>Start: {start}</span>
+                            <span>End: {end}</span>
+                          </div>
+                          {/* Visual duration bar */}
+                          <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                            <div 
+                              className={cn(
+                                "h-1.5 rounded-full",
+                                durationMinutes > 60 ? "bg-red-500" : durationMinutes > 30 ? "bg-orange-500" : "bg-blue-500"
+                              )}
+                              style={{ width: `${Math.min((durationMinutes / 120) * 100, 100)}%` }}
+                            ></div>
+                          </div>
+                        </div>
                       </div>
                     )
                   })}
