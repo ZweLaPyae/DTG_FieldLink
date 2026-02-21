@@ -14,6 +14,7 @@ import 'dart:math';
 import 'package:image_picker/image_picker.dart';
 import '../providers/tickets_provider.dart';
 import '../services/spaces_upload_service.dart';
+import '../services/notification_service.dart';
 
 LatLngBounds boundsFromPoints(List<LatLng> points) {
   final lats = points.map((p) => p.latitude);
@@ -51,6 +52,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
   final Set<Marker> _markers = {};
   bool _isOnBreak = false; // Track break time status
   DateTime? _currentBreakStartTime; // Track when current break started
+  String? _currentBreakReason; // Track reason for current break
   int _rebuildKey = 0; // Force FutureBuilder rebuild
   bool _isEditingRootCause = false;
   bool _isEditingNotes = false;
@@ -61,9 +63,48 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
   List<Map<String, dynamic>> _materialCatalog = [];
   bool _isLoadingRootCauses = true;
   bool _isLoadingMaterials = true;
+  
+  // Store callback reference so we can remove it in dispose
+  late final Function() _notificationCallback;
 
   // Check if ticket is editable (from tasks tab or assigned)
   bool get _isEditable => widget.isFromTasksTab;
+
+  // Check if can edit based on ticket status
+  bool _canEditRootCause(Ticket? ticket) {
+    if (!_isEditable || ticket == null) return false;
+    final status = ticket.status.toUpperCase();
+    // Can only edit root cause when IN_PROGRESS
+    return status == 'IN_PROGRESS';
+  }
+
+  bool _canEditNotes(Ticket? ticket) {
+    if (!_isEditable || ticket == null) return false;
+    final status = ticket.status.toUpperCase();
+    // Can edit notes when IN_PROGRESS or IN_REVIEW
+    return status == 'IN_PROGRESS' || status == 'IN_REVIEW';
+  }
+
+  bool _canManageBreaks(Ticket? ticket) {
+    if (!_isEditable || ticket == null) return false;
+    final status = ticket.status.toUpperCase();
+    // Can only manage breaks when IN_PROGRESS
+    return status == 'IN_PROGRESS';
+  }
+
+  bool _canRequestReview(Ticket? ticket) {
+    if (!_isEditable || ticket == null) return false;
+    final status = ticket.status.toUpperCase();
+    // Can only request review when IN_PROGRESS
+    return status == 'IN_PROGRESS';
+  }
+
+  bool _canUploadMedia(Ticket? ticket) {
+    if (!_isEditable || ticket == null) return false;
+    final status = ticket.status.toUpperCase();
+    // Can only upload photos and videos when IN_PROGRESS
+    return status == 'IN_PROGRESS';
+  }
 
   // Helper function to reload ticket with all data
   Future<Ticket?> _reloadTicket() async {
@@ -103,6 +144,47 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
     }
     print('_reloadTicket: Ticket was null');
     return null;
+  }
+
+  Future<String?> _showBreakReasonDialog() async {
+    final TextEditingController reasonController = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Break Reason'),
+        content: TextField(
+          controller: reasonController,
+          decoration: const InputDecoration(
+            hintText: 'Enter reason for break',
+            border: OutlineInputBorder(),
+          ),
+          maxLines: 3,
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(null),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (reasonController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please enter a reason'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+                return;
+              }
+              Navigator.of(context).pop(reasonController.text.trim());
+            },
+            child: const Text('Start Break'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _addMarkerFromGeoJson(List coordinates, String title) {
@@ -173,6 +255,20 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
     _loadRootCauses();
     _loadMaterialCatalog();
     _ticketFuture = _reloadTicket();
+    
+    // Create callback reference
+    _notificationCallback = () {
+      print('🔔 Notification received in TicketDetail, refreshing ticket...');
+      if (mounted) {
+        setState(() {
+          _rebuildKey++;
+          _ticketFuture = _reloadTicket();
+        });
+      }
+    };
+    
+    // Register callback to auto-refresh ticket when notification arrives
+    addNotificationListener(_notificationCallback);
   }
 
   Future<void> _loadRootCauses() async {
@@ -207,6 +303,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
 
   @override
   void dispose() {
+    removeNotificationListener(_notificationCallback);
     _notesController.dispose();
     _wayToFixController.dispose();
     _rootCauseDetailsController.dispose();
@@ -728,8 +825,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                               fontSize: 16,
                             ),
                           ),
-                          if (_isEditable &&
-                              ticket.status.toUpperCase() != 'COMPLETED')
+                          if (_canEditRootCause(ticket))
                             IconButton(
                               icon: Icon(
                                 _isEditingRootCause ? Icons.close : Icons.edit,
@@ -1234,7 +1330,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 12,
                                 ),
-                                onPressed: () async {
+                                onPressed: !_canUploadMedia(ticket) ? null : () async {
                                   try {
                                     final picker = ImagePicker();
                                     final pickedFiles = await picker
@@ -1338,7 +1434,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 12,
                                 ),
-                                onPressed: () async {
+                                onPressed: !_canUploadMedia(ticket) ? null : () async {
                                   try {
                                     final picker = ImagePicker();
                                     final pickedFile = await picker.pickVideo(
@@ -1553,7 +1649,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                               fontSize: 16,
                             ),
                           ),
-                          if (_isEditable)
+                          if (_canEditNotes(ticket))
                             IconButton(
                               icon: Icon(
                                 _isEditingNotes ? Icons.close : Icons.edit,
@@ -1573,16 +1669,16 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                       TextField(
                         controller: _notesController,
                         maxLines: 4,
-                        enabled: _isEditable && _isEditingNotes,
+                        enabled: _canEditNotes(ticket) && _isEditingNotes,
                         decoration: InputDecoration(
                           filled: true,
-                          fillColor: (_isEditable && _isEditingNotes)
+                          fillColor: (_canEditNotes(ticket) && _isEditingNotes)
                               ? Colors.white
                               : Colors.grey.shade100,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(
-                              color: (_isEditable && _isEditingNotes)
+                              color: (_canEditNotes(ticket) && _isEditingNotes)
                                   ? const Color(0xFF3B82F6)
                                   : Colors.grey.shade300,
                             ),
@@ -1590,12 +1686,12 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(
-                              color: (_isEditable && _isEditingNotes)
+                              color: (_canEditNotes(ticket) && _isEditingNotes)
                                   ? const Color(0xFF3B82F6)
                                   : Colors.grey.shade300,
                             ),
                           ),
-                          hintText: _isEditable
+                          hintText: _canEditNotes(ticket)
                               ? 'Add your notes here...'
                               : 'No notes yet',
                         ),
@@ -1719,8 +1815,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                             'Activity',
                             style: TextStyle(fontWeight: FontWeight.w700),
                           ),
-                          if (_isEditable &&
-                              ticket.status.toUpperCase() != 'COMPLETED')
+                          if (_canManageBreaks(ticket))
                             Row(
                               children: [
                                 Icon(
@@ -1782,6 +1877,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                                                 latestTicket.breakTimes,
                                               );
                                           updatedBreakTimes.add({
+                                            'reason': _currentBreakReason ?? '',
                                             'start': _currentBreakStartTime!
                                                 .toIso8601String(),
                                             'end': now.toIso8601String(),
@@ -1808,6 +1904,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                                               setState(() {
                                                 _isOnBreak = false;
                                                 _currentBreakStartTime = null;
+                                                _currentBreakReason = null;
                                                 _rebuildKey++; // Force rebuild
                                                 _ticketFuture = _reloadTicket();
                                               });
@@ -1840,10 +1937,16 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                                           }
                                         }
                                       } else {
-                                        // Start break
+                                        // Start break - ask for reason first
+                                        final reason = await _showBreakReasonDialog();
+                                        if (reason == null) {
+                                          // User cancelled
+                                          return;
+                                        }
                                         setState(() {
                                           _isOnBreak = true;
                                           _currentBreakStartTime = now;
+                                          _currentBreakReason = reason;
                                         });
                                         ScaffoldMessenger.of(
                                           context,
@@ -1917,17 +2020,32 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                             final end = DateTime.parse(
                               breakTime['end'].toString(),
                             );
+                            final reason = breakTime['reason']?.toString() ?? '';
                             print(
                               'Rendering break time: ${DateFormat('MMM dd, yyyy HH:mm').format(start.toLocal())} - ${DateFormat('MMM dd, yyyy HH:mm').format(end.toLocal())}',
                             );
                             return Padding(
-                              padding: const EdgeInsets.only(bottom: 4),
-                              child: Text(
-                                '${DateFormat('MMM dd, yyyy HH:mm').format(start.toLocal())} - ${DateFormat('MMM dd, yyyy HH:mm').format(end.toLocal())}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                ),
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (reason.isNotEmpty)
+                                    Text(
+                                      'Reason: $reason',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[800],
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  Text(
+                                    '${DateFormat('MMM dd, yyyy HH:mm').format(start.toLocal())} - ${DateFormat('MMM dd, yyyy HH:mm').format(end.toLocal())}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
                               ),
                             );
                           } catch (e) {
@@ -1939,14 +2057,28 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                         // Show current ongoing break
                         if (_isOnBreak && _currentBreakStartTime != null)
                           Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: Text(
-                              '${DateFormat('MMM dd, yyyy HH:mm').format(_currentBreakStartTime!.toLocal())} - In Progress...',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: const Color(0xFFF59E0B),
-                                fontWeight: FontWeight.w600,
-                              ),
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (_currentBreakReason != null && _currentBreakReason!.isNotEmpty)
+                                  Text(
+                                    'Reason: $_currentBreakReason',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[800],
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                Text(
+                                  '${DateFormat('MMM dd, yyyy HH:mm').format(_currentBreakStartTime!.toLocal())} - Taking a break...',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFFF59E0B),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         const Divider(height: 24),
@@ -2019,6 +2151,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                         try {
                           await dataService.updateTicket(ticket.id, {
                             'status': 'IN_REVIEW',
+                            'technicianCompletionTime': DateTime.now().toIso8601String(),
                           });
 
                           // Refresh tickets provider to update tasks and profile tabs

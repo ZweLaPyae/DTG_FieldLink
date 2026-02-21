@@ -74,6 +74,17 @@ class Technician {
       ticketCount: json['_count']?['tickets'],
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      'phone': phone,
+      'picture': picture,
+      'ticketCount': ticketCount,
+    };
+  }
 }
 
 class UpdateEntry {
@@ -125,6 +136,7 @@ class Ticket {
   final DateTime? issueTime;
   final DateTime? startTime;
   final DateTime? completionTime;
+  final DateTime? technicianCompletionTime;
   final String? rootCause;
   final String? rootCauseDisplay;
   final String? technicianNote;
@@ -154,6 +166,7 @@ class Ticket {
     this.issueTime,
     this.startTime,
     this.completionTime,
+    this.technicianCompletionTime,
     this.rootCause,
     this.rootCauseDisplay,
     this.technicianNote,
@@ -220,6 +233,7 @@ class Ticket {
       issueTime: json['issueTime'] != null ? DateTime.parse(json['issueTime']) : null,
       startTime: json['startTime'] != null ? DateTime.parse(json['startTime']) : null,
       completionTime: json['completionTime'] != null ? DateTime.parse(json['completionTime']) : null,
+      technicianCompletionTime: json['technicianCompletionTime'] != null ? DateTime.parse(json['technicianCompletionTime']) : null,
       rootCause: null,
       rootCauseDisplay: null,
       technicianNote: null,
@@ -265,6 +279,7 @@ class Ticket {
       issueTime: json['issueTime'] != null ? DateTime.parse(json['issueTime']) : null,
       startTime: json['startTime'] != null ? DateTime.parse(json['startTime']) : null,
       completionTime: json['completionTime'] != null ? DateTime.parse(json['completionTime']) : null,
+      technicianCompletionTime: json['technicianCompletionTime'] != null ? DateTime.parse(json['technicianCompletionTime']) : null,
       rootCause: json['rootCauseDetails'],
       rootCauseDisplay: json['rootCause']?['name'],
       technicianNote: json['technicianNote'],
@@ -302,6 +317,7 @@ class Ticket {
       issueTime: issueTime,
       startTime: startTime,
       completionTime: completionTime,
+      technicianCompletionTime: technicianCompletionTime,
       rootCause: rootCause,
       rootCauseDisplay: rootCauseDisplay,
       technicianNote: technicianNote,
@@ -332,6 +348,7 @@ class Ticket {
       'issueTime': issueTime?.toIso8601String(),
       'startTime': startTime?.toIso8601String(),
       'completionTime': completionTime?.toIso8601String(),
+      'technicianCompletionTime': technicianCompletionTime?.toIso8601String(),
       'rootCause': rootCause,
       'rootCause_display': rootCauseDisplay,
       'materialsUsed': materialsUsed,

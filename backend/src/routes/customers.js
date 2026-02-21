@@ -6,12 +6,13 @@ import { uploadKmz } from '../middleware/KMZupload.js';
 import { kmzToGeoJson } from '../lib/kmzToGeojson.js';
 import { uploadGeoJson } from '../lib/uploadGeojson.js';
 import { normalizePhone } from '../lib/phoneUtils.js';
+import { logAdminAction } from '../lib/adminLogger.js';
 
 
 // Create a new customer
 router.post('/', async (req, res) => {
   try {
-    const { id, name, phone, serviceTypeId, splitter } = req.body;
+    const { id, name, phone, serviceTypeId, splitter, adminUserId } = req.body;
     
     // Build data object conditionally
     const data = {
@@ -35,6 +36,17 @@ router.post('/', async (req, res) => {
     const newCustomer = await prisma.customer.create({
       data,
     });
+
+    // Log the action
+    if (adminUserId) {
+      await logAdminAction(
+        parseInt(adminUserId),
+        'Created customer',
+        `Created customer ${id} - ${name}`,
+        { customerId: id, customerName: name }
+      );
+    }
+
     res.status(201).json(newCustomer);
   } catch (error) {
     console.error(error);
@@ -84,7 +96,7 @@ router.get('/:id', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, phone, serviceTypeId, splitter } = req.body;
+    const { name, phone, serviceTypeId, splitter, adminUserId } = req.body;
     
     // Build data object conditionally
     const data = {
@@ -112,6 +124,17 @@ router.put('/:id', async (req, res) => {
       where: { id },
       data,
     });
+
+    // Log the action
+    if (adminUserId) {
+      await logAdminAction(
+        parseInt(adminUserId),
+        'Updated customer',
+        `Updated customer ${id}`,
+        { customerId: id }
+      );
+    }
+
     res.status(200).json(updatedCustomer);
   } catch (error) {
     console.error(error);
@@ -123,9 +146,22 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const { adminUserId } = req.body;
+
     await prisma.customer.delete({
       where: { id },
     });
+
+    // Log the action
+    if (adminUserId) {
+      await logAdminAction(
+        parseInt(adminUserId),
+        'Deleted customer',
+        `Deleted customer ${id}`,
+        { customerId: id }
+      );
+    }
+
     res.status(204).send();
   } catch (error) {
     console.error(error);

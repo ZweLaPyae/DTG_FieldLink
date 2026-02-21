@@ -11,9 +11,11 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Save, Send, User, Wifi, AlertTriangle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
+import { useAdminId } from "@/hooks/useAdminId"
 
 export default function NewTicketPage() {
   const router = useRouter()
+  const { adminId } = useAdminId()
   const [formData, setFormData] = useState({
     ticketId: "",
     customerId: "",
@@ -24,14 +26,31 @@ export default function NewTicketPage() {
     complaint: "",
     priority: "",
     sla: "",
-    technician: "",
+    teamId: "",
     issueTime: "",
   })
   const [serviceTypes, setServiceTypes] = useState<{ id: string; name: string; speedMbps: number }[]>([])
   const [slaOptions, setSlaOptions] = useState<{ id: string; value: string }[]>([])
+  const [teams, setTeams] = useState<any[]>([])
+  const [customers, setCustomers] = useState<any[]>([])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+    
+    // When customer is selected, auto-fill customer details
+    if (field === "customerId" && value) {
+      const selectedCustomer = customers.find(c => c.id === value)
+      if (selectedCustomer) {
+        setFormData((prev) => ({
+          ...prev,
+          customerId: value,
+          customerName: selectedCustomer.name || "",
+          phone: selectedCustomer.phone?.[0] || "",
+          serviceTypeId: selectedCustomer.serviceTypeId || "",
+          splitter: selectedCustomer.splitter || "",
+        }))
+      }
+    }
   }
 
   const parseTicketFromPaste = (pastedText: string) => {
@@ -68,12 +87,10 @@ export default function NewTicketPage() {
       else if (serviceTypeLower === "enterprise") serviceTypeValue = "fiber-enterprise"
       else if (serviceTypeLower === "business") serviceTypeValue = "fiber-500"
       // Determine priority based on complaint keywords
-      let priority = "medium"
+      let priority = "normal"
       const complaintLower = complaint.toLowerCase()
-      if (complaintLower.includes("site down") || complaintLower.includes("down") || complaintLower.includes("outage")) {
-        priority = "critical"
-      } else if (complaintLower.includes("slow") || complaintLower.includes("degradation")) {
-        priority = "high"
+      if (complaintLower.includes("site down") || complaintLower.includes("down") || complaintLower.includes("outage") || complaintLower.includes("urgent")) {
+        priority = "urgent"
       }
 
     // Format date/time to datetime-local (YYYY-MM-DDTHH:mm)
@@ -94,7 +111,7 @@ export default function NewTicketPage() {
         complaint: complaint.trim(),
         priority: priority,
         sla: slaValue,
-        technician: "",
+        teamId: "",
         issueTime: formattedDateTime,
       })
 
@@ -138,8 +155,44 @@ export default function NewTicketPage() {
       }
     }
 
+    const fetchTeams = async () => {
+      try {
+        const res = await fetch(
+          process.env.NEXT_PUBLIC_BACKEND_URL + "/teams"
+        )
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch teams")
+        }
+
+        const data = await res.json()
+        setTeams(data)
+      } catch (error) {
+        console.error("Error fetching teams:", error)
+      }
+    }
+
+    const fetchCustomers = async () => {
+      try {
+        const res = await fetch(
+          process.env.NEXT_PUBLIC_BACKEND_URL + "/customers"
+        )
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch customers")
+        }
+
+        const data = await res.json()
+        setCustomers(data)
+      } catch (error) {
+        console.error("Error fetching customers:", error)
+      }
+    }
+
     fetchServiceTypes()
     fetchSlaOptions()
+    fetchTeams()
+    fetchCustomers()
   }, [])
 
 
@@ -159,20 +212,27 @@ export default function NewTicketPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ ...formData, isDraft }),
+        body: JSON.stringify({ 
+          ...formData, 
+          isDraft,
+          adminUserId: adminId,
+          priority: formData.priority,
+          issueTime: formData.issueTime,
+        }),
       });
 
       if (response.ok) {
         const result = await response.json();
         console.log('Ticket created:', result);
-        console.log('Service Type:', formData.serviceTypeId);
         router.push('/dashboard'); // Redirect to the dashboard after creation
       } else {
         const error = await response.json();
         console.error('Error creating ticket:', error);
+        alert(`Failed to create ticket: ${error.error || 'Unknown error'}`);
       }
     } catch (err) {
       console.error('Network error:', err);
+      alert('Network error: Failed to create ticket');
     }
   }
 
@@ -232,33 +292,41 @@ export default function NewTicketPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="customerId">Customer ID</Label>
-                    <Input
-                      id="customerId"
-                      placeholder="M1CDWS00029001"
+                    <Label htmlFor="customerId">Customer</Label>
+                    <Select
                       value={formData.customerId}
-                      onChange={(e) => handleInputChange("customerId", e.target.value)}
-                      required
-                    />
+                      onValueChange={(value) => handleInputChange("customerId", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select customer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customers.map((customer) => (
+                          <SelectItem key={customer.id} value={customer.id}>
+                            {customer.id} - {customer.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="customerName">Customer Name</Label>
                     <Input
                       id="customerName"
-                      placeholder="John Smith"
+                      placeholder="Auto-filled from customer selection"
                       value={formData.customerName}
                       onChange={(e) => handleInputChange("customerName", e.target.value)}
-                      required
+                      disabled
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="phone">Phone Number</Label>
                     <Input
                       id="phone"
-                      placeholder="09-440401401"
+                      placeholder="Auto-filled from customer selection"
                       value={formData.phone}
                       onChange={(e) => handleInputChange("phone", e.target.value)}
-                      required
+                      disabled
                     />
                   </div>
                 </div>
@@ -362,27 +430,26 @@ export default function NewTicketPage() {
                       <SelectValue placeholder="Select priority" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="critical">Critical</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="normal">Normal</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="technician">Assign Technician</Label>
+                  <Label htmlFor="teamId">Assign Team</Label>
                   <Select
-                    value={formData.technician}
-                    onValueChange={(value) => handleInputChange("technician", value)}
+                    value={formData.teamId}
+                    onValueChange={(value) => handleInputChange("teamId", value)}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select technician" />
+                      <SelectValue placeholder="Select team (optional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="mike-johnson">Mike Johnson</SelectItem>
-                      <SelectItem value="alex-chen">Alex Chen</SelectItem>
-                      <SelectItem value="sarah-davis">Sarah Davis</SelectItem>
-                      <SelectItem value="unassigned">Unassigned</SelectItem>
+                      {teams.map((team) => (
+                        <SelectItem key={team.id} value={team.id.toString()}>
+                          {team.name} (Leader: {team.leader?.name || 'N/A'})
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

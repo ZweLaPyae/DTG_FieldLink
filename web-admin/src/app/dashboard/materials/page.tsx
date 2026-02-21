@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Plus, Search, Edit, Trash2, Package, Ruler } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
+import { useAdminId } from "@/hooks/useAdminId"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +30,7 @@ interface Material {
 
 export default function MaterialsPage() {
   const router = useRouter()
+  const { adminId } = useAdminId()
   const [materials, setMaterials] = useState<Material[]>([])
   const [filteredMaterials, setFilteredMaterials] = useState<Material[]>([])
   const [searchQuery, setSearchQuery] = useState("")
@@ -74,6 +76,10 @@ export default function MaterialsPage() {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/materials/${deleteId}`, {
         method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ adminUserId: adminId }),
       })
 
       if (res.ok) {

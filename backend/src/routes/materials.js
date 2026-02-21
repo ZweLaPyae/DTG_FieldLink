@@ -1,5 +1,6 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
+import { logAdminAction } from '../lib/adminLogger.js';
 const router = express.Router();
 const prisma = new PrismaClient();
 
@@ -47,7 +48,7 @@ router.get('/:id', async (req, res) => {
 // POST create new material
 router.post('/', async (req, res) => {
   try {
-    const { name, unit, unitCost, referenceLength } = req.body;
+    const { name, unit, unitCost, referenceLength, adminUserId } = req.body;
 
     if (!name || !unit || unitCost === undefined) {
       return res.status(400).json({ error: 'Name, unit, and unitCost are required' });
@@ -72,6 +73,16 @@ router.post('/', async (req, res) => {
       },
     });
 
+    // Log the action
+    if (adminUserId) {
+      await logAdminAction(
+        parseInt(adminUserId),
+        'Created material',
+        `Created material: ${name}`,
+        { materialId: material.id, materialName: name }
+      );
+    }
+
     res.status(201).json(material);
   } catch (error) {
     console.error('Error creating material:', error);
@@ -83,7 +94,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, unit, unitCost, referenceLength } = req.body;
+    const { name, unit, unitCost, referenceLength, adminUserId } = req.body;
 
     // Check if material exists
     const existing = await prisma.materialCatalog.findUnique({
@@ -118,6 +129,16 @@ router.put('/:id', async (req, res) => {
       },
     });
 
+    // Log the action
+    if (adminUserId) {
+      await logAdminAction(
+        parseInt(adminUserId),
+        'Updated material',
+        `Updated material: ${name}`,
+        { materialId: parseInt(id), materialName: name }
+      );
+    }
+
     res.json(material);
   } catch (error) {
     console.error('Error updating material:', error);
@@ -129,6 +150,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const { adminUserId } = req.body;
 
     // Check if material exists
     const existing = await prisma.materialCatalog.findUnique({
@@ -142,6 +164,16 @@ router.delete('/:id', async (req, res) => {
     await prisma.materialCatalog.delete({
       where: { id: parseInt(id) },
     });
+
+    // Log the action
+    if (adminUserId) {
+      await logAdminAction(
+        parseInt(adminUserId),
+        'Deleted material',
+        `Deleted material: ${existing.name}`,
+        { materialId: parseInt(id), materialName: existing.name }
+      );
+    }
 
     res.json({ message: 'Material deleted successfully' });
   } catch (error) {

@@ -10,7 +10,8 @@ import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { useTheme } from "next-themes"
 import { usePathname, useRouter } from "next/navigation"
-import { signOut } from "next-auth/react"
+import { signOut, useSession } from "next-auth/react"
+import { NotificationDropdown } from "@/components/notification-dropdown"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -21,6 +22,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { theme, setTheme } = useTheme()
   const pathname = usePathname()
   const router = useRouter()
+  const { data: session } = useSession()
 
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: Home },
@@ -136,6 +138,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* Main content */}
       <div className={cn("transition-all duration-300", sidebarOpen ? "ml-64" : "ml-16")}>
+        {/* Header Bar with Notifications */}
+        <div className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="flex h-16 items-center px-6 justify-end space-x-4">
+            {session?.user?.id && <NotificationDropdown adminUserId={Number(session.user.id)} />}
+          </div>
+        </div>
+        
         <main className="p-6">{children}</main>
       </div>
     </div>

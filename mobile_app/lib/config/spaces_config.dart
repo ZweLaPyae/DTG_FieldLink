@@ -53,7 +53,7 @@ class SpacesConfig {
   // Generate file path for technician profile pictures
   static String getTechnicianProfilePath(String technicianId, String filename) {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    return 'technicians/$technicianId/$timestamp-$filename';
+    return 'profiles/technician-$technicianId/$timestamp-$filename';
   }
 
   // Get CDN URL for uploaded file

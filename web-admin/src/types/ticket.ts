@@ -18,6 +18,10 @@ export type Ticket = {
   wayToFix?: string | null; // Added to match backend response
   materialsUsed?: string | null; // Added to match backend response
   totalCost?: number | null; // Added to match backend response
-  attachments?: string | null; // Added to match backend response
+  attachments?: Array<{
+    name: string;
+    type: string;
+  }> | null; // Photos/videos from technicians
+  technicianCompletionTime?: string | null; // When technician completed work
   updates?: string | null; // Added to match backend response
 };

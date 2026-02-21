@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@aws-sdk/s3-request-presigner": "^3.991.0",
     "cors": "^2.8.5",
     "express": "^5.2.1",
     "iconv-lite": "^0.7.1"

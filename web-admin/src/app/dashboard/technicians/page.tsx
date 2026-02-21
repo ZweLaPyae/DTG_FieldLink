@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { UserCog, Plus, Search, Edit, Trash2, CheckCircle, AlertCircle, Mail, Copy, Loader2 } from "lucide-react"
 import { FaUser, FaUserTie } from "react-icons/fa"
+import { useAdminId } from "@/hooks/useAdminId"
 
 interface Technician {
   id: number
@@ -34,6 +35,7 @@ interface Team {
 }
 
 export default function TechniciansPage() {
+  const { adminId } = useAdminId()
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [technicianToDelete, setTechnicianToDelete] = useState<number | null>(null)
   const [technicians, setTechnicians] = useState<Technician[]>([])
@@ -139,6 +141,7 @@ export default function TechniciansPage() {
           email: emailValue,
           phone: phoneArray,
           picture: '',
+          adminUserId: adminId,
         }),
       })
 
@@ -224,6 +227,7 @@ export default function TechniciansPage() {
           email: emailValue,
           phone: phoneArray,
           picture: selectedTechnician.picture || '',
+          adminUserId: adminId,
         }),
       })
 
@@ -242,6 +246,10 @@ export default function TechniciansPage() {
       try {
         const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/technicians/${technicianToDelete}`, {
           method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ adminUserId: adminId }),
         })
 
         if (response.ok) {

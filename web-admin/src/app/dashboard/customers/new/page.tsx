@@ -9,9 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Save, User, Wifi } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
+import { useAdminId } from "@/hooks/useAdminId"
 
 export default function NewCustomerPage() {
   const router = useRouter()
+  const { adminId } = useAdminId()
   const [formData, setFormData] = useState({
     id: "",
     name: "",
@@ -60,6 +62,7 @@ export default function NewCustomerPage() {
         phone: formData.phone.trim() ? [formData.phone.trim()] : [],
         serviceTypeId: formData.serviceTypeId || null,
         splitter: formData.splitter || null,
+        adminUserId: adminId,
       }
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/customers`, {

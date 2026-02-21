@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Users, Plus, Search, Edit, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
+import { useAdminId } from "@/hooks/useAdminId"
 
 interface Customer {
   id: string
@@ -30,6 +31,7 @@ type SortOrder = "asc" | "desc"
 
 export default function CustomersPage() {
   const router = useRouter()
+  const { adminId } = useAdminId()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [isLoading, setIsLoading] = useState(true)
@@ -61,6 +63,10 @@ export default function CustomersPage() {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/customers/${id}`, {
         method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ adminUserId: adminId }),
       })
       if (response.ok) {
         fetchCustomers()

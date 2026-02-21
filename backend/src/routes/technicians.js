@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { createFirebaseUser, deleteFirebaseUser } from '../lib/firebase-admin.js';
 import { normalizePhone } from '../lib/phoneUtils.js';
 import { sendTechnicianWelcomeEmail } from '../lib/emailService.js';
+import { logAdminAction } from '../lib/adminLogger.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -60,7 +61,7 @@ router.get('/:id', async (req, res) => {
 // Create a new technician
 router.post('/', async (req, res) => {
   try {
-    const { name, email, phone, picture } = req.body;
+    const { name, email, phone, picture, adminUserId } = req.body;
 
     // Ensure phone is an array
     let phoneArray = [];
@@ -129,6 +130,16 @@ router.post('/', async (req, res) => {
       // Continue anyway - admin can share password manually
     }
 
+    // Log the action
+    if (adminUserId) {
+      await logAdminAction(
+        parseInt(adminUserId),
+        'Created technician',
+        `Created technician: ${name}`,
+        { technicianId: technician.id, technicianName: name, email }
+      );
+    }
+
     // Return technician without passwordHash, but include default password in response for admin to share
     const { passwordHash: _, ...technicianData } = technician;
 
@@ -148,7 +159,7 @@ router.post('/', async (req, res) => {
 // Update a technician by ID
 router.put('/:id', async (req, res) => {
   try {
-    const { name, email, phone, picture } = req.body;
+    const { name, email, phone, picture, adminUserId } = req.body;
 
     // Ensure phone is an array
     let phoneArray = [];
@@ -168,6 +179,16 @@ router.put('/:id', async (req, res) => {
       },
     });
 
+    // Log the action
+    if (adminUserId) {
+      await logAdminAction(
+        parseInt(adminUserId),
+        'Updated technician',
+        `Updated technician: ${name}`,
+        { technicianId: technician.id, technicianName: name, email }
+      );
+    }
+
     res.status(200).json(technician);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -177,6 +198,8 @@ router.put('/:id', async (req, res) => {
 // Delete a technician by ID
 router.delete('/:id', async (req, res) => {
   try {
+    const { adminUserId } = req.body;
+
     // Get technician email before deleting (for Firebase cleanup)
     const technician = await prisma.technician.findUnique({
       where: { id: parseInt(req.params.id) },
@@ -200,6 +223,16 @@ router.delete('/:id', async (req, res) => {
       // Continue anyway - deletion from DB is more important
     }
 
+    // Log the action
+    if (adminUserId) {
+      await logAdminAction(
+        parseInt(adminUserId),
+        'Deleted technician',
+        `Deleted technician: ${technician.name}`,
+        { technicianId: technician.id, technicianName: technician.name, email: technician.email }
+      );
+    }
+
     res.status(200).json({ message: 'Technician deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -210,7 +243,7 @@ router.delete('/:id', async (req, res) => {
 router.patch('/:id', async (req, res) => {
   try {
     const updates = {};
-    const allowedFields = ['name', 'phone', 'picture'];
+    const allowedFields = ['name', 'phone', 'picture', 'fcmToken'];
     
     // Only include allowed fields that are present in request
     allowedFields.forEach(field => {
@@ -306,6 +339,32 @@ router.post('/:id/change-password', async (req, res) => {
     res.status(200).json({ message: 'Password changed successfully' });
   } catch (error) {
     console.error('[Password Change] ERROR:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST - Update FCM token for push notifications
+router.post('/:id/fcm-token', async (req, res) => {
+  try {
+    const { fcmToken } = req.body;
+    const technicianId = parseInt(req.params.id);
+
+    if (!fcmToken) {
+      return res.status(400).json({ error: 'FCM token is required' });
+    }
+
+    console.log(`[FCM Token] Updating token for technician ${technicianId}`);
+
+    await prisma.technician.update({
+      where: { id: technicianId },
+      data: { fcmToken },
+    });
+
+    console.log(`[FCM Token] Successfully updated token for technician ${technicianId}`);
+
+    res.status(200).json({ message: 'FCM token updated successfully' });
+  } catch (error) {
+    console.error('[FCM Token] ERROR:', error);
     res.status(500).json({ error: error.message });
   }
 });
