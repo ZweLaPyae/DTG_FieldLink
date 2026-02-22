@@ -16,6 +16,8 @@ class ApiConfig {
   
   // If using physical device, set your computer's IP here:
   static const String _physicalDeviceIp = '192.168.1.100'; // TODO: Update with your IP
+
+  static const String _productionUrl = "https://api.dtg-fieldlink.site"; // TODO: Update with your production URL
   
   static String get baseUrl {
     switch (_environment) {
@@ -25,6 +27,8 @@ class ApiConfig {
         return 'http://localhost:$_port';
       case 'physical-device':
         return 'http://$_physicalDeviceIp:$_port';
+      case 'production':
+        return _productionUrl;
       default:
         return 'http://10.0.2.2:$_port';
     }

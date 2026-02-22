@@ -158,3 +158,9 @@ vite.config.ts.timestamp-*
 
 backup.sql
 *.sql
+# IDE files
+.idea/
+*.iml
+
+# Test/debug scripts
+backend/check-*.js

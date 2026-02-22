@@ -540,6 +540,7 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+<<<<<<< HEAD
 // Complete a ticket (for IN_REVIEW status)
 router.post('/:id/complete', async (req, res) => {
   try {
@@ -638,6 +639,32 @@ router.post('/:id/complete', async (req, res) => {
     res.status(200).json(updatedTicket);
   } catch (error) {
     console.error('Error completing ticket:', error);
+=======
+// Fetch splitterMap for a ticket
+router.get('/:id/splitter-map', async (req, res) => {
+  try {
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: req.params.id },
+      select: { customerId: true },
+    });
+
+    if (!ticket || !ticket.customerId) {
+      return res.status(404).json({ error: 'Ticket or associated customer not found' });
+    }
+
+    const customer = await prisma.customer.findUnique({
+      where: { id: ticket.customerId },
+      select: { splitterMap: true },
+    });
+
+    if (!customer || !customer.splitterMap) {
+      return res.status(404).json({ error: 'Splitter map not found for this customer' });
+    }
+
+    res.status(200).json({ splitterMap: customer.splitterMap });
+  } catch (error) {
+    console.error('Error fetching splitter map:', error);
+>>>>>>> main
     res.status(500).json({ error: error.message });
   }
 });

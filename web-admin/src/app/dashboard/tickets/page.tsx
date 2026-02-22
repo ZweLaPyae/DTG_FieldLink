@@ -21,8 +21,17 @@ export default function TicketsPage() {
   // Auto-select ticket from query parameter
   useEffect(() => {
     const ticketId = searchParams.get('selected')
+    const customerId = searchParams.get('customerId')
+    const customerName = searchParams.get('customerName')
+    
     if (ticketId) {
       setSelectedTicket(ticketId)
+    }
+    
+    if (customerName) {
+      setSearchQuery(customerName)
+    } else if (customerId) {
+      setSearchQuery(customerId)
     }
   }, [searchParams])
 

@@ -21,6 +21,8 @@ import adminLogsRoutes from './routes/adminLogs.js';
 import adminProfileRoutes from './routes/adminProfile.js';
 import notificationRoutes from './routes/notifications.js';
 import { startLogCleanupJob } from './scripts/logCleanupCron.js';
+import priorityRoutes from './routes/priority.js';
+import analyticsRoutes from './routes/analytics.js';
 
 dotenv.config();
 const app = express();
@@ -48,6 +50,7 @@ app.use('/sla-options', slaOptionsRoutes);
 app.use('/admin-logs', adminLogsRoutes);
 app.use('/admin-profile', adminProfileRoutes);
 app.use('/notifications', notificationRoutes);
+app.use('/analytics', analyticsRoutes);
 
 // Auth routes
 app.use('/auth', authRoutes);
@@ -56,6 +59,9 @@ app.use('/auth', authRoutes);
 // ⚠️ TODO: Configure DO Spaces in .env before using
 // Add DO_SPACES environment variables to backend/.env for file upload functionality
 app.use('/api/upload', uploadRoutes);
+
+// Use the priority routes
+app.use('/priority', priorityRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

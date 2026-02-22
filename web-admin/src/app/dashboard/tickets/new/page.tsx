@@ -33,6 +33,7 @@ export default function NewTicketPage() {
   const [slaOptions, setSlaOptions] = useState<{ id: string; value: string }[]>([])
   const [teams, setTeams] = useState<any[]>([])
   const [customers, setCustomers] = useState<any[]>([])
+  const [priorityOptions, setPriorityOptions] = useState<{ id: string; display: string }[]>([])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -189,10 +190,28 @@ export default function NewTicketPage() {
       }
     }
 
+    const fetchPriorityOptions = async () => {
+      try {
+        const res = await fetch(
+          process.env.NEXT_PUBLIC_BACKEND_URL + "/priority"
+        )
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch priority options")
+        }
+
+        const data = await res.json()
+        setPriorityOptions(data)
+      } catch (error) {
+        console.error("Error fetching priority options:", error)
+      }
+    }
+
     fetchServiceTypes()
     fetchSlaOptions()
     fetchTeams()
     fetchCustomers()
+    fetchPriorityOptions()
   }, [])
 
 
@@ -258,7 +277,7 @@ export default function NewTicketPage() {
           </CardHeader>
           <CardContent className="pt-6">
             <Textarea
-              placeholder="Paste ticket information here (e.g., MMI 225110592>> Site Down M1CDWS00029001 Wai Wai Thein SOHO 24 hrs N9 OLT 0/1/12/58 09-440401401 22/11/2025 09:25)"
+              placeholder="Paste ticket information here (e.g., MMI 225110592>> Site Down M1CDWS00029001 Wai Wai Thein SOHO 24 hrs N9 OLT 0/1/12/58  09-440401401 22/11/2025 09:25)"
               rows={2}
               onPaste={handlePaste}
               className="font-mono text-sm"
@@ -425,13 +444,20 @@ export default function NewTicketPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="priority">Priority Level</Label>
-                  <Select value={formData.priority} onValueChange={(value) => handleInputChange("priority", value)} required>
+                  <Select
+                    value={formData.priority}
+                    onValueChange={(value) => handleInputChange("priority", value)}
+                    required
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select priority" />
+                      <SelectValue placeholder="Select Priority" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="normal">Normal</SelectItem>
-                      <SelectItem value="urgent">Urgent</SelectItem>
+                      {priorityOptions.map((priority) => (
+                        <SelectItem key={priority.id} value={priority.id}>
+                          {priority.display}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

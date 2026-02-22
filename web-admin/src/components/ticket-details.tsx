@@ -520,7 +520,7 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
             <>
               <div className="space-y-3 col-span-2 shadow-sm p-4 rounded-md border border-border/50">
                 <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Break Times</h4>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {ticket.breakTimes.map((breakTime: any, idx: number) => {
                     const start = new Date(breakTime.start).toLocaleString(undefined, {
                       year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
@@ -528,6 +528,7 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
                     const end = new Date(breakTime.end).toLocaleString(undefined, {
                       year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
                     })
+                    
                     return (
                       <div key={idx} className="flex flex-col border rounded p-2 bg-muted/10">
                         {breakTime.reason && <span className="font-medium">Reason: {breakTime.reason}</span>}
