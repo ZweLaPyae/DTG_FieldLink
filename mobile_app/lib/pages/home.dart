@@ -15,7 +15,6 @@ import '../services/spaces_upload_service.dart';
 import '../services/firebase_auth_service.dart';
 import '../services/notification_service.dart';
 import 'ticket_detail.dart';
-import 'api_test_page.dart';
 import 'login_page.dart';
 import 'notifications_page.dart';
 
@@ -2215,73 +2214,6 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
                   ),
                 ],
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _statusSection(
-    String title,
-    int count,
-    Color color,
-    IconData icon,
-    bool isExpanded,
-    VoidCallback onToggle,
-  ) {
-    return InkWell(
-      onTap: onToggle,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [color.withOpacity(0.15), color.withOpacity(0.05)],
-          ),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3), width: 1.5),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: color,
-                ),
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                count.toString(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Icon(
-              isExpanded ? Icons.expand_less : Icons.expand_more,
-              color: color,
             ),
           ],
         ),
