@@ -9,7 +9,6 @@ import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import 'dart:math';
 import 'package:image_picker/image_picker.dart';
 import '../providers/tickets_provider.dart';
@@ -89,13 +88,6 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
     if (!_isEditable || ticket == null) return false;
     final status = ticket.status.toUpperCase();
     // Can only manage breaks when IN_PROGRESS
-    return status == 'IN_PROGRESS';
-  }
-
-  bool _canRequestReview(Ticket? ticket) {
-    if (!_isEditable || ticket == null) return false;
-    final status = ticket.status.toUpperCase();
-    // Can only request review when IN_PROGRESS
     return status == 'IN_PROGRESS';
   }
 
