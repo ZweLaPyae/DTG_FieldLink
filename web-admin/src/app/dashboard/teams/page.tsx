@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useAdminId } from "@/hooks/useAdminId"
 import {
   Select,
   SelectContent,
@@ -58,6 +59,7 @@ interface Technician {
 }
 
 export default function TeamsPage() {
+  const { adminId } = useAdminId()
   const [teams, setTeams] = useState<Team[]>([])
   const [technicians, setTechnicians] = useState<Technician[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -126,6 +128,7 @@ export default function TeamsPage() {
           specialization: formData.get("specialization") as string,
           location: formData.get("location") as string,
           status: "active",
+          adminUserId: adminId,
         }),
       })
 
@@ -164,6 +167,7 @@ export default function TeamsPage() {
           memberIds: memberIdsWithLeader,
           specialization: formData.get("specialization") as string,
           location: formData.get("location") as string,
+          adminUserId: adminId,
         }),
       })
 
@@ -189,6 +193,10 @@ export default function TeamsPage() {
       try {
         const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/teams/${teamToDelete}`, {
           method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ adminUserId: adminId }),
         })
 
         if (response.ok) {

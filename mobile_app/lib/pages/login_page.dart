@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
 import '../services/firebase_auth_service.dart';
+import '../services/notification_service.dart';
 import 'home.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -47,8 +48,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       );
 
       if (technician != null) {
-        // Save technician to auth provider
-        ref.read(authProvider.notifier).login(technician);
+        // Save technician to auth provider with persistent session
+        await ref.read(authProvider.notifier).login(technician);
+
+        // Register FCM token for push notifications
+        try {
+          await NotificationService.registerToken(technician.id, isAdmin: false);
+          print('✅ FCM token registered for technician ${technician.id}');
+        } catch (e) {
+          print('⚠️  Failed to register FCM token: $e');
+          // Continue anyway - notifications not critical for login
+        }
 
         // Navigate to home page
         if (mounted) {

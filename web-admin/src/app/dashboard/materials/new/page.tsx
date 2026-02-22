@@ -9,9 +9,11 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { ArrowLeft, Save, Package, Ruler } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
+import { useAdminId } from "@/hooks/useAdminId"
 
 export default function NewMaterialPage() {
   const router = useRouter()
+  const { adminId } = useAdminId()
   const [formData, setFormData] = useState({
     name: "",
     unit: "PIECE" as "PIECE" | "METER",
@@ -58,6 +60,7 @@ export default function NewMaterialPage() {
         unit: formData.unit,
         unitCost: parseFloat(formData.unitCost),
         referenceLength: formData.unit === "METER" ? parseFloat(formData.referenceLength) : null,
+        adminUserId: adminId,
       }
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/materials`, {

@@ -7,9 +7,17 @@
         android:label="mobile_app"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        
+        <!-- Google Maps API Key -->
         <meta-data
                 android:name="com.google.android.geo.API_KEY"
                 android:value="AIzaSyCq-4PpUWfhauL2EP-LlB2quLYEvWMU3Rs"/>
+        
+        <!-- Firebase Cloud Messaging - Default Notification Channel -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="default" />
+        
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -13,9 +13,11 @@ import '../widgets/loading_shimmer.dart';
 import '../widgets/primary_button.dart';
 import '../services/spaces_upload_service.dart';
 import '../services/firebase_auth_service.dart';
+import '../services/notification_service.dart';
 import 'ticket_detail.dart';
 import 'api_test_page.dart';
 import 'login_page.dart';
+import 'notifications_page.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -24,18 +26,82 @@ class HomePage extends ConsumerStatefulWidget {
   ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends ConsumerState<HomePage> {
+class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderStateMixin {
   final DataService dataService = DataService();
   final FirebaseAuthService _authService = FirebaseAuthService();
   int _currentIndex = 0;
   String _priorityFilter = 'all';
-  bool _sortAscending = true; // true = low to critical, false = critical to low
-  bool _inProgressExpanded = true; // Expanded by default
-  bool _inReviewExpanded = true;
-  bool _completedExpanded = false; // Not expanded by default
-  Map<String, dynamic>? _currentTeam; // Store current technician's team
-  bool _teamLoaded = false; // Track if team has been loaded
+  bool _sortAscending = true; // true = oldest to newest, false = newest to oldest
+  late TabController _tabController;
+  List<Map<String, dynamic>> _currentTeams = []; // Store current technician's teams
+  bool _teamLoaded = false; // Track if teams have been loaded
   String? _lastTechnicianId; // Track last technician to avoid reloading
+  int _notificationCount = 0; // Track notification count for badge
+  
+  // Store callback reference so we can remove it in dispose
+  late final Function() _notificationCallback;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      // Rebuild when tab changes to update badge colors
+      if (mounted) setState(() {});
+    });
+    
+    // Load initial notification count
+    _loadNotificationCount();
+    
+    // Create callback reference
+    _notificationCallback = () {
+      print('🔔 Notification received in HomePage, refreshing...');
+      _loadNotificationCount();
+      // Refresh current tab data
+      _refreshCurrentTab();
+    };
+    
+    // Register callback to refresh when notification arrives
+    addNotificationListener(_notificationCallback);
+  }
+
+  @override
+  void dispose() {
+    removeNotificationListener(_notificationCallback);
+    _tabController.dispose();
+    super.dispose();
+  }
+  
+  Future<void> _loadNotificationCount() async {
+    final authState = ref.read(authProvider);
+    final technicianId = authState.technician?.id;
+    
+    if (technicianId == null) return;
+    
+    try {
+      final data = await dataService.loadNotifications(int.parse(technicianId));
+      if (mounted) {
+        setState(() {
+          _notificationCount = data['unreadCount'] ?? 0;
+        });
+      }
+    } catch (e) {
+      print('Error loading notification count: $e');
+    }
+  }
+  
+  Future<void> _refreshCurrentTab() async {
+    if (!mounted) return;
+    
+    if (_currentIndex == 0) {
+      // Refresh tickets tab
+      await ref.read(ticketsProvider.notifier).loadTickets(forceRefresh: true);
+    } else if (_currentIndex == 1) {
+      // Refresh tasks tab
+      await ref.read(ticketsProvider.notifier).loadTickets(forceRefresh: true);
+    }
+    // Profile tab doesn't need auto-refresh
+  }
 
   Future<void> _loadTeamData(String technicianId) async {
     // Avoid reloading if already loaded for this technician
@@ -44,22 +110,23 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
 
     try {
-      print('Loading team data for technician: $technicianId');
-      final teamData = await dataService.getTeamForTechnician(
+      print('Loading teams data for technician: $technicianId');
+      final teamsData = await dataService.getTeamsForTechnician(
         int.parse(technicianId),
       );
       if (mounted) {
         setState(() {
-          _currentTeam = teamData;
+          _currentTeams = teamsData;
           _teamLoaded = true;
           _lastTechnicianId = technicianId;
         });
-        print('Loaded team for technician $technicianId: ${teamData?['name']}');
-        print('Team ID: ${teamData?['id']}');
-        print('Team role: ${teamData?['role']}');
+        print('Loaded ${teamsData.length} teams for technician $technicianId');
+        for (var team in teamsData) {
+          print('  - Team: ${team['name']} (ID: ${team['id']}, Role: ${team['role']})');
+        }
       }
     } catch (e) {
-      print('Error loading team: $e');
+      print('Error loading teams: $e');
       if (mounted) {
         setState(() {
           _teamLoaded = true;
@@ -144,16 +211,51 @@ class _HomePageState extends ConsumerState<HomePage> {
               ],
             ),
             actions: [
+              // Notification Bell with Badge
               IconButton(
-                icon: const Icon(Icons.bug_report, color: Colors.white),
-                tooltip: 'API Test',
-                onPressed: () {
-                  Navigator.push(
+                icon: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.notifications, color: Colors.white, size: 28),
+                    if (_notificationCount > 0)
+                      Positioned(
+                        right: -2,
+                        top: -2,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0xFF1976D2), width: 2),
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 20,
+                            minHeight: 20,
+                          ),
+                          child: Center(
+                            child: Text(
+                              _notificationCount > 99 ? '99+' : '$_notificationCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                tooltip: 'Notifications',
+                onPressed: () async {
+                  await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const ApiTestPage(),
+                      builder: (context) => const NotificationsPage(),
                     ),
                   );
+                  // Reload count after returning from notifications page
+                  _loadNotificationCount();
                 },
               ),
               PopupMenuButton<String>(
@@ -477,288 +579,432 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Widget _buildTasksTab() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
+    return RefreshIndicator(
+      onRefresh: () async {
+        await ref
+            .read(ticketsProvider.notifier)
+            .loadTickets(forceRefresh: true);
+      },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'My Tasks',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                ),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: Icon(
-                        _sortAscending
-                            ? Icons.arrow_upward
-                            : Icons.arrow_downward,
-                        color: const Color(0xFF2563EB),
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _sortAscending = !_sortAscending;
-                        });
-                      },
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'My Tasks',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              Row(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      _sortAscending
+                          ? Icons.arrow_upward
+                          : Icons.arrow_downward,
+                      color: const Color(0xFF2563EB),
                     ),
-                    PopupMenuButton<String>(
-                      icon: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2563EB).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.filter_list,
-                              size: 18,
+                    onPressed: () {
+                      setState(() {
+                        _sortAscending = !_sortAscending;
+                      });
+                    },
+                  ),
+                  PopupMenuButton<String>(
+                    icon: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2563EB).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.filter_list,
+                            size: 18,
+                            color: Color(0xFF2563EB),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _priorityFilter == 'all'
+                                ? 'All'
+                                : _priorityFilter.toUpperCase(),
+                            style: const TextStyle(
                               color: Color(0xFF2563EB),
+                              fontWeight: FontWeight.w600,
                             ),
-                            const SizedBox(width: 4),
-                            Text(
-                              _priorityFilter == 'all'
-                                  ? 'All'
-                                  : _priorityFilter.toUpperCase(),
-                              style: const TextStyle(
-                                color: Color(0xFF2563EB),
-                                fontWeight: FontWeight.w600,
+                          ),
+                        ],
+                      ),
+                    ),
+                    onSelected: (value) {
+                      setState(() {
+                        _priorityFilter = value;
+                      });
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'all',
+                        child: Text('All Priority'),
+                      ),
+                      const PopupMenuItem(
+                        value: 'normal',
+                        child: Text('Normal'),
+                      ),
+                      const PopupMenuItem(
+                        value: 'urgent',
+                        child: Text('Urgent'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Text('Assigned to you', style: TextStyle(color: Colors.grey)),
+        ),
+        const SizedBox(height: 12),
+        // TabBar with Badge Counts
+        Consumer(
+          builder: (context, ref, child) {
+            final ticketsAsync = ref.watch(ticketsProvider);
+            final authState = ref.watch(authProvider);
+            final currentTechnician = authState.technician;
+
+            return ticketsAsync.when(
+              data: (allTickets) {
+                // Filter tickets for current user
+                var tickets = allTickets.where((t) {
+                  final isNotNew = t.status.toUpperCase() != 'NEW';
+                  if (!isNotNew) return false;
+                  if (currentTechnician == null) return false;
+                  if (t.teamId == null) return false;
+
+                  bool isInAnyTeam = false;
+                  if (_currentTeams.isNotEmpty) {
+                    final ticketTeamId = t.teamId.toString();
+                    final memberTeamIds = _currentTeams
+                        .where((team) => team['id'] != null)
+                        .map((team) => team['id'].toString())
+                        .toList();
+                    isInAnyTeam = memberTeamIds.contains(ticketTeamId);
+                  }
+
+                  if (!isInAnyTeam) return false;
+                  if (_priorityFilter == 'all') return true;
+                  return t.priority.toLowerCase() == _priorityFilter;
+                }).toList();
+
+                final inProgressCount = tickets
+                    .where((t) => t.status.toUpperCase() == 'IN_PROGRESS')
+                    .length;
+                final inReviewCount = tickets
+                    .where((t) => t.status.toUpperCase() == 'IN_REVIEW')
+                    .length;
+                final completedCount = tickets
+                    .where((t) => t.status.toUpperCase() == 'COMPLETED')
+                    .length;
+
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!, width: 1),
+                  ),
+                  child: TabBar(
+                    controller: _tabController,
+                    indicator: BoxDecoration(
+                      color: const Color(0xFF2563EB),
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF2563EB).withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    dividerColor: Colors.transparent,
+                    labelColor: Colors.white,
+                    unselectedLabelColor: Colors.black87,
+                    labelStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    unselectedLabelStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    tabs: [
+                      Tab(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text('In Progress'),
+                            if (inProgressCount > 0) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _tabController.index == 0
+                                      ? Colors.white.withOpacity(0.3)
+                                      : const Color(0xFF3B82F6),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '$inProgressCount',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: _tabController.index == 0
+                                        ? Colors.white
+                                        : Colors.white,
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ),
-                      onSelected: (value) {
-                        setState(() {
-                          _priorityFilter = value;
-                        });
-                      },
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(
-                          value: 'all',
-                          child: Text('All Priority'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'normal',
-                          child: Text('Normal'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'urgent',
-                          child: Text('Urgent'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text('Assigned to you', style: TextStyle(color: Colors.grey)),
-          const SizedBox(height: 10),
-          Expanded(
-            child: Consumer(
-              builder: (context, ref, child) {
-                final ticketsAsync = ref.watch(ticketsProvider);
-                final authState = ref.watch(authProvider);
-                final currentTechnician = authState.technician;
-
-                return ticketsAsync.when(
-                  data: (allTickets) {
-                    print('Total tickets: ${allTickets.length}');
-                    print('Current technician ID: ${currentTechnician?.id}');
-                    print('Current team ID: ${_currentTeam?['id']}');
-                    print('Team loaded: $_teamLoaded');
-
-                    // Filter for assigned tickets: status NOT NEW and team matches
-                    var tickets = allTickets.where((t) {
-                      print('--- Checking ticket ${t.id} ---');
-                      print('  Status: ${t.status}');
-                      print('  Ticket TeamId: ${t.teamId}');
-
-                      // Check if ticket status is NOT NEW (any other status means assigned)
-                      final isNotNew = t.status.toUpperCase() != 'NEW';
-                      print('  Is not new status: $isNotNew');
-                      if (!isNotNew) {
-                        print('  REJECTED: Status is NEW');
-                        return false;
-                      }
-
-                      // Check if technician is logged in
-                      if (currentTechnician == null) {
-                        print('  REJECTED: No current technician');
-                        return false;
-                      }
-
-                      // Check if ticket has a team assigned
-                      if (t.teamId == null) {
-                        print('  REJECTED: Ticket has no team');
-                        return false;
-                      }
-
-                      // Check if current technician is part of the ticket's team
-                      // Compare ticket's teamId with current technician's team id
-                      bool isInTeam = false;
-                      if (_currentTeam != null && _currentTeam!['id'] != null) {
-                        final ticketTeamId = t.teamId.toString();
-                        final currentTeamId = _currentTeam!['id'].toString();
-                        isInTeam = ticketTeamId == currentTeamId;
-                        print(
-                          '  Ticket team: $ticketTeamId, Current team: $currentTeamId',
-                        );
-                        print('  Is in team: $isInTeam');
-                      } else {
-                        print('  Current technician has no team');
-                      }
-
-                      if (!isInTeam) {
-                        print('  REJECTED: Technician not in ticket\'s team');
-                        return false;
-                      }
-
-                      if (_priorityFilter == 'all') {
-                        print('  ACCEPTED: All priority filter');
-                        return true;
-                      }
-
-                      final priorityMatch =
-                          t.priority.toLowerCase() == _priorityFilter;
-                      print(
-                        '  Priority match: $priorityMatch (${t.priority.toLowerCase()} == $_priorityFilter)',
-                      );
-                      return priorityMatch;
-                    }).toList();
-
-                    print('Filtered tickets for tasks tab: ${tickets.length}');
-
-                    // Group tickets by status
-                    final inProgressTickets = tickets
-                        .where((t) => t.status.toUpperCase() == 'IN_PROGRESS')
-                        .toList();
-                    final inReviewTickets = tickets
-                        .where((t) => t.status.toUpperCase() == 'IN_REVIEW')
-                        .toList();
-                    final completedTickets = tickets
-                        .where((t) => t.status.toUpperCase() == 'COMPLETED')
-                        .toList();
-
-                    if (tickets.isEmpty) {
-                      return const Center(
-                        child: Text(
-                          'No assigned tasks',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      );
-                    }
-
-                    return ListView(
-                      children: [
-                        // In Progress Section
-                        if (inProgressTickets.isNotEmpty) ...[
-                          _statusSection(
-                            'In Progress',
-                            inProgressTickets.length,
-                            const Color(0xFF3B82F6),
-                            Icons.autorenew,
-                            _inProgressExpanded,
-                            () => setState(
-                              () => _inProgressExpanded = !_inProgressExpanded,
-                            ),
-                          ),
-                          if (_inProgressExpanded)
-                            ...inProgressTickets.map(
-                              (t) => _taskCard(
-                                context,
-                                t,
-                                const Color(0xFF3B82F6),
+                      Tab(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text('In Review'),
+                            if (inReviewCount > 0) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _tabController.index == 1
+                                      ? Colors.white.withOpacity(0.3)
+                                      : const Color(0xFFF59E0B),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '$inReviewCount',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: _tabController.index == 1
+                                        ? Colors.white
+                                        : Colors.white,
+                                  ),
+                                ),
                               ),
-                            ),
-                        ],
-                        // In Review Section
-                        if (inReviewTickets.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          _statusSection(
-                            'In Review',
-                            inReviewTickets.length,
-                            const Color(0xFFF59E0B),
-                            Icons.rate_review,
-                            _inReviewExpanded,
-                            () => setState(
-                              () => _inReviewExpanded = !_inReviewExpanded,
-                            ),
-                          ),
-                          if (_inReviewExpanded)
-                            ...inReviewTickets.map(
-                              (t) => _taskCard(
-                                context,
-                                t,
-                                const Color(0xFFF59E0B),
-                              ),
-                            ),
-                        ],
-                        // Completed Section
-                        if (completedTickets.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          _statusSection(
-                            'Completed',
-                            completedTickets.length,
-                            const Color(0xFF10B981),
-                            Icons.check_circle,
-                            _completedExpanded,
-                            () => setState(
-                              () => _completedExpanded = !_completedExpanded,
-                            ),
-                          ),
-                          if (_completedExpanded)
-                            ...completedTickets.map(
-                              (t) => _taskCard(
-                                context,
-                                t,
-                                const Color(0xFF10B981),
-                              ),
-                            ),
-                        ],
-                      ],
-                    );
-                  },
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (error, stack) => Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.error_outline,
-                          size: 48,
-                          color: Colors.red,
+                            ],
+                          ],
                         ),
-                        const SizedBox(height: 16),
-                        Text('Error: $error'),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () => ref
-                              .read(ticketsProvider.notifier)
-                              .loadTickets(forceRefresh: true),
-                          child: const Text('Retry'),
+                      ),
+                      Tab(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text('Complete'),
+                            if (completedCount > 0) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _tabController.index == 2
+                                      ? Colors.white.withOpacity(0.3)
+                                      : const Color(0xFF10B981),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '$completedCount',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: _tabController.index == 2
+                                        ? Colors.white
+                                        : Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 );
               },
-            ),
+              loading: () => Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Center(child: CircularProgressIndicator()),
+              ),
+              error: (_, __) => Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        // TabBarView
+        Expanded(
+          child: Consumer(
+            builder: (context, ref, child) {
+              final ticketsAsync = ref.watch(ticketsProvider);
+              final authState = ref.watch(authProvider);
+              final currentTechnician = authState.technician;
+
+              return ticketsAsync.when(
+                data: (allTickets) {
+                  // Filter for assigned tickets: status NOT NEW and team matches
+                  var tickets = allTickets.where((t) {
+                    // Check if ticket status is NOT NEW (any other status means assigned)
+                    final isNotNew = t.status.toUpperCase() != 'NEW';
+                    if (!isNotNew) return false;
+
+                    // Check if technician is logged in
+                    if (currentTechnician == null) return false;
+
+                    // Check if ticket has a team assigned
+                    if (t.teamId == null) return false;
+
+                    // Check if current technician is part of ANY team that has this ticket
+                    bool isInAnyTeam = false;
+                    if (_currentTeams.isNotEmpty) {
+                      final ticketTeamId = t.teamId.toString();
+                      final memberTeamIds = _currentTeams
+                          .where((team) => team['id'] != null)
+                          .map((team) => team['id'].toString())
+                          .toList();
+                      isInAnyTeam = memberTeamIds.contains(ticketTeamId);
+                    }
+
+                    if (!isInAnyTeam) return false;
+
+                    if (_priorityFilter == 'all') return true;
+
+                    return t.priority.toLowerCase() == _priorityFilter;
+                  }).toList();
+
+                  // Sort tickets by issue time
+                  tickets.sort((a, b) {
+                    if (a.issueTime == null && b.issueTime == null) return 0;
+                    if (a.issueTime == null) return 1;
+                    if (b.issueTime == null) return -1;
+                    return _sortAscending
+                        ? a.issueTime!.compareTo(b.issueTime!)
+                        : b.issueTime!.compareTo(a.issueTime!);
+                  });
+
+                  // Group tickets by status
+                  final inProgressTickets = tickets
+                      .where((t) => t.status.toUpperCase() == 'IN_PROGRESS')
+                      .toList();
+                  final inReviewTickets = tickets
+                      .where((t) => t.status.toUpperCase() == 'IN_REVIEW')
+                      .toList();
+                  final completedTickets = tickets
+                      .where((t) => t.status.toUpperCase() == 'COMPLETED')
+                      .toList();
+
+                  return TabBarView(
+                    controller: _tabController,
+                    children: [
+                      // In Progress Tab
+                      _buildTicketList(
+                        inProgressTickets,
+                        const Color(0xFF3B82F6),
+                        'No in-progress tasks',
+                      ),
+                      // In Review Tab
+                      _buildTicketList(
+                        inReviewTickets,
+                        const Color(0xFFF59E0B),
+                        'No tasks in review',
+                      ),
+                      // Completed Tab
+                      _buildTicketList(
+                        completedTickets,
+                        const Color(0xFF10B981),
+                        'No completed tasks',
+                      ),
+                    ],
+                  );
+                },
+                loading: () =>
+                    const Center(child: CircularProgressIndicator()),
+                error: (error, stack) => Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: Colors.red,
+                      ),
+                      const SizedBox(height: 16),
+                      Text('Error: $error'),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () => ref
+                            .read(ticketsProvider.notifier)
+                            .loadTickets(forceRefresh: true),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
-        ],
-      ),
+        ),
+      ],
+    ),
+    );
+  }
+
+  Widget _buildTicketList(List<Ticket> tickets, Color color, String emptyMessage) {
+    if (tickets.isEmpty) {
+      return Center(
+        child: Text(
+          emptyMessage,
+          style: const TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: tickets.length,
+      itemBuilder: (context, index) {
+        return _taskCard(context, tickets[index], color);
+      },
     );
   }
 
@@ -771,9 +1017,14 @@ class _HomePageState extends ConsumerState<HomePage> {
       return const Center(child: Text('No technician data available'));
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
+    return RefreshIndicator(
+      onRefresh: () async {
+        await ref.read(authProvider.notifier).refreshTechnician();
+        await ref.read(ticketsProvider.notifier).loadTickets(forceRefresh: true);
+      },
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
         children: [
           const SizedBox(height: 20),
           // Profile Picture with Edit Icon
@@ -1155,21 +1406,26 @@ class _HomePageState extends ConsumerState<HomePage> {
               _profileItem(Icons.badge, 'Employee ID', 'TECH-${technician.id}'),
               const Divider(height: 1),
               // Team information - fetch from API
-              FutureBuilder<Map<String, dynamic>?>(
-                future: dataService.getTeamForTechnician(
+              FutureBuilder<List<Map<String, dynamic>>>(
+                future: dataService.getTeamsForTechnician(
                   int.parse(technician.id),
                 ),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return _profileItem(Icons.groups, 'Team', 'Loading...');
-                  } else if (snapshot.hasData && snapshot.data != null) {
-                    final teamData = snapshot.data!;
-                    final teamName = teamData['name'] ?? 'Unknown Team';
-                    final role = teamData['role'] ?? 'Member';
+                    return _profileItem(Icons.groups, 'Teams', 'Loading...');
+                  } else if (snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty) {
+                    final teams = snapshot.data!;
+                    // Show first team with count if multiple
+                    final firstTeam = teams.first;
+                    final teamName = firstTeam['name'] ?? 'Unknown Team';
+                    final role = firstTeam['role'] ?? 'Member';
+                    final teamDisplay = teams.length > 1 
+                        ? '$teamName (+${teams.length - 1} more)'
+                        : teamName;
 
                     return Column(
                       children: [
-                        _profileItem(Icons.groups, 'Team', teamName),
+                        _profileItem(Icons.groups, 'Teams', teamDisplay),
                         const Divider(height: 1),
                         _profileItem(
                           Icons.workspace_premium,
@@ -1181,7 +1437,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   } else {
                     return Column(
                       children: [
-                        _profileItem(Icons.groups, 'Team', 'No Team Yet'),
+                        _profileItem(Icons.groups, 'Teams', 'No Team Yet'),
                         const Divider(height: 1),
                         _profileItem(
                           Icons.workspace_premium,
@@ -1203,14 +1459,20 @@ class _HomePageState extends ConsumerState<HomePage> {
 
               return ticketsAsync.when(
                 data: (tickets) {
-                  // Filter tickets by team membership, not individual technician
+                  // Filter tickets by any team membership
                   final myTeamTickets = tickets.where((t) {
-                    if (_currentTeam == null || _currentTeam!['id'] == null) {
+                    if (_currentTeams.isEmpty) {
                       return false;
                     }
                     if (t.teamId == null) return false;
-                    return t.teamId.toString() ==
-                        _currentTeam!['id'].toString();
+                    
+                    // Check if ticket belongs to any of the technician's teams
+                    final ticketTeamId = t.teamId.toString();
+                    final memberTeamIds = _currentTeams
+                        .where((team) => team['id'] != null)
+                        .map((team) => team['id'].toString())
+                        .toList();
+                    return memberTeamIds.contains(ticketTeamId);
                   }).toList();
 
                   final completedCount = myTeamTickets
@@ -1327,6 +1589,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -1653,12 +1916,15 @@ class _HomePageState extends ConsumerState<HomePage> {
                               'Accepting ticket ${t.id} for technician $techId',
                             );
 
-                            // Get the team ID for this technician
+                            // Get the first team ID for this technician
                             int? teamId;
-                            if (_currentTeam != null &&
-                                _currentTeam!['id'] != null) {
-                              teamId = _currentTeam!['id'] as int;
-                              print('Assigning ticket to team: $teamId');
+                            if (_currentTeams.isNotEmpty &&
+                                _currentTeams.first['id'] != null) {
+                              teamId = _currentTeams.first['id'] as int;
+                              print('Assigning ticket to team: $teamId (${_currentTeams.first['name']})');
+                              if (_currentTeams.length > 1) {
+                                print('Note: Technician is in ${_currentTeams.length} teams, using first one');
+                              }
                             } else {
                               print('WARNING: Technician has no team!');
                               if (context.mounted) {

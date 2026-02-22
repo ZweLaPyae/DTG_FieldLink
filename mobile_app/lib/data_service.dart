@@ -286,18 +286,19 @@ class DataService {
     }
   }
 
-  // Get team by technician ID
-  Future<Map<String, dynamic>?> getTeamForTechnician(int technicianId) async {
+  // Get all teams for a technician (since one technician can be in multiple teams)
+  Future<List<Map<String, dynamic>>> getTeamsForTechnician(int technicianId) async {
     try {
       final teams = await loadTeams();
+      final technicianTeams = <Map<String, dynamic>>[];
       
       // Check if technician is a team leader
       for (var team in teams) {
         if (team['leaderId'] == technicianId) {
-          return {
+          technicianTeams.add({
             ...team,
             'role': 'Leader',
-          };
+          });
         }
       }
       
@@ -305,14 +306,31 @@ class DataService {
       for (var team in teams) {
         final memberIds = team['memberIds'];
         if (memberIds is List && memberIds.contains(technicianId)) {
-          return {
-            ...team,
-            'role': 'Member',
-          };
+          // Check if not already added as leader
+          final alreadyAdded = technicianTeams.any((t) => t['id'] == team['id']);
+          if (!alreadyAdded) {
+            technicianTeams.add({
+              ...team,
+              'role': 'Member',
+            });
+          }
         }
       }
       
-      return null; // Not in any team
+      print('Found ${technicianTeams.length} teams for technician $technicianId');
+      return technicianTeams;
+    } catch (e) {
+      print('Error getting teams for technician: $e');
+      return [];
+    }
+  }
+
+  // DEPRECATED: Use getTeamsForTechnician instead
+  // Get team by technician ID (returns first team found)
+  Future<Map<String, dynamic>?> getTeamForTechnician(int technicianId) async {
+    try {
+      final teams = await getTeamsForTechnician(technicianId);
+      return teams.isNotEmpty ? teams.first : null;
     } catch (e) {
       print('Error getting team for technician: $e');
       return null;
@@ -361,6 +379,77 @@ class DataService {
       }
     } catch (e) {
       print('Error updating password: $e');
+      rethrow;
+    }
+  }
+
+  // Fetch notifications for a technician
+  Future<Map<String, dynamic>> loadNotifications(int technicianId, {int limit = 20, bool unreadOnly = false}) async {
+    try {
+      final url = '${ApiConfig.baseUrl}/notifications/technician/$technicianId?limit=$limit&unreadOnly=$unreadOnly';
+      final response = await http.get(Uri.parse(url));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        print('Loaded ${data['notifications'].length} notifications');
+        return data; // Returns { notifications: [...], unreadCount: X }
+      } else {
+        throw Exception('Failed to load notifications: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error loading notifications: $e');
+      rethrow;
+    }
+  }
+
+  // Mark notification(s) as read
+  Future<bool> markNotificationsAsRead({List<int>? notificationIds, int? userId, String? userType, bool markAll = false}) async {
+    try {
+      final url = '${ApiConfig.baseUrl}/notifications/mark-read';
+      final body = markAll && userId != null && userType != null
+          ? {'userId': userId, 'userType': userType, 'markAll': true}
+          : {'notificationIds': notificationIds};
+      
+      final response = await http.put(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(body),
+      );
+      
+      if (response.statusCode == 200) {
+        print('Notifications marked as read');
+        return true;
+      } else {
+        throw Exception('Failed to mark notifications as read');
+      }
+    } catch (e) {
+      print('Error marking notifications as read: $e');
+      rethrow;
+    }
+  }
+
+  // Delete notification(s)
+  Future<bool> deleteNotifications({List<int>? notificationIds, int? userId, String? userType, bool deleteAll = false}) async {
+    try {
+      final url = '${ApiConfig.baseUrl}/notifications';
+      final body = deleteAll && userId != null && userType != null
+          ? {'userId': userId, 'userType': userType, 'deleteAll': true}
+          : {'notificationIds': notificationIds};
+      
+      final response = await http.delete(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(body),
+      );
+      
+      if (response.statusCode == 200) {
+        print('Notifications deleted');
+        return true;
+      } else {
+        throw Exception('Failed to delete notifications');
+      }
+    } catch (e) {
+      print('Error deleting notifications: $e');
       rethrow;
     }
   }

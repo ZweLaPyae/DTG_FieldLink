@@ -7,8 +7,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { useState, useEffect } from "react"
-import { User, Phone, MapPin, Clock, AlertCircle, Wrench, FileText, Camera, Edit3 } from "lucide-react"
+import { User, Phone, MapPin, Clock, AlertCircle, Wrench, FileText, Camera, Edit3, CheckCircle, Image as ImageIcon, Video, Users } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useAdminId } from "@/hooks/useAdminId"
 
 interface TicketDetailsProps {
   ticketId: string
@@ -31,8 +32,14 @@ interface Ticket {
   wayToFix: string | null
   materialsUsed: any
   totalCost: number | null
-  attachments: any
+  teamId?: number | null
+  attachments?: Array<{
+    name: string
+    type: string
+  }>
   updates: any
+  technicianCompletionTime?: string | null
+  technicianNote?: string | null
   faultCoordinate?: any
   customer?: {
     id: string
@@ -40,6 +47,14 @@ interface Ticket {
     phone: string[]
     splitter: string | null
     serviceType?: {
+      name: string
+    }
+  }
+  team?: {
+    id: number
+    name: string
+    leaderId: number
+    leader: {
       name: string
     }
   }
@@ -60,10 +75,14 @@ interface Ticket {
 }
 
 export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: TicketDetailsProps) {
+  const { adminId, isLoading: isAdminLoading } = useAdminId()
   const [ticket, setTicket] = useState<Ticket | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [newUpdate, setNewUpdate] = useState("")
   const [newStatus, setNewStatus] = useState("")
+  const [isCompleting, setIsCompleting] = useState(false)
+  const [teams, setTeams] = useState<Array<{ id: number; name: string }>>([])
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("")
 
   useEffect(() => {
     const fetchTicket = async () => {
@@ -76,6 +95,12 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
           console.log("Materials used:", data.materialsUsed)
           console.log("Total cost:", data.totalCost)
           setTicket(data)
+          // Set selected team if ticket has one
+          if (data.teamId) {
+            setSelectedTeamId(data.teamId.toString())
+          } else {
+            setSelectedTeamId("")
+          }
         }
       } catch (error) {
         console.error("Error fetching ticket:", error)
@@ -84,9 +109,29 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
       }
     }
     if (ticketId) {
+      // Reset form fields when switching tickets
+      setNewUpdate("")
+      setNewStatus("")
+      setSelectedTeamId("")
       fetchTicket()
     }
   }, [ticketId])
+
+  // Fetch teams
+  useEffect(() => {
+    const fetchTeams = async () => {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/teams`)
+        if (response.ok) {
+          const data = await response.json()
+          setTeams(data)
+        }
+      } catch (error) {
+        console.error("Error fetching teams:", error)
+      }
+    }
+    fetchTeams()
+  }, [])
 
   const handleUpdateTicket = async () => {
     try {
@@ -95,6 +140,26 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
       // Only include status if it was changed
       if (newStatus && newStatus !== ticket?.status) {
         updateData.status = newStatus
+      }
+
+      // Include team assignment if changed
+      const currentTeamId = ticket?.teamId?.toString() || ""
+      if (selectedTeamId !== currentTeamId) {
+        if (selectedTeamId === "none" || selectedTeamId === "") {
+          updateData.teamId = null // Unassign team
+        } else {
+          updateData.teamId = parseInt(selectedTeamId)
+        }
+      }
+
+      // Include admin note if provided
+      if (newUpdate && newUpdate.trim()) {
+        if (!adminId) {
+          console.error('Cannot add notes: Admin ID not available')
+          return
+        }
+        updateData.adminNote = newUpdate.trim()
+        updateData.adminUserId = adminId
       }
 
       // If there's nothing to update, return early
@@ -116,6 +181,12 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
         if (getResponse.ok) {
           const enrichedTicket = await getResponse.json()
           setTicket(enrichedTicket)
+          // Update selected team to match the ticket
+          if (enrichedTicket.teamId) {
+            setSelectedTeamId(enrichedTicket.teamId.toString())
+          } else {
+            setSelectedTeamId("")
+          }
         }
         setNewStatus("")
         setNewUpdate("")
@@ -128,6 +199,76 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
       console.error("Error updating ticket:", error)
     }
   }
+
+  const handleCompleteTicket = async () => {
+    try {
+      setIsCompleting(true)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets/${ticketId}/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          adminUserId: adminId,
+        }),
+      })
+
+      if (response.ok) {
+        // Re-fetch the ticket
+        const getResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets/${ticketId}`)
+        if (getResponse.ok) {
+          const enrichedTicket = await getResponse.json()
+          setTicket(enrichedTicket)
+        }
+        // Notify parent to refresh the ticket list
+        if (onTicketUpdate) {
+          onTicketUpdate()
+        }
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to complete ticket')
+      }
+    } catch (error) {
+      console.error("Error completing ticket:", error)
+      alert('Failed to complete ticket')
+    } finally {
+      setIsCompleting(false)
+    }
+  }
+
+  // Calculate total hours and working hours
+  const calculateHours = () => {
+    if (!ticket?.startTime || !ticket?.completionTime) {
+      return { totalHours: null, workingHours: null }
+    }
+
+    const startTime = new Date(ticket.startTime)
+    const completionTime = new Date(ticket.completionTime)
+    
+    // Calculate total hours (in hours with 2 decimal places)
+    const totalHours = (completionTime.getTime() - startTime.getTime()) / (1000 * 60 * 60)
+    
+    // Calculate break time total (in hours)
+    let breakTimeHours = 0
+    if (ticket.breakTimes && Array.isArray(ticket.breakTimes)) {
+      breakTimeHours = ticket.breakTimes.reduce((total, breakTime) => {
+        const breakStart = new Date(breakTime.start)
+        const breakEnd = new Date(breakTime.end)
+        const breakDuration = (breakEnd.getTime() - breakStart.getTime()) / (1000 * 60 * 60)
+        return total + breakDuration
+      }, 0)
+    }
+    
+    // Calculate working hours
+    const workingHours = totalHours - breakTimeHours
+    
+    return {
+      totalHours: totalHours.toFixed(2),
+      workingHours: workingHours.toFixed(2)
+    }
+  }
+
+  const { totalHours, workingHours } = calculateHours()
 
   if (isLoading) {
     return (
@@ -214,8 +355,17 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
                 {ticket.startTime && (
                   <span className="text-muted-foreground">Start Time: <span className="text-foreground">{new Date(ticket.startTime).toLocaleString()}</span></span>
                 )}
+                {ticket.technicianCompletionTime && (
+                  <span className="text-muted-foreground">Technician Completed: <span className="text-foreground">{new Date(ticket.technicianCompletionTime).toLocaleString()}</span></span>
+                )}
                 {ticket.completionTime && (
-                  <span className="text-muted-foreground">Completion Time: <span className="text-foreground">{new Date(ticket.completionTime).toLocaleString()}</span></span>
+                  <span className="text-muted-foreground">Admin Completed: <span className="text-foreground">{new Date(ticket.completionTime).toLocaleString()}</span></span>
+                )}
+                {totalHours && (
+                  <span className="text-muted-foreground">Total Hours: <span className="text-foreground font-medium">{totalHours} hrs</span></span>
+                )}
+                {workingHours && (
+                  <span className="text-muted-foreground">Working Hours: <span className="text-foreground font-medium">{workingHours} hrs</span></span>
                 )}
               </div>
               {ticket.technician && (
@@ -270,8 +420,8 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
                             {material.name || `Material ID: ${material.materialId}`}
                             {material.quantity && ` × ${material.quantity}`}
                           </span>
-                          {material.unitCost && material.quantity && (
-                            <span className="font-medium">MMK{(material.unitCost * material.quantity).toFixed(2)}</span>
+                          {material.cost && (
+                            <span className="font-medium">MMK{material.cost.toFixed(2)}</span>
                           )}
                         </div>
                       ))}
@@ -291,53 +441,45 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
             </>
           )}
 
-          {/* Attachments */}
+          {/* Attachments (Photos/Videos from Technicians) */}
           {ticket.attachments && Array.isArray(ticket.attachments) && ticket.attachments.length > 0 && (
             <>
-              <div className="space-y-3 col-span-2 shadow-sm p-4 rounded-md border border-border/50">
-                <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Attachments</h4>
+              <div className="space-y-3 col-span-4 shadow-sm p-4 rounded-md border border-border/50">
+                <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Fault Media (from Technician)</h4>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {ticket.attachments.map((attachment: any, index: number) => {
-                    const url = typeof attachment === 'string' ? attachment : attachment.name;
-                    const isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(url);
-                    
-                    if (isImage) {
-                      return (
-                        <a 
-                          key={index} 
-                          href={url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="relative group overflow-hidden rounded-lg border border-border/50 hover:border-primary transition-colors"
-                        >
-                          <img 
-                            src={url} 
+                  {ticket.attachments.map((attachment: any, index: number) => (
+                    <div key={index} className="relative group">
+                      {attachment.type === 'image' ? (
+                        <div className="relative aspect-square rounded-lg overflow-hidden border border-border/50 hover:border-primary/50 transition-colors">
+                          <img
+                            src={attachment.name}
                             alt={`Attachment ${index + 1}`}
-                            className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-200"
+                            className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
+                            onClick={() => window.open(attachment.name, '_blank')}
                           />
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                        </a>
-                      );
-                    }
-                    
-                    return (
-                      <a
-                        key={index}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center space-x-2 text-sm p-3 rounded-lg border border-border/50 hover:border-primary transition-colors"
-                      >
-                        <Camera className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                        <span className="text-primary hover:underline truncate">
-                          {url.split('/').pop()}
-                        </span>
-                      </a>
-                    );
-                  })}
+                          <div className="absolute top-2 right-2 bg-black/50 rounded-full p-1">
+                            <ImageIcon className="w-4 h-4 text-white" />
+                          </div>
+                        </div>
+                      ) : attachment.type === 'video' ? (
+                        <div className="relative aspect-square rounded-lg overflow-hidden border border-border/50 hover:border-primary/50 transition-colors">
+                          <video
+                            src={attachment.name}
+                            className="w-full h-full object-cover cursor-pointer"
+                            controls
+                          />
+                          <div className="absolute top-2 right-2 bg-black/50 rounded-full p-1">
+                            <Video className="w-4 h-4 text-white" />
+                          </div>
+                        </div>
+                      ) : null}
+                      <p className="text-xs text-muted-foreground mt-1 truncate">
+                        {attachment.type === 'image' ? 'Photo' : 'Video'} {index + 1}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
-
             </>
           )}
 
@@ -358,6 +500,21 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
             </>
           )}
 
+          {/* Technician Notes */}
+          {ticket.technicianNote && (
+            <>
+              <div className="space-y-3 col-span-4 shadow-sm p-4 rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
+                <h4 className="font-semibold text-sm text-blue-700 dark:text-blue-300 uppercase tracking-wide flex items-center">
+                  <FileText className="w-4 h-4 mr-2" />
+                  Technician Notes
+                </h4>
+                <div className="text-sm whitespace-pre-wrap bg-white dark:bg-gray-900 p-3 rounded border border-border/50">
+                  {ticket.technicianNote}
+                </div>
+              </div>
+            </>
+          )}
+
           {/* Break Times */}
           {ticket.breakTimes && Array.isArray(ticket.breakTimes) && ticket.breakTimes.length > 0 && (
             <>
@@ -365,85 +522,18 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
                 <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Break Times</h4>
                 <div className="space-y-3">
                   {ticket.breakTimes.map((breakTime: any, idx: number) => {
-                    const startDate = new Date(breakTime.start)
-                    const endDate = new Date(breakTime.end)
-                    const durationMs = endDate.getTime() - startDate.getTime()
-                    const durationMinutes = Math.round(durationMs / (1000 * 60))
-                    const durationHours = Math.floor(durationMinutes / 60)
-                    const remainingMinutes = durationMinutes % 60
-                    
-                    // Calculate gap from previous break
-                    let gapText = null
-                    if (idx > 0 && ticket.breakTimes) {
-                      const prevBreak = ticket.breakTimes[idx - 1]
-                      const prevEnd = new Date(prevBreak.end)
-                      const gapMs = startDate.getTime() - prevEnd.getTime()
-                      const gapMinutes = Math.round(gapMs / (1000 * 60))
-                      const gapHours = Math.floor(gapMinutes / 60)
-                      const gapRemainingMinutes = gapMinutes % 60
-                      
-                      if (gapHours > 0) {
-                        gapText = `${gapHours}h ${gapRemainingMinutes}m gap`
-                      } else {
-                        gapText = `${gapMinutes}m gap`
-                      }
-                    }
-                    
-                    const durationDisplay = durationHours > 0 
-                      ? `${durationHours}h ${remainingMinutes}m` 
-                      : `${durationMinutes}m`
-                    
-                    // Color code based on duration
-                    const durationColor = durationMinutes > 60 
-                      ? 'bg-red-100 text-red-700 border-red-300' 
-                      : durationMinutes > 30 
-                        ? 'bg-orange-100 text-orange-700 border-orange-300'
-                        : 'bg-blue-100 text-blue-700 border-blue-300'
-                    
-                    const start = startDate.toLocaleString(undefined, {
+                    const start = new Date(breakTime.start).toLocaleString(undefined, {
                       year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
                     })
-                    const end = endDate.toLocaleString(undefined, {
+                    const end = new Date(breakTime.end).toLocaleString(undefined, {
                       year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
                     })
                     
                     return (
-                      <div key={idx}>
-                        {/* Gap indicator */}
-                        {gapText && (
-                          <div className="flex items-center justify-center py-1 mb-2">
-                            <div className="flex items-center space-x-2 text-xs text-muted-foreground">
-                              <div className="h-px w-8 bg-border"></div>
-                              <Clock className="w-3 h-3" />
-                              <span>{gapText} between breaks</span>
-                              <div className="h-px w-8 bg-border"></div>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Break time card */}
-                        <div className="flex flex-col border rounded-lg p-3 bg-muted/10 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium text-sm">Reason: {breakTime.reason || 'Not specified'}</span>
-                            <Badge className={cn("text-xs font-semibold", durationColor)}>
-                              {durationDisplay}
-                            </Badge>
-                          </div>
-                          <div className="flex flex-col text-xs text-muted-foreground space-y-1">
-                            <span>Start: {start}</span>
-                            <span>End: {end}</span>
-                          </div>
-                          {/* Visual duration bar */}
-                          <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
-                            <div 
-                              className={cn(
-                                "h-1.5 rounded-full",
-                                durationMinutes > 60 ? "bg-red-500" : durationMinutes > 30 ? "bg-orange-500" : "bg-blue-500"
-                              )}
-                              style={{ width: `${Math.min((durationMinutes / 120) * 100, 100)}%` }}
-                            ></div>
-                          </div>
-                        </div>
+                      <div key={idx} className="flex flex-col border rounded p-2 bg-muted/10">
+                        {breakTime.reason && <span className="font-medium">Reason: {breakTime.reason}</span>}
+                        <span className="text-sm text-muted-foreground">Start: {start}</span>
+                        <span className="text-sm text-muted-foreground">End: {end}</span>
                       </div>
                     )
                   })}
@@ -454,26 +544,104 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
 
           {/* Status Update */}
           <div className="space-y-3 col-span-4 shadow-sm p-4 rounded-md border border-border/50">
-            <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Update Status</h4>
-            <Select value={newStatus || ticket.status} onValueChange={setNewStatus}>
-              <SelectTrigger>
-                <SelectValue placeholder="Change status..." />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.keys(statusColors).map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {status.replace("_", " ")}
+            <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Update Ticket</h4>
+            
+            {/* Complete Ticket Button for IN_REVIEW status */}
+            {ticket.status === 'IN_REVIEW' && (
+              <Button 
+                className="w-full mb-4" 
+                onClick={handleCompleteTicket}
+                disabled={isCompleting}
+                variant="default"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                {isCompleting ? 'Completing...' : 'Complete Ticket'}
+              </Button>
+            )}
+
+            {/* Current Team Display */}
+            {ticket.team && (
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+                  <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-blue-600 dark:text-blue-400">Current Team</p>
+                  <p className="text-sm font-semibold text-blue-900 dark:text-blue-100 truncate">
+                    {ticket.team.name} (Leader: {ticket.team.leader.name})
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Team Assignment */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Assign Team
+              </label>
+              <Select 
+                value={selectedTeamId || (ticket.teamId?.toString() || "none")} 
+                onValueChange={setSelectedTeamId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select team..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground italic">No Team (Unassign)</span>
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Textarea
-              placeholder="Add update notes..."
-              value={newUpdate}
-              onChange={(e) => setNewUpdate(e.target.value)}
-              rows={3}
-            />
-            <Button className="w-full" onClick={handleUpdateTicket}>
+                  {teams.map((team) => (
+                    <SelectItem key={team.id} value={team.id.toString()}>
+                      {team.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {selectedTeamId === "none" || selectedTeamId === "" 
+                  ? "Ticket will be unassigned and visible to all technicians"
+                  : selectedTeamId !== (ticket.teamId?.toString() || "")
+                  ? "Team will be changed when you click Update Ticket"
+                  : "Current team assignment"}
+              </p>
+            </div>
+
+            <Separator />
+
+            {/* Status Change */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Change Status</label>
+              <Select value={newStatus || ticket.status} onValueChange={setNewStatus}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Change status..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.keys(statusColors).map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status.replace("_", " ")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Admin Notes */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Add Admin Notes</label>
+              <Textarea
+                placeholder="Add update notes (optional)..."
+                value={newUpdate}
+                onChange={(e) => setNewUpdate(e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            <Button 
+              className="w-full" 
+              onClick={handleUpdateTicket}
+              disabled={isAdminLoading || (!!newUpdate.trim() && !adminId)}
+            >
               <Edit3 className="w-4 h-4 mr-2" />
               Update Ticket
             </Button>

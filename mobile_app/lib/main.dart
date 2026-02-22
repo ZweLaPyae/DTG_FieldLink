@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart'; // Firebase initialization
 import 'config/app_theme.dart';
 import 'pages/login_page.dart';
 import 'config/firebase_config.dart'; // Firebase config
+import 'services/notification_service.dart'; // Push notifications
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,6 +25,10 @@ void main() async {
       print('⚠️ Update values in lib/config/firebase_config.dart');
       print('⚠️ Firebase configuration error - contact administrator');
     }
+    
+    // Initialize push notifications (FCM)
+    await NotificationService.initialize();
+    print('✅ Push notifications initialized');
   } catch (e) {
     print('❌ Firebase initialization failed: $e');
     print('⚠️ Make sure google-services.json is in android/app/');

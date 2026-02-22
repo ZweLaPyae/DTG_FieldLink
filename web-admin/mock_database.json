@@ -66,10 +66,8 @@
   "sla_options": ["1-hour", "2-hours", "4-hours", "6-hours", "24-hours"],
 
   "priorities": [
-    { "id": "low", "display": "Low" },
-    { "id": "medium", "display": "Medium" },
-    { "id": "high", "display": "High" },
-    { "id": "critical", "display": "Critical" }
+    { "id": "normal", "display": "Normal" },
+    { "id": "urgent", "display": "Urgent" }
   ],
 
   "root_causes": [
