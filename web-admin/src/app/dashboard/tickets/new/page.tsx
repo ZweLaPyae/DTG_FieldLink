@@ -57,7 +57,7 @@ export default function NewTicketPage() {
     // Format: ticket id>> complaint description Customer ID Customer Name Service Type ?hrs Splitter Information phone number issue date&time
     // Example: MMI 225110592>> Site Down M1CDWS00029001 Wai Wai Thein SOHO 24 hrs N9 OLT 0/1/12/58  09-440401401 22/11/2025 09:25
 
-    const ticketPattern = /^([A-Z]{3}\s+\d+)\s*>>\s*(.+?)\s+(M1[A-Z0-9]+)\s+((?:HTK\s+)?[A-Z](?:[a-z]+|\s)+(?:\s+[A-Z][a-z]+)*)\s+(SOHO|Enterprise|Business|HTK)\s+(\d+)\s*hrs?\s+(N\d+\s+OLT\s+[\d/]+)\s+([\d\-/]+(?:\/[\d\-]+)?)\s+([\d/]+\s+[\d:]+)/i
+    const ticketPattern = /^([A-Z]{3}\s+\d+)\s*>>\s*(.+?)\s+(M1[A-Z0-9]+)\s+(.+?)\s+(SOHO|Enterprise|Business|HTK)\s+(\d+)\s*hrs?\s+(N\d+\s+OLT\s+[\d\s/]+)\s+([\d\-/]+)\s+([\d/]+\s+[\d:]+)/i
 
     const match = pastedText.trim().match(ticketPattern)
 
@@ -81,6 +81,7 @@ export default function NewTicketPage() {
       if (serviceTypeLower === "soho" || serviceTypeLower === "htk") serviceTypeValue = "soho"
       else if (serviceTypeLower === "enterprise") serviceTypeValue = "fiber-enterprise"
       else if (serviceTypeLower === "business") serviceTypeValue = "fiber-500"
+      
       // Determine priority based on complaint keywords
       let priority = "normal"
       const complaintLower = complaint.toLowerCase()
@@ -96,13 +97,19 @@ export default function NewTicketPage() {
       formattedDateTime = `${year}-${month}-${day}T${hour}:${minute}`
     }
 
+      // Clean up the splitter by removing extra spaces
+      const cleanedSplitter = splitter.replace(/\s+/g, ' ').trim()
+
+      // Clean up customer name by removing extra underscores
+      const cleanedCustomerName = customerName.replace(/_/g, '').replace(/\s+/g, ' ').trim()
+
       setFormData({
         ticketId: ticketId.trim(),
         customerId: customerId.trim(),
-        customerName: customerName.trim(),
+        customerName: cleanedCustomerName,
         phone: phone.trim(),
-        serviceTypeId: serviceTypeId,
-        splitter: splitter.trim(),
+        serviceTypeId: serviceTypeValue, // Use the mapped value, not the raw text
+        splitter: cleanedSplitter,
         complaint: complaint.trim(),
         priority: priority,
         teamId: "",

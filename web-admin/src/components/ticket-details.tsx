@@ -203,16 +203,17 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
   const handleCompleteTicket = async () => {
     try {
       setIsCompleting(true)
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets/${ticketId}/complete`, {
-        method: 'POST',
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets/${ticketId}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          status: 'COMPLETED',
+          completionTime: new Date().toISOString(),
           adminUserId: adminId,
         }),
       })
-
       if (response.ok) {
         // Re-fetch the ticket
         const getResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets/${ticketId}`)

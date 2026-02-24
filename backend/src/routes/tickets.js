@@ -16,7 +16,6 @@ router.post('/', upload.array('attachments', 10), async (req, res) => {
       ticketId,
       customerId,
       complaint,
-      sla,
       issueTime,
       priority,
 
@@ -72,7 +71,6 @@ router.post('/', upload.array('attachments', 10), async (req, res) => {
           id: ticketId,
           customerId,
           complaint,
-          sla,
           issueTime: new Date(issueTime),
           status: teamId ? 'IN_PROGRESS' : 'NEW', // If team is assigned, set to IN_PROGRESS
           priorityId: priority,
@@ -192,7 +190,6 @@ router.get('/', async (req, res) => {
       id: t.id,
       complaint: t.complaint,
       status: t.status,
-      sla: t.sla,
       issueTime: t.issueTime,
       startTime: t.startTime,
       completionTime: t.completionTime,
