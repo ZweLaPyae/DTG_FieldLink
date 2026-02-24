@@ -60,7 +60,6 @@ router.get('/', async (req, res) => {
       technicians,
       teams,
       materialCatalog,
-      slaOptions,
     ] = await Promise.all([
       // Current period tickets
       prisma.ticket.findMany({
@@ -93,7 +92,6 @@ router.get('/', async (req, res) => {
       prisma.technician.findMany(),
       prisma.team.findMany(),
       prisma.materialCatalog.findMany(),
-      prisma.sLAOption.findMany(),
     ]);
 
     // Calculate completed tickets
@@ -201,29 +199,6 @@ router.get('/', async (req, res) => {
         materials: Math.round(materialCosts),
         labor: Math.round(laborCosts),
         total: Math.round(materialCosts + laborCosts),
-      };
-    });
-
-    // Calculate SLA performance
-    const slaPerformance = slaOptions.map(sla => {
-      const slaTickets = tickets.filter(ticket => ticket.sla === sla.id && ticket.status === 'COMPLETED');
-      const metSLA = slaTickets.filter(ticket => {
-        if (ticket.issueTime && ticket.completionTime) {
-          const hours = getHoursBetween(ticket.issueTime, ticket.completionTime);
-          const targetHours = parseInt(sla.id);
-          return hours <= targetHours;
-        }
-        return false;
-      });
-
-      const metPercentage = slaTickets.length > 0 
-        ? Math.round((metSLA.length / slaTickets.length) * 100) 
-        : 100;
-
-      return {
-        sla: sla.id,
-        met: metPercentage,
-        missed: 100 - metPercentage,
       };
     });
 
@@ -387,7 +362,6 @@ router.get('/', async (req, res) => {
       rootCauseData,
       technicianPerformance,
       costAnalysis,
-      slaPerformance,
       serviceAreaData,
       topCustomers,
       topMaterials,

@@ -15,7 +15,6 @@ import technicianRoutes from './routes/technicians.js';
 import teamRoutes from './routes/teams.js';
 import rootCauseRoutes from './routes/rootcauses.js';
 import materialRoutes from './routes/materials.js';
-import slaOptionsRoutes from './routes/sla-options.js';
 import uploadRoutes from './routes/upload.js'; // File upload routes for DO Spaces
 import adminLogsRoutes from './routes/adminLogs.js';
 import adminProfileRoutes from './routes/adminProfile.js';
@@ -46,7 +45,6 @@ app.use('/technicians', technicianRoutes);
 app.use('/teams', teamRoutes);
 app.use('/rootcauses', rootCauseRoutes);
 app.use('/materials', materialRoutes);
-app.use('/sla-options', slaOptionsRoutes);
 app.use('/admin-logs', adminLogsRoutes);
 app.use('/admin-profile', adminProfileRoutes);
 app.use('/notifications', notificationRoutes);

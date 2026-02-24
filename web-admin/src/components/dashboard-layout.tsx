@@ -5,7 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { FaUsers, FaUserTie } from "react-icons/fa"
-import { Menu, X, Home, Ticket, BarChart3, Settings, LogOut, Wifi, Sun, Moon, UserCog, Building2, Users, Package } from "lucide-react"
+import { Menu, X, Home, Ticket, BarChart3, LogOut, Wifi, Sun, Moon, UserCog, Building2, Users, Package } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { useTheme } from "next-themes"
@@ -33,7 +33,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: "Team", href: "/dashboard/teams", icon: FaUsers },
     { name: "Technicians", href: "/dashboard/technicians", icon: FaUserTie },
     { name: "Admin Management", href: "/dashboard/admin-management", icon: UserCog },
-    { name: "Settings", href: "/dashboard/settings", icon: Settings },
   ]
 
   const handleLogout = async () => {

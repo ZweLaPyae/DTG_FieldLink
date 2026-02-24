@@ -126,7 +126,7 @@ export function TicketList({
                 <div>
                   <p className="text-sm font-medium">{ticket.complaint}</p>
                   <p className="text-xs text-muted-foreground">
-                    Assigned to: {ticket.technician_display || "Unassigned"} • SLA: {ticket.sla}
+                    Assigned to: {ticket.technician_display || "Unassigned"}
                   </p>
                 </div>
               </div>

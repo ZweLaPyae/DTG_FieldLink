@@ -203,16 +203,17 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
   const handleCompleteTicket = async () => {
     try {
       setIsCompleting(true)
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets/${ticketId}/complete`, {
-        method: 'POST',
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets/${ticketId}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          status: 'COMPLETED',
+          completionTime: new Date().toISOString(),
           adminUserId: adminId,
         }),
       })
-
       if (response.ok) {
         // Re-fetch the ticket
         const getResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets/${ticketId}`)
@@ -345,10 +346,6 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
                   <p className="font-medium">{ticket.complaint}</p>
                   <p className="text-sm text-muted-foreground">Service: {ticket.customer?.serviceType?.name || "-"}</p>
                 </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Clock className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm">SLA: {ticket.sla}</span>
               </div>
               <div className="flex flex-col space-y-1 text-sm">
                 <span className="text-muted-foreground">Issue Time: <span className="text-foreground">{new Date(ticket.issueTime).toLocaleString()}</span></span>
