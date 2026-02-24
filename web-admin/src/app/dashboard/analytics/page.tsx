@@ -219,15 +219,13 @@ export default function AnalyticsPage() {
 
     // Cost Analysis
     const totalMaterialCost = costAnalysis.reduce((sum, item) => sum + item.materials, 0)
-    const totalLaborCost = costAnalysis.reduce((sum, item) => sum + item.labor, 0)
-    const totalCost = costAnalysis.reduce((sum, item) => sum + item.total, 0)
     
     csvContent += `COST ANALYSIS\n`
-    csvContent += `Period,Materials Cost (MMK),Labor Cost (MMK),Total Cost (MMK)\n`
+    csvContent += `Period,Materials Cost (MMK)\n`
     costAnalysis.forEach(item => {
-      csvContent += `${item.month},${item.materials},${item.labor},${item.total}\n`
+      csvContent += `${item.month},${item.materials}\n`
     })
-    csvContent += `Total,${totalMaterialCost},${totalLaborCost},${totalCost}\n\n`
+    csvContent += `Total,${totalMaterialCost}\n\n`
 
     // Service Area Data
     csvContent += `SERVICE AREA DISTRIBUTION\n`
@@ -401,11 +399,11 @@ export default function AnalyticsPage() {
           <Card className="border-border/50">
             <CardHeader>
               <CardTitle>Total Cost</CardTitle>
-              <CardDescription>Total materials and labor costs</CardDescription>
+              <CardDescription>Total materials cost</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ${(costAnalysis.reduce((sum, item) => sum + item.total, 0) / 1000).toFixed(1)}K
+                {(costAnalysis.reduce((sum, item) => sum + item.materials, 0) / 1000).toFixed(1)}K MMK
               </div>
               <p className="text-xs text-muted-foreground">
                 <span className={`flex items-center ${trends.costChange >= 0 ? 'text-red-500' : 'text-green-500'}`}>
@@ -435,9 +433,32 @@ export default function AnalyticsPage() {
                       borderRadius: "8px",
                       color: "hsl(var(--card-foreground))",
                     }}
+                    formatter={(value: any, name: any, props: any) => {
+                      return [`${props.payload.count} tickets`, props.payload.name];
+                    }}
                   />
                   <Pie
-                    data={rootCauseData}
+                    data={(() => {
+                      // Sort by count descending and take top 5
+                      const sorted = [...rootCauseData].sort((a, b) => b.count - a.count);
+                      const top5 = sorted.slice(0, 5);
+                      const others = sorted.slice(5);
+                      
+                      if (others.length > 0) {
+                        const othersSum = others.reduce((sum, item) => sum + item.value, 0);
+                        const othersCount = others.reduce((sum, item) => sum + item.count, 0);
+                        return [
+                          ...top5,
+                          {
+                            name: 'Others',
+                            value: othersSum,
+                            count: othersCount,
+                            color: '#9CA3AF'
+                          }
+                        ];
+                      }
+                      return top5;
+                    })()}
                     cx="50%"
                     cy="50%"
                     innerRadius={60}
@@ -445,22 +466,48 @@ export default function AnalyticsPage() {
                     paddingAngle={2}
                     dataKey="value"
                   >
-                    {rootCauseData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
+                    {(() => {
+                      const sorted = [...rootCauseData].sort((a, b) => b.count - a.count);
+                      const top5 = sorted.slice(0, 5);
+                      const others = sorted.slice(5);
+                      const displayData = others.length > 0 
+                        ? [...top5, { name: 'Others', value: 0, count: 0, color: '#9CA3AF' }]
+                        : top5;
+                      
+                      return displayData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ));
+                    })()}
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
               <div className="mt-4 grid grid-cols-1 gap-2">
-                {rootCauseData.map((item) => (
-                  <div key={item.name} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                      <span className="text-sm">{item.name}</span>
+                {(() => {
+                  const sorted = [...rootCauseData].sort((a, b) => b.count - a.count);
+                  const top5 = sorted.slice(0, 5);
+                  const others = sorted.slice(5);
+                  
+                  const displayLegend = [...top5];
+                  if (others.length > 0) {
+                    const othersCount = others.reduce((sum, item) => sum + item.count, 0);
+                    displayLegend.push({
+                      name: 'Others',
+                      value: 0,
+                      count: othersCount,
+                      color: '#9CA3AF'
+                    });
+                  }
+                  
+                  return displayLegend.map((item) => (
+                    <div key={item.name} className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                        <span className="text-sm">{item.name}</span>
+                      </div>
+                      <span className="text-sm font-medium">{item.count} tickets</span>
                     </div>
-                    <span className="text-sm font-medium">{item.count} tickets</span>
-                  </div>
-                ))}
+                  ));
+                })()}
               </div>
             </CardContent>
           </Card>

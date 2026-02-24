@@ -25,15 +25,14 @@ export default function NewTicketPage() {
     splitter: "",
     complaint: "",
     priority: "",
-    sla: "",
     teamId: "",
     issueTime: "",
   })
   const [serviceTypes, setServiceTypes] = useState<{ id: string; name: string; speedMbps: number }[]>([])
-  const [slaOptions, setSlaOptions] = useState<{ id: string; value: string }[]>([])
   const [teams, setTeams] = useState<any[]>([])
   const [customers, setCustomers] = useState<any[]>([])
   const [priorityOptions, setPriorityOptions] = useState<{ id: string; display: string }[]>([])
+  const [customerSearch, setCustomerSearch] = useState("")
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -55,7 +54,7 @@ export default function NewTicketPage() {
   }
 
   const parseTicketFromPaste = (pastedText: string) => {
-    // Format: ticket id>> complaint description Customer ID Customer Name SLA ?hrs Splitter Information phone number issue date&time
+    // Format: ticket id>> complaint description Customer ID Customer Name Service Type ?hrs Splitter Information phone number issue date&time
     // Example: MMI 225110592>> Site Down M1CDWS00029001 Wai Wai Thein SOHO 24 hrs N9 OLT 0/1/12/58  09-440401401 22/11/2025 09:25
 
     const ticketPattern = /^([A-Z]{3}\s+\d+)\s*>>\s*(.+?)\s+(M1[A-Z0-9]+)\s+((?:HTK\s+)?[A-Z](?:[a-z]+|\s)+(?:\s+[A-Z][a-z]+)*)\s+(SOHO|Enterprise|Business|HTK)\s+(\d+)\s*hrs?\s+(N\d+\s+OLT\s+[\d/]+)\s+([\d\-/]+(?:\/[\d\-]+)?)\s+([\d/]+\s+[\d:]+)/i
@@ -70,16 +69,11 @@ export default function NewTicketPage() {
         customerId,
         customerName,
         serviceTypeId,
-        slaHours,
+        , // Skip SLA hours field
         splitter,
         phone,
         issueDateTime
       ] = match
-
-      // Map SLA hours to database format (e.g., "12H", "24H")
-      let slaValue = ""
-      const hours = parseInt(slaHours)
-      slaValue = `${hours}H`
 
       // Map service type
       let serviceTypeValue = ""
@@ -111,7 +105,6 @@ export default function NewTicketPage() {
         splitter: splitter.trim(),
         complaint: complaint.trim(),
         priority: priority,
-        sla: slaValue,
         teamId: "",
         issueTime: formattedDateTime,
       })
@@ -136,23 +129,6 @@ export default function NewTicketPage() {
         setServiceTypes(data)
       } catch (error) {
         console.error("Error fetching service types:", error)
-      }
-    }
-
-    const fetchSlaOptions = async () => {
-      try {
-        const res = await fetch(
-          process.env.NEXT_PUBLIC_BACKEND_URL + "/sla-options"
-        )
-
-        if (!res.ok) {
-          throw new Error("Failed to fetch SLA options")
-        }
-
-        const data = await res.json()
-        setSlaOptions(data)
-      } catch (error) {
-        console.error("Error fetching SLA options:", error)
       }
     }
 
@@ -208,7 +184,6 @@ export default function NewTicketPage() {
     }
 
     fetchServiceTypes()
-    fetchSlaOptions()
     fetchTeams()
     fetchCustomers()
     fetchPriorityOptions()
@@ -315,16 +290,49 @@ export default function NewTicketPage() {
                     <Select
                       value={formData.customerId}
                       onValueChange={(value) => handleInputChange("customerId", value)}
+                      onOpenChange={(open) => {
+                        if (!open) setCustomerSearch("")
+                      }}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select customer" />
                       </SelectTrigger>
                       <SelectContent>
-                        {customers.map((customer) => (
-                          <SelectItem key={customer.id} value={customer.id}>
-                            {customer.id} - {customer.name}
-                          </SelectItem>
-                        ))}
+                        <div className="px-2 pb-2 sticky top-0 bg-background z-10">
+                          <Input
+                            placeholder="Search customers..."
+                            value={customerSearch}
+                            onChange={(e) => setCustomerSearch(e.target.value)}
+                            className="h-8"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                        <div className="max-h-[200px] overflow-y-auto">
+                          {customers
+                            .filter((customer) => {
+                              const searchLower = customerSearch.toLowerCase()
+                              return (
+                                customer.id.toLowerCase().includes(searchLower) ||
+                                customer.name.toLowerCase().includes(searchLower)
+                              )
+                            })
+                            .map((customer) => (
+                              <SelectItem key={customer.id} value={customer.id}>
+                                {customer.id} - {customer.name}
+                              </SelectItem>
+                            ))}
+                          {customers.filter((customer) => {
+                            const searchLower = customerSearch.toLowerCase()
+                            return (
+                              customer.id.toLowerCase().includes(searchLower) ||
+                              customer.name.toLowerCase().includes(searchLower)
+                            )
+                          }).length === 0 && (
+                            <div className="py-6 text-center text-sm text-muted-foreground">
+                              No customers found
+                            </div>
+                          )}
+                        </div>
                       </SelectContent>
                     </Select>
                   </div>
@@ -376,21 +384,6 @@ export default function NewTicketPage() {
                         {serviceTypes.map((service) => (
                           <SelectItem key={service.id} value={service.id}>
                             {service.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="sla">SLA Response Time</Label>
-                    <Select value={formData.sla} onValueChange={(value) => handleInputChange("sla", value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select SLA" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {slaOptions.map((sla) => (
-                          <SelectItem key={sla.id} value={sla.value}>
-                            {sla.value}
                           </SelectItem>
                         ))}
                       </SelectContent>
