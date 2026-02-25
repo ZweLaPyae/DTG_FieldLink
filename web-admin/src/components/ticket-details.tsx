@@ -214,7 +214,6 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
           adminUserId: adminId,
         }),
       })
-
       if (response.ok) {
         // Re-fetch the ticket
         const getResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets/${ticketId}`)
@@ -347,10 +346,6 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
                   <p className="font-medium">{ticket.complaint}</p>
                   <p className="text-sm text-muted-foreground">Service: {ticket.customer?.serviceType?.name || "-"}</p>
                 </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Clock className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm">SLA: {ticket.sla}</span>
               </div>
               <div className="flex flex-col space-y-1 text-sm">
                 <span className="text-muted-foreground">Issue Time: <span className="text-foreground">{new Date(ticket.issueTime).toLocaleString()}</span></span>

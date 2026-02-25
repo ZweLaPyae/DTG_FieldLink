@@ -16,7 +16,6 @@ router.post('/', upload.array('attachments', 10), async (req, res) => {
       ticketId,
       customerId,
       complaint,
-      sla,
       issueTime,
       priority,
 
@@ -72,7 +71,6 @@ router.post('/', upload.array('attachments', 10), async (req, res) => {
           id: ticketId,
           customerId,
           complaint,
-          sla,
           issueTime: new Date(issueTime),
           status: teamId ? 'IN_PROGRESS' : 'NEW', // If team is assigned, set to IN_PROGRESS
           priorityId: priority,
@@ -192,7 +190,6 @@ router.get('/', async (req, res) => {
       id: t.id,
       complaint: t.complaint,
       status: t.status,
-      sla: t.sla,
       issueTime: t.issueTime,
       startTime: t.startTime,
       completionTime: t.completionTime,
@@ -539,5 +536,33 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+// Fetch splitterMap for a ticket
+router.get('/:id/splitter-map', async (req, res) => {
+  try {
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: req.params.id },
+      select: { customerId: true },
+    });
+
+    if (!ticket || !ticket.customerId) {
+      return res.status(404).json({ error: 'Ticket or associated customer not found' });
+    }
+
+    const customer = await prisma.customer.findUnique({
+      where: { id: ticket.customerId },
+      select: { splitterMap: true },
+    });
+
+    if (!customer || !customer.splitterMap) {
+      return res.status(404).json({ error: 'Splitter map not found for this customer' });
+    }
+
+    res.status(200).json({ splitterMap: customer.splitterMap });
+  } catch (error) {
+    console.error('Error fetching splitter map:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 export default router;

@@ -9,10 +9,11 @@ class ApiConfig {
   // - iOS simulator: localhost works directly
   // - Physical device: use your computer's local IP address
   
-  static const String _port = '4000';
+  static const String _port = '3000';
   
   // Change this based on where you're running the app:
-  static const String _environment = 'android-emulator'; // 'android-emulator', 'ios-simulator', or 'physical-device'
+  static const String _environment =
+      String.fromEnvironment('ENV', defaultValue: 'android-emulator'); // 'android-emulator', 'ios-simulator', or 'physical-device'
   
   // If using physical device, set your computer's IP here:
   static const String _physicalDeviceIp = '192.168.1.100'; // TODO: Update with your IP
