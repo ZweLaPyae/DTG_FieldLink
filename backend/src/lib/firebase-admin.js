@@ -1,5 +1,5 @@
 // backend/src/lib/firebase-admin.js
-// Centralized Firebase Admin SDK initialization
+// Centralized Firebase Admin SDK initialization (ENV + Local fallback)
 
 import admin from 'firebase-admin';
 import fs from 'fs';
@@ -14,7 +14,6 @@ let firebaseAdmin = null;
 
 /**
  * Initialize Firebase Admin SDK (singleton pattern)
- * @returns {admin} Firebase Admin instance
  */
 export function getFirebaseAdmin() {
   if (firebaseAdmin) {
@@ -22,102 +21,55 @@ export function getFirebaseAdmin() {
   }
 
   try {
-    const serviceAccountPath = path.join(__dirname, '../../firebase-service-account.json');
-    
-    if (!fs.existsSync(serviceAccountPath)) {
-      console.warn('⚠️  firebase-service-account.json not found. Firebase Admin features disabled.');
-      console.warn('⚠️  Download from Firebase Console > Project Settings > Service Accounts');
-      return null;
+    // ================================
+    // ✅ 1. Try Environment Variables (Production)
+    // ================================
+    if (
+      process.env.FIREBASE_PROJECT_ID &&
+      process.env.FIREBASE_CLIENT_EMAIL &&
+      process.env.FIREBASE_PRIVATE_KEY
+    ) {
+      firebaseAdmin = admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        }),
+      });
+
+      console.log('✅ Firebase Admin initialized using ENV variables');
+      return firebaseAdmin;
     }
 
-    const serviceAccountJson = fs.readFileSync(serviceAccountPath, 'utf8');
-    const serviceAccount = JSON.parse(serviceAccountJson);
+    // ================================
+    // ✅ 2. Fallback to Local JSON (Development)
+    // ================================
+    const serviceAccountPath = path.join(
+      __dirname,
+      '../../firebase-service-account.json'
+    );
 
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
+    if (fs.existsSync(serviceAccountPath)) {
+      const serviceAccountJson = fs.readFileSync(serviceAccountPath, 'utf8');
+      const serviceAccount = JSON.parse(serviceAccountJson);
 
-    firebaseAdmin = admin;
-    console.log('✅ Firebase Admin SDK initialized');
-    return firebaseAdmin;
+      firebaseAdmin = admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+
+      console.log('✅ Firebase Admin initialized using local JSON file');
+      return firebaseAdmin;
+    }
+
+    // ================================
+    // ❌ If neither exists
+    // ================================
+    console.warn('⚠️ Firebase Admin credentials not found.');
+    console.warn('⚠️ Provide ENV variables or firebase-service-account.json');
+    return null;
+
   } catch (error) {
     console.error('❌ Failed to initialize Firebase Admin SDK:', error.message);
     return null;
   }
 }
-
-/**
- * Create a Firebase Auth user
- * @param {string} email - User email
- * @param {string} password - User password
- * @param {string} displayName - User display name
- * @returns {Promise<Object>} Created user record
- */
-export async function createFirebaseUser(email, password, displayName) {
-  const admin = getFirebaseAdmin();
-  if (!admin) {
-    console.warn('⚠️  Firebase Admin not initialized. Skipping Firebase user creation.');
-    return null;
-  }
-
-  try {
-    const userRecord = await admin.auth().createUser({
-      email: email,
-      password: password,
-      displayName: displayName,
-      emailVerified: false, // Can be set to true if you trust the email
-    });
-
-    console.log(`✅ Created Firebase user: ${email} (UID: ${userRecord.uid})`);
-    return userRecord;
-  } catch (error) {
-    // Handle case where user already exists
-    if (error.code === 'auth/email-already-exists') {
-      console.log(`ℹ️  Firebase user already exists: ${email}`);
-      
-      // Try to update the password instead
-      try {
-        const existingUser = await admin.auth().getUserByEmail(email);
-        await admin.auth().updateUser(existingUser.uid, {
-          password: password,
-          displayName: displayName,
-        });
-        console.log(`✅ Updated existing Firebase user: ${email}`);
-        return existingUser;
-      } catch (updateError) {
-        console.error(`❌ Failed to update Firebase user ${email}:`, updateError.message);
-        throw updateError;
-      }
-    } else {
-      console.error(`❌ Failed to create Firebase user ${email}:`, error.message);
-      throw error;
-    }
-  }
-}
-
-/**
- * Delete a Firebase Auth user by email
- * @param {string} email - User email
- */
-export async function deleteFirebaseUser(email) {
-  const admin = getFirebaseAdmin();
-  if (!admin) {
-    console.warn('⚠️  Firebase Admin not initialized. Skipping Firebase user deletion.');
-    return;
-  }
-
-  try {
-    const user = await admin.auth().getUserByEmail(email);
-    await admin.auth().deleteUser(user.uid);
-    console.log(`✅ Deleted Firebase user: ${email}`);
-  } catch (error) {
-    if (error.code === 'auth/user-not-found') {
-      console.log(`ℹ️  Firebase user not found: ${email}`);
-    } else {
-      console.error(`❌ Failed to delete Firebase user ${email}:`, error.message);
-      throw error;
-    }
-  }
-}
-
-export default { getFirebaseAdmin, createFirebaseUser, deleteFirebaseUser };
