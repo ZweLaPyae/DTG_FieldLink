@@ -189,7 +189,7 @@ export function NotificationDropdown({ adminUserId }: NotificationDropdownProps)
     // Navigate to ticket if available
     if (notification.ticketId) {
       setIsOpen(false);
-      router.push(`/dashboard/tickets?id=${notification.ticketId}`);
+      router.push(`/dashboard/tickets?selected=${notification.ticketId}`);
     }
   };
 
