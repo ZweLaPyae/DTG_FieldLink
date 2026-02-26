@@ -64,6 +64,11 @@ export function TicketOverview() {
     ? tickets 
     : tickets.filter(t => t.status === statusFilter);
 
+  // Limit recent tickets to the 5 most recently created (by issueTime)
+  const recentTickets = [...filteredTickets]
+    .sort((a, b) => new Date(b.issueTime || 0).getTime() - new Date(a.issueTime || 0).getTime())
+    .slice(0, 5);
+
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
@@ -153,7 +158,7 @@ export function TicketOverview() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {filteredTickets.map((ticket) => {
+            {recentTickets.map((ticket) => {
               return (
                 <div
                   key={ticket.id}
