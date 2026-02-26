@@ -13,35 +13,54 @@ const __dirname = dirname(__filename);
 let firebaseAdmin = null;
 
 /**
- * Initialize Firebase Admin SDK (singleton pattern)
- * @returns {admin} Firebase Admin instance
+ * Initialize Firebase Admin SDK (singleton)
  */
 export function getFirebaseAdmin() {
-  if (firebaseAdmin) {
-    return firebaseAdmin;
-  }
+  if (firebaseAdmin) return firebaseAdmin;
 
   try {
-    const serviceAccountPath = path.join(__dirname, '../../firebase-service-account.json');
-    
-    if (!fs.existsSync(serviceAccountPath)) {
-      console.warn('⚠️  firebase-service-account.json not found. Firebase Admin features disabled.');
-      console.warn('⚠️  Download from Firebase Console > Project Settings > Service Accounts');
-      return null;
+    // ✅ 1. Use ENV variables (Production)
+    if (
+      process.env.FIREBASE_PROJECT_ID &&
+      process.env.FIREBASE_CLIENT_EMAIL &&
+      process.env.FIREBASE_PRIVATE_KEY
+    ) {
+      firebaseAdmin = admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        }),
+      });
+
+      console.log('✅ Firebase Admin initialized using ENV');
+      return firebaseAdmin;
     }
 
-    const serviceAccountJson = fs.readFileSync(serviceAccountPath, 'utf8');
-    const serviceAccount = JSON.parse(serviceAccountJson);
+    // ✅ 2. Fallback to local JSON (Development)
+    const serviceAccountPath = path.join(
+      __dirname,
+      '../../firebase-service-account.json'
+    );
 
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
+    if (fs.existsSync(serviceAccountPath)) {
+      const serviceAccount = JSON.parse(
+        fs.readFileSync(serviceAccountPath, 'utf8')
+      );
 
-    firebaseAdmin = admin;
-    console.log('✅ Firebase Admin SDK initialized');
-    return firebaseAdmin;
+      firebaseAdmin = admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+
+      console.log('✅ Firebase Admin initialized using local JSON');
+      return firebaseAdmin;
+    }
+
+    console.warn('⚠️ Firebase credentials not found');
+    return null;
+
   } catch (error) {
-    console.error('❌ Failed to initialize Firebase Admin SDK:', error.message);
+    console.error('❌ Firebase Admin initialization failed:', error.message);
     return null;
   }
 }

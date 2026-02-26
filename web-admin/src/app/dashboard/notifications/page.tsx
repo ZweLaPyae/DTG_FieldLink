@@ -246,18 +246,16 @@ export default function NotificationsPage() {
               {filteredNotifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`p-6 hover:bg-gray-50 transition-colors ${
+                  className={`p-6 hover:bg-gray-50 transition-colors cursor-pointer ${
                     !notification.read ? 'bg-blue-50/50' : ''
                   }`}
+                  onClick={() => handleNotificationClick(notification)}
                 >
                   <div className="flex items-start gap-4">
                     <span className="text-3xl">{getNotificationIcon(notification.type)}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
-                        <div
-                          className="flex-1 cursor-pointer"
-                          onClick={() => handleNotificationClick(notification)}
-                        >
+                        <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <p
                               className={`text-base font-medium ${
@@ -282,7 +280,10 @@ export default function NotificationsPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => markAsRead(notification.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                markAsRead(notification.id);
+                              }}
                               title="Mark as read"
                             >
                               <CheckCheck className="h-4 w-4" />
@@ -291,7 +292,10 @@ export default function NotificationsPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => deleteNotification(notification.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteNotification(notification.id);
+                            }}
                             title="Delete notification"
                           >
                             <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-600" />

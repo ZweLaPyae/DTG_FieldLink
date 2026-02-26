@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { useState, useEffect } from "react"
-import { User, Phone, MapPin, Clock, AlertCircle, Wrench, FileText, Camera, Edit3, CheckCircle, Image as ImageIcon, Video, Users } from "lucide-react"
+import { User, Phone, MapPin, Clock, AlertCircle, Wrench, FileText, Camera, Edit3, CheckCircle, Image as ImageIcon, Video, Users, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAdminId } from "@/hooks/useAdminId"
 
@@ -15,6 +15,7 @@ interface TicketDetailsProps {
   ticketId: string
   isSelected?: boolean
   onTicketUpdate?: () => void
+  onTicketDelete?: () => void
 }
 
 interface Ticket {
@@ -74,7 +75,7 @@ interface Ticket {
   }>
 }
 
-export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: TicketDetailsProps) {
+export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate, onTicketDelete }: TicketDetailsProps) {
   const { adminId, isLoading: isAdminLoading } = useAdminId()
   const [ticket, setTicket] = useState<Ticket | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -83,6 +84,7 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
   const [isCompleting, setIsCompleting] = useState(false)
   const [teams, setTeams] = useState<Array<{ id: number; name: string }>>([])
   const [selectedTeamId, setSelectedTeamId] = useState<string>("")
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     const fetchTicket = async () => {
@@ -135,36 +137,36 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
 
   const handleUpdateTicket = async () => {
     try {
-      const updateData: any = {}
+      const updateData: any = {};
       
       // Only include status if it was changed
       if (newStatus && newStatus !== ticket?.status) {
-        updateData.status = newStatus
+        updateData.status = newStatus;
       }
 
       // Include team assignment if changed
-      const currentTeamId = ticket?.teamId?.toString() || ""
+      const currentTeamId = ticket?.teamId?.toString() || "";
       if (selectedTeamId !== currentTeamId) {
         if (selectedTeamId === "none" || selectedTeamId === "") {
-          updateData.teamId = null // Unassign team
+          updateData.teamId = null; // Unassign team
         } else {
-          updateData.teamId = parseInt(selectedTeamId)
+          updateData.teamId = parseInt(selectedTeamId);
         }
       }
 
       // Include admin note if provided
       if (newUpdate && newUpdate.trim()) {
         if (!adminId) {
-          console.error('Cannot add notes: Admin ID not available')
-          return
+          console.error('Cannot add notes: Admin ID not available');
+          return;
         }
-        updateData.adminNote = newUpdate.trim()
-        updateData.adminUserId = adminId
+        updateData.adminNote = newUpdate.trim();
+        updateData.adminUserId = adminId;
       }
 
       // If there's nothing to update, return early
       if (Object.keys(updateData).length === 0) {
-        return
+        return;
       }
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets/${ticketId}`, {
@@ -173,36 +175,73 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(updateData),
-      })
+      });
 
       if (response.ok) {
         // Re-fetch the ticket to get enriched data (materials with names, etc.)
-        const getResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets/${ticketId}`)
+        const getResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets/${ticketId}`);
         if (getResponse.ok) {
-          const enrichedTicket = await getResponse.json()
-          setTicket(enrichedTicket)
+          const enrichedTicket = await getResponse.json();
+          setTicket(enrichedTicket);
           // Update selected team to match the ticket
           if (enrichedTicket.teamId) {
-            setSelectedTeamId(enrichedTicket.teamId.toString())
+            setSelectedTeamId(enrichedTicket.teamId.toString());
           } else {
-            setSelectedTeamId("")
+            setSelectedTeamId("");
           }
         }
-        setNewStatus("")
-        setNewUpdate("")
+        setNewStatus("");
+        setNewUpdate("");
         // Notify parent to refresh the ticket list
         if (onTicketUpdate) {
-          onTicketUpdate()
+          onTicketUpdate();
         }
       }
     } catch (error) {
-      console.error("Error updating ticket:", error)
+      console.error("Error updating ticket:", error);
+    }
+  };
+
+  const handleDeleteTicket = async () => {
+    if (!confirm(`Are you sure you want to delete ticket ${ticketId}? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      setIsDeleting(true)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets/${ticketId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          adminUserId: adminId,
+        }),
+      })
+
+      if (response.ok || response.status === 204) {
+        // Notify parent to refresh and clear selection
+        if (onTicketDelete) {
+          onTicketDelete()
+        }
+        if (onTicketUpdate) {
+          onTicketUpdate()
+        }
+      } else {
+        const error = await response.json()
+        alert(`Failed to delete ticket: ${error.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error("Error deleting ticket:", error)
+      alert('Network error: Failed to delete ticket')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
   const handleCompleteTicket = async () => {
     try {
-      setIsCompleting(true)
+      setIsCompleting(true);
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets/${ticketId}`, {
         method: 'PUT',
         headers: {
@@ -213,29 +252,29 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
           completionTime: new Date().toISOString(),
           adminUserId: adminId,
         }),
-      })
+      });
       if (response.ok) {
         // Re-fetch the ticket
-        const getResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets/${ticketId}`)
+        const getResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets/${ticketId}`);
         if (getResponse.ok) {
-          const enrichedTicket = await getResponse.json()
-          setTicket(enrichedTicket)
+          const enrichedTicket = await getResponse.json();
+          setTicket(enrichedTicket);
         }
         // Notify parent to refresh the ticket list
         if (onTicketUpdate) {
-          onTicketUpdate()
+          onTicketUpdate();
         }
       } else {
-        const error = await response.json()
-        alert(error.error || 'Failed to complete ticket')
+        const error = await response.json();
+        alert(error.error || 'Failed to complete ticket');
       }
     } catch (error) {
-      console.error("Error completing ticket:", error)
-      alert('Failed to complete ticket')
+      console.error("Error completing ticket:", error);
+      alert('Failed to complete ticket');
     } finally {
-      setIsCompleting(false)
+      setIsCompleting(false);
     }
-  }
+  };
 
   // Calculate total hours and working hours
   const calculateHours = () => {
@@ -307,9 +346,21 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate }: 
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">{ticket.id}</CardTitle>
-            <Badge variant="outline" className={statusColors[ticket.status as keyof typeof statusColors]}>
-              {ticket.status.replace("_", " ")}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className={statusColors[ticket.status as keyof typeof statusColors]}>
+                {ticket.status.replace("_", " ")}
+              </Badge>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleDeleteTicket}
+                disabled={isDeleting}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                title="Delete ticket"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4 grid grid-cols-4 gap-4">

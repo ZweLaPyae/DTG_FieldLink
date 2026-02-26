@@ -83,10 +83,15 @@ export async function sendTechnicianWelcomeEmail({ to, name, password, email }) 
               <p style="margin: 5px 0 0 0;">Please change your password after your first login. Keep your credentials secure and do not share them with anyone.</p>
             </div>
             
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="https://appdistribution.firebase.dev/i/5d58dc1c8ac4734d" class="button">📱 Download Android App</a>
+              <p style="font-size: 12px; color: #6b7280; margin-top: 10px;">Click the button above to download the DTG FieldLink mobile app</p>
+            </div>
+            
             <p><strong>Next Steps:</strong></p>
             <ol>
-              <li>Download the DTG FieldLink mobile app</li>
-              <li>Sign in using the credentials above</li>
+              <li>Download the DTG FieldLink mobile app using the button above</li>
+              <li>Sign in using the credentials provided</li>
               <li>Complete your profile setup</li>
               <li>Start managing your assigned tickets</li>
             </ol>
@@ -117,9 +122,12 @@ Password: ${password}
 
 IMPORTANT: Please change your password after your first login.
 
+Download the Android App:
+https://appdistribution.firebase.dev/i/5d58dc1c8ac4734d
+
 Next Steps:
-1. Download the DTG FieldLink mobile app
-2. Sign in using the credentials above
+1. Download the DTG FieldLink mobile app using the link above
+2. Sign in using the credentials provided
 3. Complete your profile setup
 4. Start managing your assigned tickets
 
