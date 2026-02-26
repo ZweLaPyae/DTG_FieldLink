@@ -29,7 +29,7 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(cors({  
-  origin: ["https://dtg-fieldlink.site", "http://localhost:3001", "http://localhost:3000"],
+  origin: ["https://dtg-fieldlink.site", "http://localhost:3001", "http://localhost:3000", "https://www.dtg-fieldlink.site"],
   credentials: true
 }));
 
