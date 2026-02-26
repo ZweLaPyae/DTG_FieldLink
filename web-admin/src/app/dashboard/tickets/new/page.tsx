@@ -208,13 +208,19 @@ export default function NewTicketPage() {
 
   const handleSubmit = async (isDraft = false) => {
     try {
+      // Validate required fields
+      if (!formData.ticketId.trim()) {
+        alert('Ticket ID is required');
+        return;
+      }
+
       const response = await fetch(process.env.NEXT_PUBLIC_BACKEND_URL + '/tickets', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
-          ...formData, 
+          ...formData,
           isDraft,
           adminUserId: adminId,
           priority: formData.priority,
@@ -283,7 +289,7 @@ export default function NewTicketPage() {
               <CardContent className="space-y-4 pt-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="ticketId">Ticket ID</Label>
+                    <Label htmlFor="ticketId">Ticket ID <span className="text-red-500">*</span></Label>
                     <Input
                       id="ticketId"
                       placeholder="MMI 225110592"

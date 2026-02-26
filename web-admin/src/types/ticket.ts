@@ -7,8 +7,8 @@ export type Ticket = {
   splitter?: string; // Made optional as it's not in the backend response
   complaint: string;
   priorityId: string; // Corrected from priorityID to priorityId to match backend response
-  sla: string;
   technician_display?: string; // Made optional as it's not in the backend response
+  team_display?: string; // Team name for display
   status: string;
   issueTime: string;
   completionTime?: string;

@@ -182,9 +182,8 @@ export function TicketOverview() {
                         <div className="text-muted-foreground">{ticket.splitter || "N/A"}</div>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Technician:</span>
-                        <div className="font-medium">{ticket.technician_display || "N/A"}</div>
-                        <div className="text-muted-foreground">SLA: {ticket.sla}</div>
+                        <span className="text-muted-foreground">Team:</span>
+                        <div className="font-medium">{ticket.team_display || "N/A"}</div>
                       </div>
                     </div>
                   </div>

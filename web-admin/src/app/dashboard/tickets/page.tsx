@@ -39,6 +39,11 @@ export default function TicketsPage() {
     setRefreshKey(prev => prev + 1)
   }
 
+  const handleTicketDelete = () => {
+    setSelectedTicket(null) // Clear selection
+    setRefreshKey(prev => prev + 1) // Refresh the list
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -90,7 +95,12 @@ export default function TicketsPage() {
           </div>
           <div className="lg:col-span-3 h-[calc(100vh-180px)] overflow-y-auto px-2 py-1">
             {selectedTicket ? (
-              <TicketDetails ticketId={selectedTicket} isSelected={true} onTicketUpdate={handleTicketUpdate} />
+              <TicketDetails 
+                ticketId={selectedTicket} 
+                isSelected={true} 
+                onTicketUpdate={handleTicketUpdate}
+                onTicketDelete={handleTicketDelete}
+              />
             ) : (
               <div className="h-full flex items-center justify-center bg-muted/20 border border-dashed border-border rounded-lg">
                 <p className="text-muted-foreground">Select a ticket to view details</p>
