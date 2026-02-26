@@ -514,6 +514,53 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// Delete a single attachment from a ticket
+// Admin: can delete any attachment
+// Technician: can delete only when ticket is IN_PROGRESS
+router.delete('/:id/attachments', async (req, res) => {
+  try {
+    const { attachment, requesterType } = req.body;
+
+    if (!attachment) {
+      return res.status(400).json({ error: 'Attachment URL is required' });
+    }
+
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: req.params.id },
+      select: { attachments: true, status: true },
+    });
+
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+
+    const isAdmin = requesterType === 'admin';
+    const isTechnicianAllowed = requesterType === 'technician' && ticket.status === 'IN_PROGRESS';
+
+    if (!isAdmin && !isTechnicianAllowed) {
+      return res.status(403).json({ error: 'Not allowed to delete attachments for this ticket status' });
+    }
+
+    const existingAttachments = Array.isArray(ticket.attachments) ? ticket.attachments : [];
+    const updatedAttachments = existingAttachments.filter((att) => att?.name !== attachment);
+
+    if (updatedAttachments.length === existingAttachments.length) {
+      return res.status(404).json({ error: 'Attachment not found on ticket' });
+    }
+
+    const updatedTicket = await prisma.ticket.update({
+      where: { id: req.params.id },
+      data: { attachments: updatedAttachments },
+      select: { attachments: true },
+    });
+
+    res.status(200).json({ attachments: updatedTicket.attachments });
+  } catch (error) {
+    console.error('Error deleting attachment:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Delete a ticket by ID
 router.delete('/:id', async (req, res) => {
   try {
