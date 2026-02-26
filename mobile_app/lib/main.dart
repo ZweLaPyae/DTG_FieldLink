@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart'; // Firebase initialization
 import 'config/app_theme.dart';
 import 'pages/login_page.dart';
+import 'pages/home.dart';
 import 'config/firebase_config.dart'; // Firebase config
 import 'services/notification_service.dart'; // Push notifications
+import 'providers/auth_provider.dart'; // Auth provider
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,10 +49,26 @@ class FieldLinkApp extends StatelessWidget {
     return MaterialApp(
       title: 'DTG FieldLink',
       theme: AppTheme.lightTheme,
-      home: const LoginPage(),
+      home: const AuthWrapper(),
       debugShowCheckedModeBanner: false,
       // Define named routes
       routes: {'/login': (context) => const LoginPage()},
     );
+  }
+}
+
+class AuthWrapper extends ConsumerWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    
+    // Check if user is authenticated
+    if (authState.isAuthenticated && authState.technician != null) {
+      return const HomePage();
+    } else {
+      return const LoginPage();
+    }
   }
 }

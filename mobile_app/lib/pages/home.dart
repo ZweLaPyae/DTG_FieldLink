@@ -578,17 +578,11 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
   }
 
   Widget _buildTasksTab() {
-    return RefreshIndicator(
-      onRefresh: () async {
-        await ref
-            .read(ticketsProvider.notifier)
-            .loadTickets(forceRefresh: true);
-      },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -984,26 +978,45 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
           ),
         ),
       ],
-    ),
     );
   }
 
   Widget _buildTicketList(List<Ticket> tickets, Color color, String emptyMessage) {
     if (tickets.isEmpty) {
-      return Center(
-        child: Text(
-          emptyMessage,
-          style: const TextStyle(color: Colors.grey),
+      return RefreshIndicator(
+        onRefresh: () async {
+          await ref
+              .read(ticketsProvider.notifier)
+              .loadTickets(forceRefresh: true);
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: 400,
+            child: Center(
+              child: Text(
+                emptyMessage,
+                style: const TextStyle(color: Colors.grey),
+              ),
+            ),
+          ),
         ),
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: tickets.length,
-      itemBuilder: (context, index) {
-        return _taskCard(context, tickets[index], color);
+    return RefreshIndicator(
+      onRefresh: () async {
+        await ref
+            .read(ticketsProvider.notifier)
+            .loadTickets(forceRefresh: true);
       },
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: tickets.length,
+        itemBuilder: (context, index) {
+          return _taskCard(context, tickets[index], color);
+        },
+      ),
     );
   }
 
@@ -1877,7 +1890,9 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              'SLA: ${t.sla}',
+                              t.issueTime != null 
+                                ? 'Reported: ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][t.issueTime!.month - 1]} ${t.issueTime!.day} ${t.issueTime!.hour.toString().padLeft(2, '0')}:${t.issueTime!.minute.toString().padLeft(2, '0')}'
+                                : 'Reported: N/A',
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: Color(0xFF3B82F6),
@@ -2202,7 +2217,9 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          'SLA: ${t.sla}',
+                          t.issueTime != null 
+                            ? 'Reported: ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][t.issueTime!.month - 1]} ${t.issueTime!.day} ${t.issueTime!.hour.toString().padLeft(2, '0')}:${t.issueTime!.minute.toString().padLeft(2, '0')}'
+                            : 'Reported: N/A',
                           style: const TextStyle(
                             fontSize: 12,
                             color: Color(0xFF3B82F6),

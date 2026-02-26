@@ -155,7 +155,7 @@ export default function NotificationsPage() {
     }
 
     if (notification.ticketId) {
-      router.push(`/dashboard/tickets?id=${notification.ticketId}`);
+      router.push(`/dashboard/tickets?selected=${notification.ticketId}`);
     }
   };
 

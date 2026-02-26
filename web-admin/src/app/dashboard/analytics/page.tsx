@@ -24,7 +24,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts"
-import { TrendingUp, TrendingDown, Clock, CheckCircle, AlertTriangle, Download, Loader2, Search } from "lucide-react"
+import { Clock, CheckCircle, AlertTriangle, Download, Loader2, Search } from "lucide-react"
 
 interface AnalyticsData {
   summary: {
@@ -352,13 +352,7 @@ export default function AnalyticsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{summary.totalTickets}</div>
-              <p className="text-xs">
-                <span className={`flex items-center ${trends.ticketChange >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                  {trends.ticketChange >= 0 ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
-                  {trends.ticketChange >= 0 ? '+' : ''}{trends.ticketChange}%
-                </span>
-                from previous period
-              </p>
+              <p className="text-xs text-muted-foreground">Total tickets in period</p>
             </CardContent>
           </Card>
 
@@ -369,13 +363,7 @@ export default function AnalyticsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{summary.avgResolutionTime.toFixed(1)}h</div>
-              <p className="text-xs text-muted-foreground">
-                <span className={`flex items-center ${trends.avgTimeChange <= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                  {trends.avgTimeChange <= 0 ? <TrendingDown className="w-3 h-3 mr-1" /> : <TrendingUp className="w-3 h-3 mr-1" />}
-                  {Math.abs(trends.avgTimeChange)}% {trends.avgTimeChange <= 0 ? 'faster' : 'slower'}
-                </span>
-                than previous period
-              </p>
+              <p className="text-xs text-muted-foreground">Average time to resolution</p>
             </CardContent>
           </Card>
 
@@ -386,13 +374,7 @@ export default function AnalyticsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{summary.activeTickets}</div>
-              <p className="text-xs text-muted-foreground">
-                <span className={`flex items-center ${trends.activeTicketsChange >= 0 ? 'text-orange-500' : 'text-green-500'}`}>
-                  {trends.activeTicketsChange >= 0 ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
-                  {trends.activeTicketsChange >= 0 ? '+' : ''}{trends.activeTicketsChange}%
-                </span>
-                from previous period
-              </p>
+              <p className="text-xs text-muted-foreground">Currently in progress</p>
             </CardContent>
           </Card>
 
@@ -405,13 +387,7 @@ export default function AnalyticsPage() {
               <div className="text-2xl font-bold">
                 {(costAnalysis.reduce((sum, item) => sum + item.materials, 0) / 1000).toFixed(1)}K MMK
               </div>
-              <p className="text-xs text-muted-foreground">
-                <span className={`flex items-center ${trends.costChange >= 0 ? 'text-red-500' : 'text-green-500'}`}>
-                  {trends.costChange >= 0 ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
-                  {trends.costChange >= 0 ? '+' : ''}{trends.costChange}%
-                </span>
-                from previous period
-              </p>
+              <p className="text-xs text-muted-foreground">Materials costs from all tickets in period</p>
             </CardContent>
           </Card>
         </div>
