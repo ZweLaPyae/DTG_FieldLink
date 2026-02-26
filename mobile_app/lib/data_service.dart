@@ -141,6 +141,33 @@ class DataService {
     }
   }
 
+  // Delete a single attachment from a ticket
+  Future<bool> deleteAttachment({
+    required String ticketId,
+    required String attachmentUrl,
+    String requesterType = 'technician',
+  }) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('${ApiConfig.ticketsUrl}/$ticketId/attachments'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'attachment': attachmentUrl,
+          'requesterType': requesterType,
+        }),
+      );
+
+      print('Delete attachment status: ${response.statusCode}');
+      if (response.statusCode == 200) return true;
+
+      print('Delete attachment failed: ${response.body}');
+      return false;
+    } catch (e) {
+      print('Error deleting attachment: $e');
+      return false;
+    }
+  }
+
   // Check if technician exists by email (for login)
   Future<Technician?> checkTechnicianByEmail(String email) async {
     try {

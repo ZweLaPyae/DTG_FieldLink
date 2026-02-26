@@ -276,6 +276,34 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate, on
     }
   };
 
+  const handleDeleteAttachment = async (attachmentUrl: string) => {
+    if (!confirm('Delete this attachment?')) return;
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets/${ticketId}/attachments`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ attachment: attachmentUrl, requesterType: 'admin' }),
+      });
+
+      if (response.ok) {
+        const updated = await response.json();
+        setTicket((prev) => (prev ? { ...prev, attachments: updated.attachments } : prev));
+        if (onTicketUpdate) {
+          onTicketUpdate();
+        }
+      } else {
+        const err = await response.json();
+        alert(err.error || 'Failed to delete attachment');
+      }
+    } catch (error) {
+      console.error('Error deleting attachment:', error);
+      alert('Network error: failed to delete attachment');
+    }
+  };
+
   // Calculate total hours and working hours
   const calculateHours = () => {
     if (!ticket?.startTime || !ticket?.completionTime) {
@@ -505,8 +533,20 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate, on
                             className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
                             onClick={() => window.open(attachment.name, '_blank')}
                           />
-                          <div className="absolute top-2 right-2 bg-black/50 rounded-full p-1">
-                            <ImageIcon className="w-4 h-4 text-white" />
+                          <div className="absolute top-2 right-2 flex gap-2">
+                            <button
+                              className="bg-black/60 rounded-full p-1 hover:bg-black/80"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteAttachment(attachment.name);
+                              }}
+                              title="Delete attachment"
+                            >
+                              <Trash2 className="w-4 h-4 text-white" />
+                            </button>
+                            <div className="bg-black/50 rounded-full p-1">
+                              <ImageIcon className="w-4 h-4 text-white" />
+                            </div>
                           </div>
                         </div>
                       ) : attachment.type === 'video' ? (
@@ -516,8 +556,20 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate, on
                             className="w-full h-full object-cover cursor-pointer"
                             controls
                           />
-                          <div className="absolute top-2 right-2 bg-black/50 rounded-full p-1">
-                            <Video className="w-4 h-4 text-white" />
+                          <div className="absolute top-2 right-2 flex gap-2">
+                            <button
+                              className="bg-black/60 rounded-full p-1 hover:bg-black/80"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteAttachment(attachment.name);
+                              }}
+                              title="Delete attachment"
+                            >
+                              <Trash2 className="w-4 h-4 text-white" />
+                            </button>
+                            <div className="bg-black/50 rounded-full p-1">
+                              <Video className="w-4 h-4 text-white" />
+                            </div>
                           </div>
                         </div>
                       ) : null}

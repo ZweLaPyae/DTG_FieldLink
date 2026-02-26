@@ -77,6 +77,45 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
     return status == 'IN_PROGRESS';
   }
 
+  Future<void> _deleteAttachment(Ticket ticket, String attachmentUrl) async {
+    if (!_canUploadMedia(ticket)) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete attachment?'),
+        content: const Text('This will remove the attachment from the ticket.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final success = await dataService.deleteAttachment(
+      ticketId: ticket.id,
+      attachmentUrl: attachmentUrl,
+      requesterType: 'technician',
+    );
+
+    if (success && mounted) {
+      setState(() {
+        _ticketFuture = _reloadTicket();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Attachment deleted')),
+      );
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to delete attachment')),
+        );
+      }
+    }
+  }
+
   bool _canEditNotes(Ticket? ticket) {
     if (!_isEditable || ticket == null) return false;
     final status = ticket.status.toUpperCase();
@@ -1622,6 +1661,34 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                                         },
                                       ),
                                     ),
+                                    if (_canUploadMedia(ticket))
+                                      Positioned(
+                                        top: 4,
+                                        right: 4,
+                                        child: InkWell(
+                                          onTap: () => _deleteAttachment(ticket, attachment.name),
+                                          borderRadius: BorderRadius.circular(999),
+                                          child: Container(
+                                            padding: const EdgeInsets.all(6),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFDC2626), // red delete affordance
+                                              borderRadius: BorderRadius.circular(999),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black.withOpacity(0.2),
+                                                  blurRadius: 4,
+                                                  offset: const Offset(0, 2),
+                                                ),
+                                              ],
+                                            ),
+                                            child: const Icon(
+                                              Icons.delete,
+                                              size: 16,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                                   ],
                                 ),
                               );
