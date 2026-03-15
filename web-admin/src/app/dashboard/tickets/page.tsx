@@ -122,6 +122,7 @@ export default function TicketsPage() {
               selectedTicket={selectedTicket}
               onSelectTicket={setSelectedTicket}
               refreshKey={refreshKey}
+              onTicketDelete={handleTicketDelete}
             />
           </div>
           <div className="lg:col-span-3 h-[calc(100vh-180px)] overflow-y-auto px-2 py-1">

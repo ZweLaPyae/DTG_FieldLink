@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { DateRange } from "react-day-picker"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   BarChart,
@@ -24,7 +26,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts"
-import { Clock, CheckCircle, AlertTriangle, Download, Loader2, Search } from "lucide-react"
+import { Clock, CheckCircle, AlertTriangle, Download, Loader2, Search, Calendar as CalendarIcon } from "lucide-react"
 
 interface AnalyticsData {
   summary: {
@@ -97,18 +99,42 @@ interface AnalyticsData {
 export default function AnalyticsPage() {
   const router = useRouter()
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null)
-  const [selectedPeriod, setSelectedPeriod] = useState("6months")
+  const today = new Date()
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(today.getDate() - 29)
+
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: thirtyDaysAgo, to: today })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedCustomer, setSelectedCustomer] = useState<{id: string, name: string, x: number, y: number} | null>(null)
 
+  const formatDateLabel = (date: Date) =>
+    date.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })
+
+  const formatRangeLabel = (range?: DateRange) => {
+    if (!range?.from || !range?.to) return "Select date range"
+    return `${formatDateLabel(range.from)} - ${formatDateLabel(range.to)}`
+  }
+
   useEffect(() => {
+    if (!dateRange?.from || !dateRange?.to) return
+    const { from, to } = dateRange
+
     const fetchAnalytics = async () => {
       setLoading(true)
       setError(null)
       try {
+        const params = new URLSearchParams({
+          start: from.toISOString(),
+          end: to.toISOString(),
+        })
+
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/analytics?period=${selectedPeriod}`,
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/analytics?${params.toString()}`,
           {
             headers: {
               'Cache-Control': 'no-store',
@@ -131,7 +157,7 @@ export default function AnalyticsPage() {
     }
 
     fetchAnalytics()
-  }, [selectedPeriod])
+  }, [dateRange])
 
   if (error) {
     return (
@@ -164,17 +190,22 @@ export default function AnalyticsPage() {
 
   // Export analytics data as CSV
   const exportAnalytics = () => {
-    if (!analyticsData) return
+    if (!analyticsData || !dateRange?.from || !dateRange?.to) return
 
-    const periodLabel = {
-      '1month': 'Last Month',
-      '3months': 'Last 3 Months',
-      '6months': 'Last 6 Months',
-      '1year': 'Last Year',
-    }[selectedPeriod] || 'Last 6 Months'
+    const periodLabel = `${formatDateLabel(dateRange.from)} - ${formatDateLabel(dateRange.to)}`
+
+    const rangeDays = Math.max(
+      1,
+      Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) + 1,
+    )
+    const previousEnd = new Date(dateRange.from)
+    previousEnd.setDate(previousEnd.getDate() - 1)
+    const previousStart = new Date(previousEnd)
+    previousStart.setDate(previousStart.getDate() - (rangeDays - 1))
 
     let csvContent = `DTG FieldLink Analytics Report\n`
     csvContent += `Period: ${periodLabel}\n`
+    csvContent += `Comparison Period: ${formatDateLabel(previousStart)} - ${formatDateLabel(previousEnd)}\n`
     csvContent += `Generated: ${new Date().toLocaleString()}\n\n`
 
     // Summary Section
@@ -183,7 +214,7 @@ export default function AnalyticsPage() {
     csvContent += `Completed Tickets,${summary.completedTickets}\n`
     csvContent += `Active Tickets,${summary.activeTickets}\n`
     csvContent += `Average Resolution Time (hours),${summary.avgResolutionTime}\n`
-    csvContent += `Completion Rate (%),${summary.completionRate}\n\n`
+    csvContent += `Completion Rate (%),${summary.completionRate}%\n\n`
 
     // Trends Section
     csvContent += `PERIOD-OVER-PERIOD TRENDS\n`
@@ -191,13 +222,13 @@ export default function AnalyticsPage() {
     csvContent += `Total Tickets,${summary.totalTickets},${trends.previousPeriod.totalTickets},${trends.ticketChange > 0 ? '+' : ''}${trends.ticketChange}%\n`
     csvContent += `Completed Tickets,${summary.completedTickets},${trends.previousPeriod.completedTickets},${trends.completionChange > 0 ? '+' : ''}${trends.completionChange}%\n`
     csvContent += `Active Tickets,${summary.activeTickets},${trends.previousPeriod.activeTickets},${trends.activeTicketsChange > 0 ? '+' : ''}${trends.activeTicketsChange}%\n`
-    csvContent += `Avg Resolution Time,${summary.avgResolutionTime},${trends.previousPeriod.avgResolutionTime},${trends.avgTimeChange > 0 ? '+' : ''}${trends.avgTimeChange}%\n\n`
+    csvContent += `Avg Resolution Time,${summary.avgResolutionTime.toFixed(1)},${trends.previousPeriod.avgResolutionTime.toFixed(1)},${trends.avgTimeChange > 0 ? '+' : ''}${trends.avgTimeChange}%\n\n`
 
     // Performance Data
     csvContent += `TICKET VOLUME & RESOLUTION\n`
     csvContent += `Period,Total Tickets,Resolved Tickets,Average Time (hours)\n`
     performanceData.forEach(item => {
-      csvContent += `${item.month},${item.tickets},${item.resolved},${item.avgTime}\n`
+      csvContent += `${item.month},${item.tickets},${item.resolved},${item.avgTime.toFixed(1)}\n`
     })
     csvContent += `\n`
 
@@ -257,7 +288,11 @@ export default function AnalyticsPage() {
     const url = URL.createObjectURL(blob)
     
     link.setAttribute('href', url)
-    link.setAttribute('download', `analytics_report_${selectedPeriod}_${new Date().toISOString().split('T')[0]}.csv`)
+    const fileName = dateRange?.from && dateRange?.to
+      ? `analytics_report_${dateRange.from.toISOString().split('T')[0]}_${dateRange.to.toISOString().split('T')[0]}.csv`
+      : `analytics_report_${new Date().toISOString().split('T')[0]}.csv`
+
+    link.setAttribute('download', fileName)
     link.style.visibility = 'hidden'
     
     document.body.appendChild(link)
@@ -310,31 +345,38 @@ export default function AnalyticsPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="min-w-[200px]">
             <h1 className="text-3xl font-bold text-foreground">Analytics</h1>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground flex items-center gap-2">
               Comprehensive insights and performance metrics
-              {loading && (
-                <span className="inline-flex items-center ml-2">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  <span className="ml-1 text-xs">Loading...</span>
-                </span>
-              )}
+              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             </p>
           </div>
-          <div className="flex space-x-2">
-            <Select value={selectedPeriod} onValueChange={setSelectedPeriod} disabled={loading}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select period" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1month">Last Month</SelectItem>
-                <SelectItem value="3months">Last 3 Months</SelectItem>
-                <SelectItem value="6months">Last 6 Months</SelectItem>
-                <SelectItem value="1year">Last Year</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex flex-wrap items-center gap-3">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-[280px] justify-start"
+                  disabled={loading}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  <span className="truncate">{formatRangeLabel(dateRange)}</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="p-2 w-auto" align="end">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  numberOfMonths={2}
+                  selected={dateRange}
+                  defaultMonth={dateRange?.from || new Date()}
+                  onSelect={(range) => setDateRange(range)}
+                />
+              </PopoverContent>
+            </Popover>
+
             <Button variant="outline" onClick={exportAnalytics} disabled={loading}>
               <Download className="w-4 h-4 mr-2" />
               Export Report
