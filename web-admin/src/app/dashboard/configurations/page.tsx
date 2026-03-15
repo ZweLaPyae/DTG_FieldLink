@@ -244,7 +244,7 @@ export default function ConfigurationsPage() {
                 <h2 className="text-xl font-semibold text-foreground">Material Catalog</h2>
                 <p className="text-muted-foreground">Manage materials and equipment for tickets</p>
               </div>
-              <Button onClick={() => router.push("/dashboard/materials/new")} className="bg-primary hover:bg-primary/90">
+              <Button onClick={() => router.push("/dashboard/configurations/materials/new")} className="bg-primary hover:bg-primary/90">
                 <Plus className="w-4 h-4 mr-2" />
                 Add New Material
               </Button>
@@ -337,7 +337,7 @@ export default function ConfigurationsPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => router.push(`/dashboard/materials/${material.id}/edit`)}
+                                  onClick={() => router.push(`/dashboard/configurations/materials/${material.id}/edit`)}
                                 >
                                   <Edit className="w-4 h-4" />
                                 </Button>
