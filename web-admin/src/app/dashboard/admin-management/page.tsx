@@ -38,7 +38,7 @@ interface AdminProfile {
 }
 
 export default function AdminManagementPage() {
-  const { adminId } = useAdminId()
+  const { adminId, isLoading: isAdminLoading } = useAdminId()
   // Logs state
   const [logs, setLogs] = useState<AdminLog[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -256,9 +256,11 @@ export default function AdminManagementPage() {
   }
 
   useEffect(() => {
+    // Wait until adminId is available before fetching profile/logs
+    if (!adminId || isAdminLoading) return
     fetchLogs()
     fetchAdminProfile()
-  }, [page])
+  }, [page, adminId, isAdminLoading])
 
   const handleArchiveSearch = () => {
     setPage(1)
@@ -273,6 +275,28 @@ export default function AdminManagementPage() {
       hour: '2-digit',
       minute: '2-digit',
     })
+  }
+
+  if (isAdminLoading) {
+    return (
+      <DashboardLayout>
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground">Loading admin session...</CardContent>
+        </Card>
+      </DashboardLayout>
+    )
+  }
+
+  if (!adminId) {
+    return (
+      <DashboardLayout>
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            Admin session not found. Please sign in again.
+          </CardContent>
+        </Card>
+      </DashboardLayout>
+    )
   }
 
   return (

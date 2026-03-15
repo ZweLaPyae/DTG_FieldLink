@@ -5,7 +5,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Clock, MapPin, User, AlertCircle } from "lucide-react"
+import { Clock, MapPin, User, AlertCircle, Trash2 } from "lucide-react"
+import { useAdminId } from "@/hooks/useAdminId"
 
 interface TicketListProps {
   searchQuery: string
@@ -13,6 +14,7 @@ interface TicketListProps {
   selectedTicket: string | null
   onSelectTicket: (ticketId: string) => void
   refreshKey?: number
+  onTicketDelete?: () => void
 }
 
 interface Ticket {
@@ -40,9 +42,11 @@ export function TicketList({
   selectedTicket,
   onSelectTicket,
   refreshKey,
+  onTicketDelete,
 }: TicketListProps) {
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const { adminId, isLoading: isAdminLoading } = useAdminId()
 
   useEffect(() => {
     const fetchTickets = async () => {
@@ -82,6 +86,37 @@ export function TicketList({
     )
   }
 
+  const handleDeleteTicket = async (ticketId: string) => {
+    if (isAdminLoading) return
+    if (!adminId) {
+      alert("Admin ID not available. Please sign in again.")
+      return
+    }
+
+    if (!confirm(`Delete ticket ${ticketId}? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets/${ticketId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminUserId: adminId }),
+      })
+
+      if (response.ok || response.status === 204) {
+        setTickets((prev) => prev.filter((t) => t.id !== ticketId))
+        if (onTicketDelete) onTicketDelete()
+      } else {
+        const error = await response.json()
+        alert(`Failed to delete ticket: ${error.error || "Unknown error"}`)
+      }
+    } catch (error) {
+      console.error("Error deleting ticket:", error)
+      alert("Network error: Failed to delete ticket")
+    }
+  }
+
   return (
     <div className="space-y-4">
       {filteredTickets.map((ticket) => (
@@ -97,11 +132,25 @@ export function TicketList({
             <div className="space-y-3">
               {/* Header */}
               <div className="space-y-2">
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
                   <span className="font-semibold text-foreground">{ticket.id}</span>
                   <Badge variant="outline" className={statusColors[ticket.status as keyof typeof statusColors]}>
                     {ticket.status.replace("_", " ")}
                   </Badge>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-destructive hover:text-destructive"
+                    aria-label={`Delete ticket ${ticket.id}`}
+                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                      e.stopPropagation()
+                      handleDeleteTicket(ticket.id)
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
                 <div className="flex items-center text-sm text-muted-foreground">
                   <Clock className="w-4 h-4 mr-1" />
