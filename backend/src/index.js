@@ -28,8 +28,24 @@ const app = express();
 
 // Middleware
 app.use(express.json());
-app.use(cors({  
-  origin: ["https://dtg-fieldlink.site", "http://localhost:3001", "http://localhost:3000", "https://www.dtg-fieldlink.site"],
+app.use(cors({
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps, Postman, curl)
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [
+      "https://dtg-fieldlink.site",
+      "http://localhost:3001",
+      "http://localhost:3000",
+      "https://www.dtg-fieldlink.site"
+    ];
+
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow all origins for now (mobile apps need this)
+    }
+  },
   credentials: true
 }));
 

@@ -11,6 +11,8 @@ import { useAdminId } from "@/hooks/useAdminId"
 interface TicketListProps {
   searchQuery: string
   statusFilter: string
+  startDate: string
+  endDate: string
   selectedTicket: string | null
   onSelectTicket: (ticketId: string) => void
   refreshKey?: number
@@ -27,6 +29,7 @@ interface Ticket {
   phone: string[] | null
   splitter: string | null
   technician_display: string | null
+  priority: string | null
 }
 
 const statusColors = {
@@ -39,6 +42,8 @@ const statusColors = {
 export function TicketList({
   searchQuery,
   statusFilter,
+  startDate,
+  endDate,
   selectedTicket,
   onSelectTicket,
   refreshKey,
@@ -47,14 +52,42 @@ export function TicketList({
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const { adminId, isLoading: isAdminLoading } = useAdminId()
+  const [usingFallback, setUsingFallback] = useState(false)
 
   useEffect(() => {
     const fetchTickets = async () => {
       try {
         setIsLoading(true)
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets`)
+        setUsingFallback(false)
+
+        // Build URL with query parameters
+        const params = new URLSearchParams()
+        if (startDate) params.append('startDate', startDate)
+        if (endDate) params.append('endDate', endDate)
+
+        const queryString = params.toString()
+        const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets${queryString ? `?${queryString}` : ''}`
+
+        const response = await fetch(url)
         if (response.ok) {
-          const data = await response.json()
+          let data = await response.json()
+
+          // Check if we need fallback for IN_REVIEW status
+          if (statusFilter === 'IN_REVIEW') {
+            const inReviewTickets = data.filter((t: Ticket) => t.status === 'IN_REVIEW')
+            if (inReviewTickets.length === 0 && startDate && endDate) {
+              // Fallback: fetch all tickets without date filter
+              const fallbackResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/tickets`)
+              if (fallbackResponse.ok) {
+                const allData = await fallbackResponse.json()
+                // Get last 10 IN_REVIEW tickets
+                const allInReview = allData.filter((t: Ticket) => t.status === 'IN_REVIEW')
+                data = allInReview.slice(0, 10)
+                setUsingFallback(true)
+              }
+            }
+          }
+
           setTickets(data)
         }
       } catch (error) {
@@ -64,7 +97,7 @@ export function TicketList({
       }
     }
     fetchTickets()
-  }, [refreshKey])
+  }, [refreshKey, startDate, endDate, statusFilter])
 
   const filteredTickets = tickets.filter((ticket) => {
     const customerName = ticket.customerName || ""
@@ -151,6 +184,11 @@ export function TicketList({
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
+                  {ticket.priority?.toLowerCase() === 'urgent' && (
+                    <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20">
+                      URGENT
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex items-center text-sm text-muted-foreground">
                   <Clock className="w-4 h-4 mr-1" />
