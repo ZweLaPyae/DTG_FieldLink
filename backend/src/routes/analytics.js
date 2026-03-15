@@ -15,41 +15,74 @@ const getHoursBetween = (start, end) => {
 // Get analytics data
 router.get('/', async (req, res) => {
   try {
-    const { period = '6months' } = req.query;
+    const { period = '6months', start, end } = req.query;
 
-    // Calculate date range based on period
+    const parseDate = (value) => {
+      if (!value) return null;
+      const parsed = new Date(value);
+      return isNaN(parsed.getTime()) ? null : parsed;
+    };
+
     const now = new Date();
-    let startDate = new Date();
+    const providedStart = parseDate(start);
+    const providedEnd = parseDate(end);
+
+    // Calculate date range based on explicit dates or fallback presets
+    let startDate = providedStart || new Date();
+    let endDate = providedEnd || now;
     let periodMonths = 6;
-    
-    switch (period) {
-      case '1month':
-        periodMonths = 1;
-        startDate.setMonth(now.getMonth() - 1);
-        break;
-      case '3months':
-        periodMonths = 3;
-        startDate.setMonth(now.getMonth() - 3);
-        break;
-      case '6months':
-        periodMonths = 6;
-        startDate.setMonth(now.getMonth() - 6);
-        break;
-      case '1year':
-        periodMonths = 12;
-        startDate.setFullYear(now.getFullYear() - 1);
-        break;
-      default:
-        periodMonths = 6;
-        startDate.setMonth(now.getMonth() - 6);
+
+    if (!providedStart) {
+      switch (period) {
+        case '1month':
+          periodMonths = 1;
+          startDate.setMonth(now.getMonth() - 1);
+          break;
+        case '3months':
+          periodMonths = 3;
+          startDate.setMonth(now.getMonth() - 3);
+          break;
+        case '6months':
+          periodMonths = 6;
+          startDate.setMonth(now.getMonth() - 6);
+          break;
+        case '1year':
+          periodMonths = 12;
+          startDate.setFullYear(now.getFullYear() - 1);
+          break;
+        default:
+          periodMonths = 6;
+          startDate.setMonth(now.getMonth() - 6);
+      }
+    }
+
+    // Ensure the range is valid
+    if (startDate > endDate) {
+      const temp = startDate;
+      startDate = endDate;
+      endDate = temp;
     }
 
     // Calculate previous period range for comparison
-    const previousStartDate = new Date(startDate);
-    if (period === '1year') {
-      previousStartDate.setFullYear(previousStartDate.getFullYear() - 1);
+    let previousStartDate;
+    let previousEndDate;
+
+    if (providedStart || providedEnd) {
+      const rangeDays = Math.max(
+        1,
+        Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)),
+      );
+      previousStartDate = new Date(startDate);
+      previousStartDate.setDate(previousStartDate.getDate() - rangeDays);
+      previousEndDate = new Date(startDate);
     } else {
-      previousStartDate.setMonth(previousStartDate.getMonth() - periodMonths);
+      previousStartDate = new Date(startDate);
+      if (period === '1year') {
+        previousStartDate.setFullYear(previousStartDate.getFullYear() - 1);
+      } else {
+        previousStartDate.setMonth(previousStartDate.getMonth() - periodMonths);
+      }
+      previousEndDate = new Date(startDate);
     }
 
     // Fetch all necessary data
@@ -66,6 +99,7 @@ router.get('/', async (req, res) => {
         where: {
           issueTime: {
             gte: startDate,
+            lte: endDate,
           },
         },
         include: {
@@ -84,7 +118,7 @@ router.get('/', async (req, res) => {
         where: {
           issueTime: {
             gte: previousStartDate,
-            lt: startDate,
+            lt: previousEndDate,
           },
         },
       }),
@@ -120,33 +154,40 @@ router.get('/', async (req, res) => {
         const ticketDate = new Date(ticket.issueTime);
         return ticketDate.getDay() === dayIndex;
       });
-      const resolvedTickets = dayTickets.filter(ticket => ticket.status === 'COMPLETED');
+      const resolvedTickets = dayTickets.filter(ticket => ticket.status === 'COMPLETED' && ticket.completionTime);
+
+      const avgTimeForDay = resolvedTickets.length > 0
+        ? resolvedTickets.reduce((acc, ticket) => acc + getHoursBetween(ticket.issueTime, ticket.completionTime), 0) / resolvedTickets.length
+        : 0;
+
       return {
         month: day,
         tickets: dayTickets.length,
         resolved: resolvedTickets.length,
         unresolved: dayTickets.length - resolvedTickets.length,
-        avgTime: avgResolutionTime,
+        avgTime: Math.round(avgTimeForDay * 10) / 10,
       };
     });
 
     // Calculate root cause distribution
+    let rootCauseTotal = 0;
     const rootCauseCounts = tickets.reduce((acc, ticket) => {
       if (ticket.rootCauseId) {
         acc[ticket.rootCauseId] = (acc[ticket.rootCauseId] || 0) + 1;
+        rootCauseTotal += 1;
       }
       return acc;
     }, {});
+    const rootCauseDenominator = rootCauseTotal > 0 ? rootCauseTotal : Math.max(tickets.length, 1);
 
     // Color palette for root causes
     const colors = ['#3b82f6', '#22c55e', '#f97316', '#8b5cf6', '#ef4444', '#14b8a6', '#f59e0b'];
 
     const rootCauseData = rootCauses.map((cause, index) => {
       const count = rootCauseCounts[cause.id] || 0;
-      const total = tickets.length || 1;
       return {
         name: cause.name,
-        value: Math.round((count / total) * 100),
+        value: Math.round((count / rootCauseDenominator) * 100),
         color: colors[index % colors.length],
         count: count,
       };

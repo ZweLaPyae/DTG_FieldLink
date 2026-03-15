@@ -34,7 +34,7 @@ interface RootCause {
   name: string
 }
 
-export default function MaterialsPage() {
+export default function ConfigurationsPage() {
   const router = useRouter()
   const { adminId } = useAdminId()
   const [materials, setMaterials] = useState<Material[]>([])
@@ -491,7 +491,6 @@ export default function MaterialsPage() {
         </Tabs>
       </div>
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteId !== null} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
