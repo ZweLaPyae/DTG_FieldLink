@@ -25,11 +25,11 @@ model AdminUser {
   passwordHash String
   name         String?
   role         String     @default("admin")
-  phone        String?
-  picture      String?
-  fcmToken     String?    // Firebase Cloud Messaging token for push notifications
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+  phone        String?
+  picture      String?
+  fcmToken     String?
   logs         AdminLog[]
 }
 
@@ -40,7 +40,7 @@ model Technician {
   phone        String[]
   picture      String
   passwordHash String
-  fcmToken     String?  // Firebase Cloud Messaging token for push notifications
+  fcmToken     String?
   leadsTeam    Team[]
 }
 
@@ -64,29 +64,29 @@ model RootCause {
 }
 
 model Ticket {
-  id                      String       @id
-  customerId              String
-  complaint               String
-  priorityId              String
-  issueTime               DateTime
-  startTime               DateTime?
-  technicianCompletionTime DateTime?   // When technician completes work and requests review
-  completionTime          DateTime?    // When admin completes the ticket review
-  rootCauseId             String?
-  rootCauseDetails        String?
-  wayToFix                String?
-  totalCost               Float?
-  attachments             Json?        // Photos/videos uploaded by technicians
-  status                  TicketStatus @default(NEW)
-  faultCoordinate         Json?
-  breakTimes              Json?
-  materialsUsed           Json?
-  technicianNote          String?
-  teamId                  Int?
-  customer                Customer     @relation(fields: [customerId], references: [id])
-  priority                Priority     @relation(fields: [priorityId], references: [id])
-  rootCause               RootCause?   @relation(fields: [rootCauseId], references: [id])
-  team                    Team?        @relation(fields: [teamId], references: [id])
+  id                       String       @id
+  customerId               String
+  complaint                String
+  priorityId               String
+  issueTime                DateTime
+  startTime                DateTime?
+  completionTime           DateTime?
+  rootCauseId              String?
+  rootCauseDetails         String?
+  wayToFix                 String?
+  totalCost                Float?
+  attachments              Json?
+  status                   TicketStatus @default(NEW)
+  faultCoordinate          Json?
+  breakTimes               Json?
+  materialsUsed            Json?
+  technicianNote           String?
+  teamId                   Int?
+  technicianCompletionTime DateTime?
+  customer                 Customer     @relation(fields: [customerId], references: [id])
+  priority                 Priority     @relation(fields: [priorityId], references: [id])
+  rootCause                RootCause?   @relation(fields: [rootCauseId], references: [id])
+  team                     Team?        @relation(fields: [teamId], references: [id])
 }
 
 model Team {
@@ -111,6 +111,36 @@ model MaterialCatalog {
   unit            MaterialUnit @default(PIECE)
 }
 
+model AdminLog {
+  id          Int       @id @default(autoincrement())
+  adminUserId Int
+  action      String
+  description String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  adminUser   AdminUser @relation(fields: [adminUserId], references: [id])
+
+  @@index([createdAt])
+  @@index([adminUserId])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  userType  String
+  title     String
+  body      String
+  type      String
+  ticketId  String?
+  data      Json?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, userType])
+  @@index([createdAt])
+  @@index([read])
+}
+
 enum TicketStatus {
   NEW
   IN_PROGRESS
@@ -121,34 +151,4 @@ enum TicketStatus {
 enum MaterialUnit {
   PIECE
   METER
-}
-
-model AdminLog {
-  id          Int      @id @default(autoincrement())
-  adminUserId Int
-  action      String
-  description String?
-  metadata    Json?
-  createdAt   DateTime @default(now())
-  adminUser   AdminUser @relation(fields: [adminUserId], references: [id])
-  
-  @@index([createdAt])
-  @@index([adminUserId])
-}
-
-model Notification {
-  id           Int      @id @default(autoincrement())
-  userId       Int      // Either admin ID or technician ID
-  userType     String   // 'admin' or 'technician'
-  title        String
-  body         String
-  type         String   // 'ticket_created', 'ticket_assigned', 'ticket_review_requested', 'ticket_completed', 'ticket_in_progress'
-  ticketId     String?  // Related ticket ID
-  data         Json?    // Additional data
-  read         Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  
-  @@index([userId, userType])
-  @@index([createdAt])
-  @@index([read])
 }

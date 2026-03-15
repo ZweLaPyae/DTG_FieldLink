@@ -813,7 +813,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                       ),
                       const SizedBox(height: 12),
                       const Text(
-                        'Assigned Technician',
+                        'Assigned Team',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
@@ -832,12 +832,12 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                           border: Border.all(color: Colors.grey[300]!),
                         ),
                         child: Text(
-                          ticket.technicianDisplay.isEmpty
+                          ticket.teamDisplay.isEmpty
                               ? 'Not Assigned Yet'
-                              : ticket.technicianDisplay,
+                              : ticket.teamDisplay,
                           style: TextStyle(
                             fontSize: 14,
-                            color: ticket.technicianDisplay.isEmpty
+                            color: ticket.teamDisplay.isEmpty
                                 ? Colors.grey[600]
                                 : Colors.black,
                           ),
@@ -1007,7 +1007,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                         ),
                       const SizedBox(height: 12),
                       const Text(
-                        'Way to Fix',
+                        'Solution',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
@@ -1648,16 +1648,72 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                                       child: InkWell(
                                         borderRadius: BorderRadius.circular(8),
                                         onTap: () {
-                                          // TODO: Open full screen viewer
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                'View: ${attachment.name}',
+                                          if (isImage) {
+                                            // Open full screen image viewer
+                                            showDialog(
+                                              context: context,
+                                              builder: (context) => Dialog(
+                                                backgroundColor: Colors.transparent,
+                                                insetPadding: const EdgeInsets.all(8),
+                                                child: Stack(
+                                                  children: [
+                                                    // Full screen image with zoom
+                                                    InteractiveViewer(
+                                                      minScale: 0.5,
+                                                      maxScale: 4.0,
+                                                      child: Center(
+                                                        child: Image.network(
+                                                          attachment.name,
+                                                          fit: BoxFit.contain,
+                                                          errorBuilder: (context, error, stackTrace) {
+                                                            return Container(
+                                                              padding: const EdgeInsets.all(20),
+                                                              color: Colors.black54,
+                                                              child: const Column(
+                                                                mainAxisSize: MainAxisSize.min,
+                                                                children: [
+                                                                  Icon(Icons.broken_image, color: Colors.white, size: 48),
+                                                                  SizedBox(height: 8),
+                                                                  Text('Failed to load image', style: TextStyle(color: Colors.white)),
+                                                                ],
+                                                              ),
+                                                            );
+                                                          },
+                                                          loadingBuilder: (context, child, loadingProgress) {
+                                                            if (loadingProgress == null) return child;
+                                                            return const Center(
+                                                              child: CircularProgressIndicator(color: Colors.white),
+                                                            );
+                                                          },
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    // Close button
+                                                    Positioned(
+                                                      top: 8,
+                                                      right: 8,
+                                                      child: IconButton(
+                                                        onPressed: () => Navigator.of(context).pop(),
+                                                        icon: Container(
+                                                          padding: const EdgeInsets.all(8),
+                                                          decoration: BoxDecoration(
+                                                            color: Colors.black54,
+                                                            borderRadius: BorderRadius.circular(20),
+                                                          ),
+                                                          child: const Icon(Icons.close, color: Colors.white),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
                                               ),
-                                            ),
-                                          );
+                                            );
+                                          } else {
+                                            // For videos, show a message (video player could be added later)
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('Video playback coming soon')),
+                                            );
+                                          }
                                         },
                                       ),
                                     ),
@@ -1730,40 +1786,49 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      TextField(
-                        controller: _notesController,
-                        maxLines: 4,
-                        enabled: _canEditNotes(ticket) && _isEditingNotes,
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: (_canEditNotes(ticket) && _isEditingNotes)
-                              ? Colors.white
-                              : Colors.grey.shade100,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(
-                              color: (_canEditNotes(ticket) && _isEditingNotes)
-                                  ? const Color(0xFF3B82F6)
-                                  : Colors.grey.shade300,
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(
-                              color: (_canEditNotes(ticket) && _isEditingNotes)
-                                  ? const Color(0xFF3B82F6)
-                                  : Colors.grey.shade300,
-                            ),
-                          ),
-                          hintText: _canEditNotes(ticket)
-                              ? 'Add your notes here...'
-                              : 'No notes yet',
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          minHeight: 100,
+                          maxHeight: 200,
                         ),
-                        onChanged: (value) {
-                          setState(() {
-                            _hasChanges = true;
-                          });
-                        },
+                        child: SingleChildScrollView(
+                          child: TextField(
+                            controller: _notesController,
+                            maxLines: null,
+                            minLines: 4,
+                            enabled: _canEditNotes(ticket) && _isEditingNotes,
+                            decoration: InputDecoration(
+                              filled: true,
+                              fillColor: (_canEditNotes(ticket) && _isEditingNotes)
+                                  ? Colors.white
+                                  : Colors.grey.shade100,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: (_canEditNotes(ticket) && _isEditingNotes)
+                                      ? const Color(0xFF3B82F6)
+                                      : Colors.grey.shade300,
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: (_canEditNotes(ticket) && _isEditingNotes)
+                                      ? const Color(0xFF3B82F6)
+                                      : Colors.grey.shade300,
+                                ),
+                              ),
+                              hintText: _canEditNotes(ticket)
+                                  ? 'Add your notes here...'
+                                  : 'No notes yet',
+                            ),
+                            onChanged: (value) {
+                              setState(() {
+                                _hasChanges = true;
+                              });
+                            },
+                          ),
+                        ),
                       ),
                     ],
                   ),

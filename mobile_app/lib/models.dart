@@ -133,6 +133,7 @@ class Ticket {
   final String? technicianId;
   final String? teamId;
   final String technicianDisplay;
+  final String teamDisplay;
   final DateTime? issueTime;
   final DateTime? startTime;
   final DateTime? completionTime;
@@ -163,6 +164,7 @@ class Ticket {
     this.technicianId,
     this.teamId,
     required this.technicianDisplay,
+    required this.teamDisplay,
     this.issueTime,
     this.startTime,
     this.completionTime,
@@ -197,6 +199,7 @@ class Ticket {
       technicianId: json['technicianId'],
       teamId: json['teamId']?.toString(),
       technicianDisplay: json['technician_display'] ?? '',
+      teamDisplay: json['team_display'] ?? '',
       issueTime: json['issueTime'] != null ? DateTime.parse(json['issueTime']) : null,
       startTime: json['startTime'] != null ? DateTime.parse(json['startTime']) : null,
       completionTime: json['completionTime'] != null ? DateTime.parse(json['completionTime']) : null,
@@ -230,6 +233,7 @@ class Ticket {
       technicianId: json['technicianId']?.toString(),
       teamId: json['teamId']?.toString(),
       technicianDisplay: json['technician_display'] ?? '',
+      teamDisplay: json['team_display'] ?? '',
       issueTime: json['issueTime'] != null ? DateTime.parse(json['issueTime']) : null,
       startTime: json['startTime'] != null ? DateTime.parse(json['startTime']) : null,
       completionTime: json['completionTime'] != null ? DateTime.parse(json['completionTime']) : null,
@@ -276,6 +280,7 @@ class Ticket {
       technicianId: json['technicianId']?.toString(),
       teamId: json['teamId']?.toString(),
       technicianDisplay: json['technician']?['name'] ?? '',
+      teamDisplay: json['team']?['name'] ?? '',
       issueTime: json['issueTime'] != null ? DateTime.parse(json['issueTime']) : null,
       startTime: json['startTime'] != null ? DateTime.parse(json['startTime']) : null,
       completionTime: json['completionTime'] != null ? DateTime.parse(json['completionTime']) : null,
@@ -314,6 +319,7 @@ class Ticket {
       technicianId: technicianId,
       teamId: teamId,
       technicianDisplay: technicianDisplay,
+      teamDisplay: teamDisplay,
       issueTime: issueTime,
       startTime: startTime,
       completionTime: completionTime,
@@ -345,6 +351,7 @@ class Ticket {
       'priority': priority,
       'priority_display': priorityDisplay,
       'technicianId': technicianId,      'teamId': teamId,      'technician_display': technicianDisplay,
+      'team_display': teamDisplay,
       'issueTime': issueTime?.toIso8601String(),
       'startTime': startTime?.toIso8601String(),
       'completionTime': completionTime?.toIso8601String(),

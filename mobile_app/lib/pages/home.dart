@@ -36,14 +36,23 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
   bool _teamLoaded = false; // Track if teams have been loaded
   String? _lastTechnicianId; // Track last technician to avoid reloading
   int _notificationCount = 0; // Track notification count for badge
-  
+
+  // Archive state variables
+  bool _showArchive = false;
+  String _archiveFilter = 'default'; // 'default' (7 days), 'custom', 'all'
+  DateTime? _archiveStartDate;
+  DateTime? _archiveEndDate;
+  List<Ticket> _archivedTickets = [];
+  bool _isLoadingArchive = false;
+  bool _archiveUsingFallback = false;
+
   // Store callback reference so we can remove it in dispose
   late final Function() _notificationCallback;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
       // Rebuild when tab changes to update badge colors
       if (mounted) setState(() {});
@@ -91,7 +100,7 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
   
   Future<void> _refreshCurrentTab() async {
     if (!mounted) return;
-    
+
     if (_currentIndex == 0) {
       // Refresh tickets tab
       await ref.read(ticketsProvider.notifier).loadTickets(forceRefresh: true);
@@ -100,6 +109,333 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
       await ref.read(ticketsProvider.notifier).loadTickets(forceRefresh: true);
     }
     // Profile tab doesn't need auto-refresh
+  }
+
+  // Archive methods
+  void _showArchiveBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle bar
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Text(
+              'Completed Tickets Archive',
+              style: DesignTokens.headingSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Select time range to view completed tickets',
+              style: DesignTokens.bodySmall,
+            ),
+            const SizedBox(height: 20),
+
+            // Option 1: Default (Past 7 days)
+            _archiveOption(
+              icon: Icons.calendar_today,
+              title: 'Past 7 Days',
+              subtitle: 'View recently completed tickets',
+              isSelected: _archiveFilter == 'default' && _showArchive,
+              onTap: () {
+                Navigator.pop(context);
+                _loadArchive('default');
+              },
+            ),
+
+            // Option 2: Custom date range
+            _archiveOption(
+              icon: Icons.date_range,
+              title: 'Custom Date Range',
+              subtitle: 'Select specific start and end dates',
+              isSelected: _archiveFilter == 'custom' && _showArchive,
+              onTap: () async {
+                Navigator.pop(context);
+                await _selectCustomDateRange();
+              },
+            ),
+
+            // Option 3: Show all
+            _archiveOption(
+              icon: Icons.all_inclusive,
+              title: 'Show All',
+              subtitle: 'View all completed tickets',
+              isSelected: _archiveFilter == 'all' && _showArchive,
+              onTap: () {
+                Navigator.pop(context);
+                _loadArchive('all');
+              },
+            ),
+
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _archiveOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? DesignTokens.successGreen.withOpacity(0.1)
+              : Colors.grey[100],
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(
+          icon,
+          color: isSelected ? DesignTokens.successGreen : Colors.grey[600],
+        ),
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+          color: isSelected ? DesignTokens.successGreen : DesignTokens.textDark,
+        ),
+      ),
+      subtitle: Text(subtitle, style: DesignTokens.caption),
+      trailing: isSelected
+          ? const Icon(Icons.check_circle, color: DesignTokens.successGreen)
+          : const Icon(Icons.chevron_right, color: Colors.grey),
+      onTap: onTap,
+    );
+  }
+
+  Future<void> _selectCustomDateRange() async {
+    final DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      initialDateRange: _archiveStartDate != null && _archiveEndDate != null
+          ? DateTimeRange(start: _archiveStartDate!, end: _archiveEndDate!)
+          : DateTimeRange(
+              start: DateTime.now().subtract(const Duration(days: 30)),
+              end: DateTime.now(),
+            ),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: DesignTokens.primaryBlue,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      _archiveStartDate = picked.start;
+      _archiveEndDate = picked.end;
+      _loadArchive('custom');
+    }
+  }
+
+  Future<void> _loadArchive(String filter) async {
+    setState(() {
+      _archiveFilter = filter;
+      _showArchive = true;
+      _isLoadingArchive = true;
+    });
+
+    try {
+      final ticketsAsync = ref.read(ticketsProvider);
+      final allTickets = ticketsAsync.value ?? [];
+      final authState = ref.read(authProvider);
+      final currentTechnician = authState.technician;
+
+      // Filter for assigned completed tickets (same logic as regular ticket filtering)
+      var completedTickets = allTickets.where((t) {
+        if (t.status.toUpperCase() != 'COMPLETED') return false;
+        if (currentTechnician == null) return false;
+        if (t.teamId == null) return false;
+
+        // Check if current technician is part of the team
+        bool isInAnyTeam = false;
+        if (_currentTeams.isNotEmpty) {
+          final ticketTeamId = t.teamId.toString();
+          final memberTeamIds = _currentTeams
+              .where((team) => team['id'] != null)
+              .map((team) => team['id'].toString())
+              .toList();
+          isInAnyTeam = memberTeamIds.contains(ticketTeamId);
+        }
+        return isInAnyTeam;
+      }).toList();
+
+      // Apply date filter
+      List<Ticket> filteredTickets;
+      bool usingFallback = false;
+
+      if (filter == 'default') {
+        final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+        filteredTickets = completedTickets.where((t) {
+          if (t.issueTime == null) return false;
+          return t.issueTime!.isAfter(sevenDaysAgo);
+        }).toList();
+
+        // Fallback: if no tickets in past 7 days, show last 10 completed tickets
+        if (filteredTickets.isEmpty && completedTickets.isNotEmpty) {
+          // Sort by issueTime descending first
+          completedTickets.sort((a, b) {
+            if (a.issueTime == null && b.issueTime == null) return 0;
+            if (a.issueTime == null) return 1;
+            if (b.issueTime == null) return -1;
+            return b.issueTime!.compareTo(a.issueTime!);
+          });
+          filteredTickets = completedTickets.take(10).toList();
+          usingFallback = true;
+        }
+      } else if (filter == 'custom' && _archiveStartDate != null && _archiveEndDate != null) {
+        filteredTickets = completedTickets.where((t) {
+          if (t.issueTime == null) return false;
+          return t.issueTime!.isAfter(_archiveStartDate!.subtract(const Duration(days: 1))) &&
+                 t.issueTime!.isBefore(_archiveEndDate!.add(const Duration(days: 1)));
+        }).toList();
+      } else {
+        // 'all' - no date filtering
+        filteredTickets = completedTickets;
+      }
+
+      // Sort by issueTime descending (skip if already sorted for fallback)
+      if (!usingFallback) {
+        filteredTickets.sort((a, b) {
+          if (a.issueTime == null && b.issueTime == null) return 0;
+          if (a.issueTime == null) return 1;
+          if (b.issueTime == null) return -1;
+          return b.issueTime!.compareTo(a.issueTime!);
+        });
+      }
+
+      if (mounted) {
+        setState(() {
+          _archivedTickets = filteredTickets;
+          _isLoadingArchive = false;
+          _archiveUsingFallback = usingFallback;
+        });
+      }
+    } catch (e) {
+      print('Error loading archive: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingArchive = false;
+        });
+      }
+    }
+  }
+
+  void _closeArchive() {
+    setState(() {
+      _showArchive = false;
+      _archivedTickets = [];
+    });
+  }
+
+  String _getArchiveFilterLabel() {
+    switch (_archiveFilter) {
+      case 'default':
+        if (_archiveUsingFallback) {
+          return 'Showing: Last 10 completed (${_archivedTickets.length} tickets)';
+        }
+        return 'Showing: Past 7 days (${_archivedTickets.length} tickets)';
+      case 'custom':
+        final start = _archiveStartDate != null
+            ? '${_archiveStartDate!.day}/${_archiveStartDate!.month}/${_archiveStartDate!.year}'
+            : '';
+        final end = _archiveEndDate != null
+            ? '${_archiveEndDate!.day}/${_archiveEndDate!.month}/${_archiveEndDate!.year}'
+            : '';
+        return 'Showing: $start - $end (${_archivedTickets.length} tickets)';
+      case 'all':
+        return 'Showing: All completed (${_archivedTickets.length} tickets)';
+      default:
+        return 'Completed Tickets';
+    }
+  }
+
+  Widget _buildArchiveView() {
+    if (_isLoadingArchive) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return Column(
+      children: [
+        // Archive header with filter info
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: DesignTokens.successGreen.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: DesignTokens.successGreen.withOpacity(0.3)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.archive, color: DesignTokens.successGreen, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _getArchiveFilterLabel(),
+                  style: const TextStyle(
+                    color: DesignTokens.successGreen,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: _showArchiveBottomSheet,
+                child: const Text('Change', style: TextStyle(color: DesignTokens.successGreen)),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: DesignTokens.successGreen, size: 20),
+                onPressed: _closeArchive,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Archive tickets list
+        Expanded(
+          child: _buildTicketList(
+            _archivedTickets,
+            DesignTokens.successGreen,
+            'No completed tickets found for this period',
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _loadTeamData(String technicianId) async {
@@ -707,141 +1043,174 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
                     .where((t) => t.status.toUpperCase() == 'COMPLETED')
                     .length;
 
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[300]!, width: 1),
-                  ),
-                  child: TabBar(
-                    controller: _tabController,
-                    indicator: BoxDecoration(
-                      color: const Color(0xFF2563EB),
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF2563EB).withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+                return Row(
+                  children: [
+                    // Tab bar container (now with 2 tabs)
+                    Expanded(
+                      child: Container(
+                        margin: const EdgeInsets.only(left: 16),
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[300]!, width: 1),
                         ),
-                      ],
-                    ),
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    dividerColor: Colors.transparent,
-                    labelColor: Colors.white,
-                    unselectedLabelColor: Colors.black87,
-                    labelStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    unselectedLabelStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    tabs: [
-                      Tab(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Text('In Progress'),
-                            if (inProgressCount > 0) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _tabController.index == 0
-                                      ? Colors.white.withOpacity(0.3)
-                                      : const Color(0xFF3B82F6),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  '$inProgressCount',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: _tabController.index == 0
-                                        ? Colors.white
-                                        : Colors.white,
-                                  ),
-                                ),
+                        child: TabBar(
+                          controller: _tabController,
+                          indicator: BoxDecoration(
+                            color: const Color(0xFF2563EB),
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF2563EB).withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
                               ),
                             ],
+                          ),
+                          indicatorSize: TabBarIndicatorSize.tab,
+                          dividerColor: Colors.transparent,
+                          labelColor: Colors.white,
+                          unselectedLabelColor: Colors.black87,
+                          labelStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          unselectedLabelStyle: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          tabs: [
+                            Tab(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Text('In Progress'),
+                                  if (inProgressCount > 0) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: _tabController.index == 0
+                                            ? Colors.white.withOpacity(0.3)
+                                            : const Color(0xFF3B82F6),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        '$inProgressCount',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: _tabController.index == 0
+                                              ? Colors.white
+                                              : Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            Tab(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Text('In Review'),
+                                  if (inReviewCount > 0) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: _tabController.index == 1
+                                            ? Colors.white.withOpacity(0.3)
+                                            : const Color(0xFFF59E0B),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        '$inReviewCount',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: _tabController.index == 1
+                                              ? Colors.white
+                                              : Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                      Tab(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Text('In Review'),
-                            if (inReviewCount > 0) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _tabController.index == 1
-                                      ? Colors.white.withOpacity(0.3)
-                                      : const Color(0xFFF59E0B),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  '$inReviewCount',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: _tabController.index == 1
-                                        ? Colors.white
-                                        : Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
+                    ),
+                    // Archive Icon Button
+                    Container(
+                      margin: const EdgeInsets.only(left: 8, right: 16),
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: _showArchive
+                            ? DesignTokens.successGreen
+                            : Colors.grey[100],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _showArchive
+                              ? DesignTokens.successGreen
+                              : Colors.grey[300]!,
+                          width: 1,
                         ),
                       ),
-                      Tab(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Text('Complete'),
-                            if (completedCount > 0) ...[
-                              const SizedBox(width: 6),
-                              Container(
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              Icons.archive_outlined,
+                              color: _showArchive ? Colors.white : Colors.grey[600],
+                            ),
+                            onPressed: () {
+                              if (_showArchive) {
+                                _closeArchive();
+                              } else {
+                                _showArchiveBottomSheet();
+                              }
+                            },
+                            tooltip: 'Completed Tickets Archive',
+                          ),
+                          if (completedCount > 0 && !_showArchive)
+                            Positioned(
+                              right: 4,
+                              top: 4,
+                              child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
+                                  horizontal: 5,
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: _tabController.index == 2
-                                      ? Colors.white.withOpacity(0.3)
-                                      : const Color(0xFF10B981),
+                                  color: const Color(0xFF10B981),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Text(
                                   '$completedCount',
-                                  style: TextStyle(
-                                    fontSize: 11,
+                                  style: const TextStyle(
+                                    fontSize: 10,
                                     fontWeight: FontWeight.bold,
-                                    color: _tabController.index == 2
-                                        ? Colors.white
-                                        : Colors.white,
+                                    color: Colors.white,
                                   ),
                                 ),
                               ),
-                            ],
-                          ],
-                        ),
+                            ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 );
               },
               loading: () => Container(
@@ -922,9 +1291,11 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
                   final inReviewTickets = tickets
                       .where((t) => t.status.toUpperCase() == 'IN_REVIEW')
                       .toList();
-                  final completedTickets = tickets
-                      .where((t) => t.status.toUpperCase() == 'COMPLETED')
-                      .toList();
+
+                  // Show archive view if active, otherwise show tabs
+                  if (_showArchive) {
+                    return _buildArchiveView();
+                  }
 
                   return TabBarView(
                     controller: _tabController,
@@ -940,12 +1311,6 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
                         inReviewTickets,
                         const Color(0xFFF59E0B),
                         'No tasks in review',
-                      ),
-                      // Completed Tab
-                      _buildTicketList(
-                        completedTickets,
-                        const Color(0xFF10B981),
-                        'No completed tasks',
                       ),
                     ],
                   );

@@ -157,7 +157,25 @@ router.post('/', upload.array('attachments', 10), async (req, res) => {
 // Read all tickets
 router.get('/', async (req, res) => {
   try {
+    const { startDate, endDate } = req.query;
+
+    // Build where clause for date filtering
+    const where = {};
+    if (startDate || endDate) {
+      where.issueTime = {};
+      if (startDate) {
+        where.issueTime.gte = new Date(startDate);
+      }
+      if (endDate) {
+        // Make endDate inclusive by setting it to end of day (23:59:59.999)
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        where.issueTime.lte = endOfDay;
+      }
+    }
+
     const tickets = await prisma.ticket.findMany({
+      where,
       orderBy: { issueTime: 'desc' },
       include: {
         customer: {

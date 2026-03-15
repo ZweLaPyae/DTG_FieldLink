@@ -15,8 +15,22 @@ export default function TicketsPage() {
   const searchParams = useSearchParams()
   const [selectedTicket, setSelectedTicket] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("IN_REVIEW")
   const [refreshKey, setRefreshKey] = useState(0)
+
+  // Date filter states - default to past 7 days
+  const getDefaultDates = () => {
+    const today = new Date()
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(today.getDate() - 7)
+    return {
+      start: sevenDaysAgo.toISOString().split('T')[0],
+      end: today.toISOString().split('T')[0]
+    }
+  }
+  const defaultDates = getDefaultDates()
+  const [startDate, setStartDate] = useState(defaultDates.start)
+  const [endDate, setEndDate] = useState(defaultDates.end)
 
   // Auto-select ticket from query parameter
   useEffect(() => {
@@ -81,6 +95,21 @@ export default function TicketsPage() {
               <SelectItem value="COMPLETED">Completed</SelectItem>
             </SelectContent>
           </Select>
+          <div className="flex items-center gap-2">
+            <Input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-[150px]"
+            />
+            <span className="text-muted-foreground">to</span>
+            <Input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-[150px]"
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -88,6 +117,8 @@ export default function TicketsPage() {
             <TicketList
               searchQuery={searchQuery}
               statusFilter={statusFilter}
+              startDate={startDate}
+              endDate={endDate}
               selectedTicket={selectedTicket}
               onSelectTicket={setSelectedTicket}
               refreshKey={refreshKey}
