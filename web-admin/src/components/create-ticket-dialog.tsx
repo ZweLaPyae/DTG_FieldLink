@@ -40,13 +40,18 @@ export function CreateTicketDialog({ open, onOpenChange }: CreateTicketDialogPro
     setIsSubmitting(true)
 
     try {
+      // Convert datetime-local to ISO string with timezone
+      // datetime-local gives us "YYYY-MM-DDThh:mm" which is in local time
+      // We need to convert it to ISO string to preserve the user's intended time
+      const issueTimeISO = new Date(formData.issueTime).toISOString()
+
       // Create FormData for multipart upload
       const submitData = new FormData()
       submitData.append('ticketId', formData.ticketId)
       submitData.append('customerId', formData.customerId)
       submitData.append('complaint', formData.complaint)
       submitData.append('sla', formData.sla)
-      submitData.append('issueTime', formData.issueTime)
+      submitData.append('issueTime', issueTimeISO)
       submitData.append('priority', formData.priority)
       submitData.append('phone', formData.phone)
       submitData.append('serviceTypeId', formData.serviceType)

@@ -7,6 +7,12 @@ import '../services/notification_service.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 
+/// Helper function to convert DateTime to Myanmar timezone (UTC+6:30)
+DateTime toMyanmarTime(DateTime utcTime) {
+  // Myanmar timezone is UTC+6:30
+  return utcTime.toUtc().add(const Duration(hours: 6, minutes: 30));
+}
+
 class NotificationsPage extends ConsumerStatefulWidget {
   const NotificationsPage({super.key});
 
@@ -315,8 +321,10 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   }
 
   String _formatTimeAgo(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
+    // Convert both times to Myanmar timezone for accurate comparison
+    final myanmarDateTime = toMyanmarTime(dateTime);
+    final nowInMyanmar = toMyanmarTime(DateTime.now().toUtc());
+    final difference = nowInMyanmar.difference(myanmarDateTime);
 
     if (difference.inSeconds < 60) {
       return 'Just now';
@@ -327,7 +335,8 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     } else if (difference.inDays < 7) {
       return '${difference.inDays}d ago';
     } else {
-      return DateFormat('MMM d, yyyy').format(dateTime);
+      // Show absolute date in Myanmar timezone
+      return DateFormat('MMM d, yyyy').format(myanmarDateTime);
     }
   }
 }

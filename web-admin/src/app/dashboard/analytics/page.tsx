@@ -206,7 +206,7 @@ export default function AnalyticsPage() {
     let csvContent = `DTG FieldLink Analytics Report\n`
     csvContent += `Period: ${periodLabel}\n`
     csvContent += `Comparison Period: ${formatDateLabel(previousStart)} - ${formatDateLabel(previousEnd)}\n`
-    csvContent += `Generated: ${new Date().toLocaleString()}\n\n`
+    csvContent += `Generated: ${new Date().toLocaleString('en-US', { timeZone: 'Asia/Yangon', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}\n\n`
 
     // Summary Section
     csvContent += `SUMMARY\n`

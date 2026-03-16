@@ -15,6 +15,12 @@ import '../providers/tickets_provider.dart';
 import '../services/spaces_upload_service.dart';
 import '../services/notification_service.dart';
 
+/// Helper function to convert DateTime to Myanmar timezone (UTC+6:30)
+DateTime toMyanmarTime(DateTime utcTime) {
+  // Myanmar timezone is UTC+6:30
+  return utcTime.toUtc().add(const Duration(hours: 6, minutes: 30));
+}
+
 LatLngBounds boundsFromPoints(List<LatLng> points) {
   final lats = points.map((p) => p.latitude);
   final lngs = points.map((p) => p.longitude);
@@ -2110,7 +2116,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                         Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: Text(
-                            'Started: ${DateFormat('MMM dd, yyyy HH:mm').format(ticket.startTime!.toLocal())}',
+                            'Started: ${DateFormat('MMM dd, yyyy HH:mm').format(toMyanmarTime(ticket.startTime!))}',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey[600],
@@ -2151,7 +2157,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                             );
                             final reason = breakTime['reason']?.toString() ?? '';
                             print(
-                              'Rendering break time: ${DateFormat('MMM dd, yyyy HH:mm').format(start.toLocal())} - ${DateFormat('MMM dd, yyyy HH:mm').format(end.toLocal())}',
+                              'Rendering break time: ${DateFormat('MMM dd, yyyy HH:mm').format(toMyanmarTime(start))} - ${DateFormat('MMM dd, yyyy HH:mm').format(toMyanmarTime(end))}',
                             );
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 8),
@@ -2168,7 +2174,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                                       ),
                                     ),
                                   Text(
-                                    '${DateFormat('MMM dd, yyyy HH:mm').format(start.toLocal())} - ${DateFormat('MMM dd, yyyy HH:mm').format(end.toLocal())}',
+                                    '${DateFormat('MMM dd, yyyy HH:mm').format(toMyanmarTime(start))} - ${DateFormat('MMM dd, yyyy HH:mm').format(toMyanmarTime(end))}',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: Colors.grey[600],
@@ -2200,7 +2206,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                                     ),
                                   ),
                                 Text(
-                                  '${DateFormat('MMM dd, yyyy HH:mm').format(_currentBreakStartTime!.toLocal())} - Taking a break...',
+                                  '${DateFormat('MMM dd, yyyy HH:mm').format(toMyanmarTime(_currentBreakStartTime!))} - Taking a break...',
                                   style: const TextStyle(
                                     fontSize: 12,
                                     color: Color(0xFFF59E0B),
@@ -2217,7 +2223,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                         Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: Text(
-                            'Completed: ${DateFormat('MMM dd, yyyy HH:mm').format(ticket.completionTime!.toLocal())}',
+                            'Completed: ${DateFormat('MMM dd, yyyy HH:mm').format(toMyanmarTime(ticket.completionTime!))}',
                             style: TextStyle(
                               fontSize: 12,
                               color: const Color(0xFF10B981),
@@ -2237,7 +2243,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                           ),
                           title: Text(u.message),
                           subtitle: Text(
-                            DateFormat.Hm().format(u.time.toLocal()),
+                            DateFormat.Hm().format(toMyanmarTime(u.time)),
                           ),
                         ),
                       ),
