@@ -192,7 +192,7 @@ export function TicketList({
                 </div>
                 <div className="flex items-center text-sm text-muted-foreground">
                   <Clock className="w-4 h-4 mr-1" />
-                  {new Date(ticket.issueTime).toLocaleString()}
+                  {new Date(ticket.issueTime).toLocaleString('en-US', { timeZone: 'Asia/Yangon', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
                 </div>
               </div>
 

@@ -48,11 +48,22 @@ export function TicketOverview() {
 
   const totalTickets = tickets.length
   const inProgressTickets = tickets.filter(t => t.status === 'IN_PROGRESS').length
-  const completedToday = tickets.filter(t =>
-    t.status === 'COMPLETED' &&
-    t.completionTime &&
-    new Date(t.completionTime).toDateString() === new Date().toDateString()
-  ).length
+
+  // Get today's date in Myanmar timezone
+  const getTodayInMyanmarTimezone = () => {
+    const now = new Date();
+    const myanmarDate = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Yangon' }));
+    return myanmarDate.toDateString();
+  };
+
+  const completedToday = tickets.filter(t => {
+    if (t.status === 'COMPLETED' && t.completionTime) {
+      const completionDate = new Date(t.completionTime);
+      const completionInMyanmar = new Date(completionDate.toLocaleString('en-US', { timeZone: 'Asia/Yangon' }));
+      return completionInMyanmar.toDateString() === getTodayInMyanmarTimezone();
+    }
+    return false;
+  }).length
 
   const avgResolutionHours = tickets
     .filter(t => t.status === 'COMPLETED' && t.issueTime && t.completionTime)

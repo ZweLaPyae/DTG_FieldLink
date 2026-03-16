@@ -18,6 +18,12 @@ import 'ticket_detail.dart';
 import 'login_page.dart';
 import 'notifications_page.dart';
 
+/// Helper function to convert DateTime to Myanmar timezone (UTC+6:30)
+DateTime toMyanmarTime(DateTime utcTime) {
+  // Myanmar timezone is UTC+6:30
+  return utcTime.toUtc().add(const Duration(hours: 6, minutes: 30));
+}
+
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
@@ -2255,8 +2261,11 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              t.issueTime != null 
-                                ? 'Reported: ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][t.issueTime!.month - 1]} ${t.issueTime!.day} ${t.issueTime!.hour.toString().padLeft(2, '0')}:${t.issueTime!.minute.toString().padLeft(2, '0')}'
+                              t.issueTime != null
+                                ? () {
+                                    final myanmarTime = toMyanmarTime(t.issueTime!);
+                                    return 'Reported: ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][myanmarTime.month - 1]} ${myanmarTime.day} ${myanmarTime.hour.toString().padLeft(2, '0')}:${myanmarTime.minute.toString().padLeft(2, '0')}';
+                                  }()
                                 : 'Reported: N/A',
                               style: const TextStyle(
                                 fontSize: 12,
@@ -2582,8 +2591,11 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          t.issueTime != null 
-                            ? 'Reported: ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][t.issueTime!.month - 1]} ${t.issueTime!.day} ${t.issueTime!.hour.toString().padLeft(2, '0')}:${t.issueTime!.minute.toString().padLeft(2, '0')}'
+                          t.issueTime != null
+                            ? () {
+                                final myanmarTime = toMyanmarTime(t.issueTime!);
+                                return 'Reported: ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][myanmarTime.month - 1]} ${myanmarTime.day} ${myanmarTime.hour.toString().padLeft(2, '0')}:${myanmarTime.minute.toString().padLeft(2, '0')}';
+                              }()
                             : 'Reported: N/A',
                           style: const TextStyle(
                             fontSize: 12,

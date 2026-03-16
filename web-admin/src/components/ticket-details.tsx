@@ -450,15 +450,15 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate, on
                 </div>
               </div>
               <div className="flex flex-col space-y-1 text-sm">
-                <span className="text-muted-foreground">Issue Time: <span className="text-foreground">{new Date(ticket.issueTime).toLocaleString()}</span></span>
+                <span className="text-muted-foreground">Issue Time: <span className="text-foreground">{new Date(ticket.issueTime).toLocaleString('en-US', { timeZone: 'Asia/Yangon', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</span></span>
                 {ticket.startTime && (
-                  <span className="text-muted-foreground">Start Time: <span className="text-foreground">{new Date(ticket.startTime).toLocaleString()}</span></span>
+                  <span className="text-muted-foreground">Start Time: <span className="text-foreground">{new Date(ticket.startTime).toLocaleString('en-US', { timeZone: 'Asia/Yangon', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</span></span>
                 )}
                 {ticket.technicianCompletionTime && (
-                  <span className="text-muted-foreground">Technician Completed: <span className="text-foreground">{new Date(ticket.technicianCompletionTime).toLocaleString()}</span></span>
+                  <span className="text-muted-foreground">Technician Completed: <span className="text-foreground">{new Date(ticket.technicianCompletionTime).toLocaleString('en-US', { timeZone: 'Asia/Yangon', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</span></span>
                 )}
                 {ticket.completionTime && (
-                  <span className="text-muted-foreground">Admin Completed: <span className="text-foreground">{new Date(ticket.completionTime).toLocaleString()}</span></span>
+                  <span className="text-muted-foreground">Admin Completed: <span className="text-foreground">{new Date(ticket.completionTime).toLocaleString('en-US', { timeZone: 'Asia/Yangon', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</span></span>
                 )}
                 {totalHours && (
                   <span className={cn(

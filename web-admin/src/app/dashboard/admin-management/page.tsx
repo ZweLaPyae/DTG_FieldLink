@@ -268,12 +268,14 @@ export default function AdminManagementPage() {
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString(undefined, {
+    return new Date(dateString).toLocaleString('en-US', {
+      timeZone: 'Asia/Yangon',
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      hour12: true,
     })
   }
 

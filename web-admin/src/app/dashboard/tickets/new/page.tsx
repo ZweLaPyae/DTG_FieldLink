@@ -214,17 +214,22 @@ export default function NewTicketPage() {
         return;
       }
 
+      // Convert datetime-local to ISO string with timezone
+      // datetime-local gives us "YYYY-MM-DDThh:mm" which is in local time
+      // We need to convert it to ISO string to preserve the user's intended time
+      const issueTimeISO = formData.issueTime ? new Date(formData.issueTime).toISOString() : null
+
       const response = await fetch(process.env.NEXT_PUBLIC_BACKEND_URL + '/tickets', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           ...formData,
           isDraft,
           adminUserId: adminId,
           priority: formData.priority,
-          issueTime: formData.issueTime,
+          issueTime: issueTimeISO,
         }),
       });
 

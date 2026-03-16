@@ -240,7 +240,7 @@ export default function NotificationsManagementPage() {
                     )}
                     {log.timestamp && (
                       <p className="text-xs text-muted-foreground">
-                        {new Date(log.timestamp).toLocaleString()}
+                        {new Date(log.timestamp).toLocaleString('en-US', { timeZone: 'Asia/Yangon', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
                       </p>
                     )}
                   </div>
