@@ -661,13 +661,25 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate, on
                 <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Break Times</h4>
                 <div className="space-y-3">
                   {ticket.breakTimes.map((breakTime: any, idx: number) => {
-                    const start = new Date(breakTime.start).toLocaleString(undefined, {
-                      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                    const start = new Date(breakTime.start).toLocaleString('en-US', {
+                      timeZone: 'Asia/Yangon',
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
                     })
-                    const end = new Date(breakTime.end).toLocaleString(undefined, {
-                      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                    const end = new Date(breakTime.end).toLocaleString('en-US', {
+                      timeZone: 'Asia/Yangon',
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
                     })
-                    
+
                     return (
                       <div key={idx} className="flex flex-col border rounded p-2 bg-muted/10">
                         {breakTime.reason && <span className="font-medium">Reason: {breakTime.reason}</span>}
