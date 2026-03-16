@@ -249,7 +249,7 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate, on
         },
         body: JSON.stringify({
           status: 'COMPLETED',
-          completionTime: new Date().toISOString(),
+          // Backend will use server-side timestamp for completionTime
           adminUserId: adminId,
         }),
       });
@@ -307,15 +307,24 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate, on
   // Calculate total hours and working hours
   const calculateHours = () => {
     if (!ticket?.startTime || !ticket?.completionTime) {
-      return { totalHours: null, workingHours: null }
+      return { totalHours: null, workingHours: null, hasTimingIssue: false, timingIssueMessage: null }
     }
 
     const startTime = new Date(ticket.startTime)
     const completionTime = new Date(ticket.completionTime)
-    
+
+    // Check for timing inconsistencies
+    let hasTimingIssue = false
+    let timingIssueMessage = null
+
+    if (completionTime < startTime) {
+      hasTimingIssue = true
+      timingIssueMessage = `⚠️ Timing Error: Completion time is ${Math.abs((completionTime.getTime() - startTime.getTime()) / (1000 * 60 * 60)).toFixed(2)} hours BEFORE start time. This may indicate incorrect system time on the device used for completion.`
+    }
+
     // Calculate total hours (in hours with 2 decimal places)
     const totalHours = (completionTime.getTime() - startTime.getTime()) / (1000 * 60 * 60)
-    
+
     // Calculate break time total (in hours)
     let breakTimeHours = 0
     if (ticket.breakTimes && Array.isArray(ticket.breakTimes)) {
@@ -326,17 +335,19 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate, on
         return total + breakDuration
       }, 0)
     }
-    
+
     // Calculate working hours
     const workingHours = totalHours - breakTimeHours
-    
+
     return {
       totalHours: totalHours.toFixed(2),
-      workingHours: workingHours.toFixed(2)
+      workingHours: workingHours.toFixed(2),
+      hasTimingIssue,
+      timingIssueMessage
     }
   }
 
-  const { totalHours, workingHours } = calculateHours()
+  const { totalHours, workingHours, hasTimingIssue, timingIssueMessage } = calculateHours()
 
   if (isLoading) {
     return (
@@ -418,6 +429,18 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate, on
           {/* Issue Details */}
           <div className="space-y-3 col-span-2 shadow-sm p-4 rounded-md border border-border/50">
             <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Issue Details</h4>
+
+            {/* Timing Issue Warning */}
+            {hasTimingIssue && (
+              <div className="flex items-start space-x-2 p-3 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
+                <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-red-900 dark:text-red-100">Timing Inconsistency Detected</p>
+                  <p className="text-xs text-red-700 dark:text-red-300 mt-1">{timingIssueMessage}</p>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <div className="flex items-start space-x-2">
                 <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5" />
@@ -438,10 +461,26 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate, on
                   <span className="text-muted-foreground">Admin Completed: <span className="text-foreground">{new Date(ticket.completionTime).toLocaleString()}</span></span>
                 )}
                 {totalHours && (
-                  <span className="text-muted-foreground">Total Hours: <span className="text-foreground font-medium">{totalHours} hrs</span></span>
+                  <span className={cn(
+                    "text-muted-foreground",
+                    hasTimingIssue && "text-red-600 dark:text-red-400 font-semibold"
+                  )}>
+                    Total Hours: <span className={cn(
+                      "text-foreground font-medium",
+                      hasTimingIssue && "text-red-700 dark:text-red-300"
+                    )}>{totalHours} hrs</span>
+                  </span>
                 )}
                 {workingHours && (
-                  <span className="text-muted-foreground">Working Hours: <span className="text-foreground font-medium">{workingHours} hrs</span></span>
+                  <span className={cn(
+                    "text-muted-foreground",
+                    hasTimingIssue && "text-red-600 dark:text-red-400 font-semibold"
+                  )}>
+                    Working Hours: <span className={cn(
+                      "text-foreground font-medium",
+                      hasTimingIssue && "text-red-700 dark:text-red-300"
+                    )}>{workingHours} hrs</span>
+                  </span>
                 )}
               </div>
               {ticket.technician && (

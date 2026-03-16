@@ -314,7 +314,25 @@ router.put('/:id', async (req, res) => {
   try {
     console.log('Updating ticket:', req.params.id);
     console.log('Update data:', req.body);
-    
+
+    // Fetch existing ticket to validate changes
+    const existingTicket = await prisma.ticket.findUnique({
+      where: { id: req.params.id },
+      select: {
+        id: true,
+        status: true,
+        startTime: true,
+        completionTime: true,
+        technicianCompletionTime: true,
+        issueTime: true,
+        technicianNote: true
+      },
+    });
+
+    if (!existingTicket) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+
     // Convert date strings to Date objects if present
     const updateData = { ...req.body };
     if (updateData.startTime) {
@@ -330,6 +348,49 @@ router.put('/:id', async (req, res) => {
       updateData.issueTime = new Date(updateData.issueTime);
     }
 
+    // 🔒 PROTECTION: Prevent startTime modification after ticket completion
+    if (updateData.startTime && existingTicket.completionTime) {
+      delete updateData.startTime;
+      console.warn(`⚠️ Attempt to modify startTime for completed ticket ${req.params.id} - ignored`);
+    }
+
+    // 🕐 SERVER-SIDE TIMESTAMP: Use server time when admin completes the ticket
+    if (updateData.status === 'COMPLETED' && existingTicket.status !== 'COMPLETED') {
+      updateData.completionTime = new Date(); // Use server time
+      console.log(`✅ Using server-side timestamp for ticket completion: ${updateData.completionTime.toISOString()}`);
+    }
+
+    // ✓ VALIDATION: Ensure completionTime is after startTime
+    const finalCompletionTime = updateData.completionTime || existingTicket.completionTime;
+    const finalStartTime = updateData.startTime || existingTicket.startTime;
+
+    if (finalCompletionTime && finalStartTime) {
+      if (finalCompletionTime < finalStartTime) {
+        return res.status(400).json({
+          error: 'Invalid timestamps: Completion time cannot be before start time',
+          details: {
+            startTime: finalStartTime.toISOString(),
+            completionTime: finalCompletionTime.toISOString(),
+            difference: `${((finalStartTime - finalCompletionTime) / (1000 * 60 * 60)).toFixed(2)} hours`
+          }
+        });
+      }
+    }
+
+    // ✓ VALIDATION: Ensure technicianCompletionTime is after startTime
+    const finalTechCompletionTime = updateData.technicianCompletionTime || existingTicket.technicianCompletionTime;
+    if (finalTechCompletionTime && finalStartTime) {
+      if (finalTechCompletionTime < finalStartTime) {
+        return res.status(400).json({
+          error: 'Invalid timestamps: Technician completion time cannot be before start time',
+          details: {
+            startTime: finalStartTime.toISOString(),
+            technicianCompletionTime: finalTechCompletionTime.toISOString()
+          }
+        });
+      }
+    }
+
     // If admin is adding a note or approving, append to technician note
     if ((updateData.adminNote || updateData.status === 'COMPLETED') && req.body.adminUserId) {
       const admin = await prisma.adminUser.findUnique({
@@ -337,26 +398,21 @@ router.put('/:id', async (req, res) => {
         select: { name: true, email: true },
       });
 
-      const existingTicket = await prisma.ticket.findUnique({
-        where: { id: req.params.id },
-        select: { technicianNote: true },
-      });
-
       const adminName = admin?.name || admin?.email || 'Admin';
       const currentDate = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
       let appendedNote = existingTicket?.technicianNote || '';
-      
+
       // Add admin note if provided
       if (updateData.adminNote) {
         appendedNote += `\n\n--- Note By: ${adminName} (${currentDate}) ---\n${updateData.adminNote}`;
         delete updateData.adminNote; // Remove adminNote from updateData as it's not a field in schema
       }
-      
+
       // Add approval note if completing
-      if (updateData.status === 'COMPLETED') {
+      if (updateData.status === 'COMPLETED' && existingTicket.status !== 'COMPLETED') {
         appendedNote += `\n\n--- Approved By: ${adminName} (${currentDate}) ---`;
       }
-      
+
       updateData.technicianNote = appendedNote;
     }
     
