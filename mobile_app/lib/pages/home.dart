@@ -2331,7 +2331,7 @@ class _HomePageState extends ConsumerState<HomePage> with SingleTickerProviderSt
                                 .updateTicket(t.id, {
                                   'status': 'IN_PROGRESS',
                                   'teamId': teamId,
-                                  'startTime': DateTime.now().toIso8601String(),
+                                  'startTime': DateTime.now().toUtc().toIso8601String(),
                                 });
                             if (success && context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
