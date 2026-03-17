@@ -2151,10 +2151,10 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                           try {
                             final start = DateTime.parse(
                               breakTime['start'].toString(),
-                            );
+                            ).toUtc();
                             final end = DateTime.parse(
                               breakTime['end'].toString(),
-                            );
+                            ).toUtc();
                             final reason = breakTime['reason']?.toString() ?? '';
                             print(
                               'Rendering break time: ${DateFormat('MMM dd, yyyy HH:mm').format(toMyanmarTime(start))} - ${DateFormat('MMM dd, yyyy HH:mm').format(toMyanmarTime(end))}',
