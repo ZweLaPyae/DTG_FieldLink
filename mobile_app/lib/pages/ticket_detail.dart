@@ -2286,7 +2286,7 @@ class _TicketDetailPageState extends ConsumerState<TicketDetailPage> {
                         try {
                           await dataService.updateTicket(ticket.id, {
                             'status': 'IN_REVIEW',
-                            'technicianCompletionTime': DateTime.now().toIso8601String(),
+                            'technicianCompletionTime': DateTime.now().toUtc().toIso8601String(),
                           });
 
                           // Refresh tickets provider to update tasks and profile tabs
