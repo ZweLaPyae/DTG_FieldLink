@@ -268,7 +268,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
           final notification = _notifications[index];
           final isUnread = !notification['read'];
           final type = notification['type'] ?? 'general';
-          final createdAt = DateTime.parse(notification['createdAt']);
+          final createdAt = DateTime.parse(notification['createdAt']).toUtc();
           final timeAgo = _formatTimeAgo(createdAt);
 
           return Card(
