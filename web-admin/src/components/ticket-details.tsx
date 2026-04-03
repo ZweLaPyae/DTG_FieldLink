@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
@@ -76,6 +77,20 @@ interface Ticket {
 }
 
 export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate, onTicketDelete }: TicketDetailsProps) {
+  const formatDateForDateTimeLocal = (value: string | null | undefined) => {
+    if (!value) return ""
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return ""
+
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, "0")
+    const day = String(date.getDate()).padStart(2, "0")
+    const hours = String(date.getHours()).padStart(2, "0")
+    const minutes = String(date.getMinutes()).padStart(2, "0")
+
+    return `${year}-${month}-${day}T${hours}:${minutes}`
+  }
+
   const { adminId, isLoading: isAdminLoading } = useAdminId()
   const [ticket, setTicket] = useState<Ticket | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -85,6 +100,7 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate, on
   const [teams, setTeams] = useState<Array<{ id: number; name: string }>>([])
   const [selectedTeamId, setSelectedTeamId] = useState<string>("")
   const [isDeleting, setIsDeleting] = useState(false)
+  const [technicianCompletedInput, setTechnicianCompletedInput] = useState("")
 
   useEffect(() => {
     const fetchTicket = async () => {
@@ -97,6 +113,7 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate, on
           console.log("Materials used:", data.materialsUsed)
           console.log("Total cost:", data.totalCost)
           setTicket(data)
+          setTechnicianCompletedInput(formatDateForDateTimeLocal(data.technicianCompletionTime))
           // Set selected team if ticket has one
           if (data.teamId) {
             setSelectedTeamId(data.teamId.toString())
@@ -115,6 +132,7 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate, on
       setNewUpdate("")
       setNewStatus("")
       setSelectedTeamId("")
+      setTechnicianCompletedInput("")
       fetchTicket()
     }
   }, [ticketId])
@@ -154,6 +172,11 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate, on
         }
       }
 
+      const currentTechnicianCompletion = formatDateForDateTimeLocal(ticket?.technicianCompletionTime)
+      if (technicianCompletedInput && technicianCompletedInput !== currentTechnicianCompletion) {
+        updateData.technicianCompletionTime = new Date(technicianCompletedInput).toISOString()
+      }
+
       // Include admin note if provided
       if (newUpdate && newUpdate.trim()) {
         if (!adminId) {
@@ -183,6 +206,7 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate, on
         if (getResponse.ok) {
           const enrichedTicket = await getResponse.json();
           setTicket(enrichedTicket);
+          setTechnicianCompletedInput(formatDateForDateTimeLocal(enrichedTicket.technicianCompletionTime));
           // Update selected team to match the ticket
           if (enrichedTicket.teamId) {
             setSelectedTeamId(enrichedTicket.teamId.toString());
@@ -755,6 +779,20 @@ export function TicketDetails({ ticketId, isSelected = false, onTicketUpdate, on
                   : selectedTeamId !== (ticket.teamId?.toString() || "")
                   ? "Team will be changed when you click Update Ticket"
                   : "Current team assignment"}
+              </p>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Technician Completed Time</label>
+              <Input
+                type="datetime-local"
+                value={technicianCompletedInput}
+                onChange={(e) => setTechnicianCompletedInput(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                This value is editable by admin. Changes are saved when you click Update Ticket.
               </p>
             </div>
 

@@ -21,10 +21,10 @@ export default function NewTicketPage() {
     customerId: "",
     customerName: "",
     phone: "",
-    serviceTypeId: "",
+    serviceTypeId: "ST1",
     splitter: "",
     complaint: "",
-    priority: "",
+    priority: "normal",
     teamId: "",
     issueTime: "",
   })
@@ -46,7 +46,7 @@ export default function NewTicketPage() {
           customerId: value,
           customerName: selectedCustomer.name || "",
           phone: selectedCustomer.phone?.[0] || "",
-          serviceTypeId: selectedCustomer.serviceTypeId || "",
+          serviceTypeId: selectedCustomer.serviceTypeId || "ST1",
           splitter: selectedCustomer.splitter || "",
         }))
       }
@@ -68,26 +68,12 @@ export default function NewTicketPage() {
         complaint,
         customerId,
         customerName,
-        serviceTypeId,
+        , // Ignore parsed service type text to preserve selected/default service type ID
         , // Skip SLA hours field
         splitter,
         phone,
         issueDateTime
       ] = match
-
-      // Map service type
-      let serviceTypeValue = ""
-      const serviceTypeLower = serviceTypeId.toLowerCase()
-      if (serviceTypeLower === "soho" || serviceTypeLower === "htk") serviceTypeValue = "soho"
-      else if (serviceTypeLower === "enterprise") serviceTypeValue = "fiber-enterprise"
-      else if (serviceTypeLower === "business") serviceTypeValue = "fiber-500"
-      
-      // Determine priority based on complaint keywords
-      let priority = "normal"
-      const complaintLower = complaint.toLowerCase()
-      if (complaintLower.includes("site down") || complaintLower.includes("down") || complaintLower.includes("outage") || complaintLower.includes("urgent")) {
-        priority = "urgent"
-      }
 
     // Format date/time to datetime-local (YYYY-MM-DDTHH:mm)
     const dateTimeParts = issueDateTime.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/)
@@ -103,18 +89,18 @@ export default function NewTicketPage() {
       // Clean up customer name by removing extra underscores
       const cleanedCustomerName = customerName.replace(/_/g, '').replace(/\s+/g, ' ').trim()
 
-      setFormData({
+      setFormData((prev) => ({
+        ...prev,
         ticketId: ticketId.trim(),
         customerId: customerId.trim(),
         customerName: cleanedCustomerName,
         phone: phone.trim(),
-        serviceTypeId: serviceTypeValue, // Use the mapped value, not the raw text
+        // Keep currently selected/default service type and priority when importing
         splitter: cleanedSplitter,
         complaint: complaint.trim(),
-        priority: priority,
         teamId: "",
         issueTime: formattedDateTime,
-      })
+      }))
 
       return true
     }
@@ -134,6 +120,19 @@ export default function NewTicketPage() {
 
         const data = await res.json()
         setServiceTypes(data)
+        setFormData((prev) => {
+          const hasDefaultST1 = data.some((service: { id: string }) => service.id === "ST1")
+
+          if (hasDefaultST1) {
+            return { ...prev, serviceTypeId: "ST1" }
+          }
+
+          if (data.length > 0 && !data.some((service: { id: string }) => service.id === prev.serviceTypeId)) {
+            return { ...prev, serviceTypeId: data[0].id }
+          }
+
+          return prev
+        })
       } catch (error) {
         console.error("Error fetching service types:", error)
       }
@@ -185,6 +184,21 @@ export default function NewTicketPage() {
 
         const data = await res.json()
         setPriorityOptions(data)
+        setFormData((prev) => {
+          const normalPriority = data.find((priority: { id: string; display: string }) =>
+            priority.id.toLowerCase() === "normal" || priority.display.toLowerCase() === "normal"
+          )
+
+          if (normalPriority) {
+            return { ...prev, priority: normalPriority.id }
+          }
+
+          if (data.length > 0 && !data.some((priority: { id: string }) => priority.id === prev.priority)) {
+            return { ...prev, priority: data[0].id }
+          }
+
+          return prev
+        })
       } catch (error) {
         console.error("Error fetching priority options:", error)
       }
