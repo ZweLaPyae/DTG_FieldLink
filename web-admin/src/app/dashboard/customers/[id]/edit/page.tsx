@@ -222,7 +222,7 @@ export default function EditCustomerPage() {
                     <SelectContent>
                       {serviceTypes.map((service) => (
                         <SelectItem key={service.id} value={service.id}>
-                          {service.name} ({service.speedMbps} Mbps)
+                          {service.name}
                         </SelectItem>
                       ))}
                     </SelectContent>

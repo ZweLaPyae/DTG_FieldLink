@@ -18,7 +18,7 @@ export default function NewCustomerPage() {
     id: "",
     name: "",
     phone: "",
-    serviceTypeId: "",
+    serviceTypeId: "ST1",
     splitter: "",
     splitterMap: "",
   })
@@ -32,6 +32,18 @@ export default function NewCustomerPage() {
         if (res.ok) {
           const data = await res.json()
           setServiceTypes(data)
+          setFormData((prev) => {
+            const hasDefaultST1 = data.some((service: { id: string }) => service.id === "ST1")
+            if (hasDefaultST1) {
+              return { ...prev, serviceTypeId: "ST1" }
+            }
+
+            if (data.length > 0 && !data.some((service: { id: string }) => service.id === prev.serviceTypeId)) {
+              return { ...prev, serviceTypeId: data[0].id }
+            }
+
+            return prev
+          })
         }
       } catch (error) {
         console.error("Error fetching service types:", error)
@@ -184,7 +196,7 @@ export default function NewCustomerPage() {
                     <SelectContent>
                       {serviceTypes.map((service) => (
                         <SelectItem key={service.id} value={service.id}>
-                          {service.name} ({service.speedMbps} Mbps)
+                          {service.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
